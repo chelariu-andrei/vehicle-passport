@@ -50,7 +50,8 @@ class ArchitectureTest {
                     String feature = featureOf(origin);
                     String ownDomain = feature == null ? null : BASE + "." + feature + ".domain";
                     for (Dependency d : origin.getDirectDependenciesFromSelf()) {
-                        JavaClass t = d.getTargetClass();
+                        JavaClass target = d.getTargetClass();
+                        JavaClass t = target.isArray() ? target.getBaseComponentType() : target;
                         String name = t.getName();
                         boolean ok = t.isPrimitive()
                                 || name.startsWith("java.")
