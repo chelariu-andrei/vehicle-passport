@@ -50,20 +50,20 @@ public class ClaimSteps {
     @Given("a pending claim by me on a vehicle owned by Alice")
     public void aPendingClaimByMe() {
         aliceOwns();
-        world.put(CLAIM_KEY, filing.file(VIN, world.me()));
+        world.put(CLAIM_KEY, filing.file(VIN, world.me()).claimId());
     }
 
     @Given("a pending claim by Bob on a vehicle owned by Alice")
     public void aPendingClaimByBob() {
         aliceOwns();
-        world.put(CLAIM_KEY, filing.file(VIN, world.user("Bob")));
+        world.put(CLAIM_KEY, filing.file(VIN, world.user("Bob")).claimId());
     }
 
     @Given("Bob and I each have a pending claim on a vehicle owned by Alice")
     public void bobAndIEachHaveAPendingClaim() {
         aliceOwns();
-        world.put(BOB_CLAIM_KEY, filing.file(VIN, world.user("Bob")));
-        world.put(CLAIM_KEY, filing.file(VIN, world.me()));
+        world.put(BOB_CLAIM_KEY, filing.file(VIN, world.user("Bob")).claimId());
+        world.put(CLAIM_KEY, filing.file(VIN, world.me()).claimId());
     }
 
     @Given("a claim by me that Alice rejected")

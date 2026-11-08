@@ -33,7 +33,7 @@ public class OwnershipClaimService implements FileOwnershipClaimUseCase, DecideO
 
     @Override
     @Transactional
-    public UUID file(String vin, UUID claimantId) {
+    public FiledClaim file(String vin, UUID claimantId) {
         Vin parsed = Vin.of(vin);
         ownerships.lockVin(parsed);
         OwnershipPeriod open = ownerships.findOpen(parsed).orElseThrow(() -> notFound(parsed));
@@ -41,11 +41,11 @@ public class OwnershipClaimService implements FileOwnershipClaimUseCase, DecideO
             throw new AlreadyOwnerException("You already own vehicle " + parsed.value());
         }
         return ownerships.findPendingClaim(parsed, claimantId)
-                .map(OwnershipClaim::id)
+                .map(c -> new FiledClaim(c.id(), c.filedAt()))
                 .orElseGet(() -> {
                     OwnershipClaim claim = OwnershipClaim.file(UUID.randomUUID(), parsed, claimantId, clock.instant());
                     ownerships.save(claim);
-                    return claim.id();
+                    return new FiledClaim(claim.id(), claim.filedAt());
                 });
     }
 

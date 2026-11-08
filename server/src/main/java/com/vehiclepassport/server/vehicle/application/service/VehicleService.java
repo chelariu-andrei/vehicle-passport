@@ -54,7 +54,8 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
             if (open.get().ownerId().equals(c.userId())) {
                 throw new AlreadyOwnerException("You already own vehicle " + vin.value());
             }
-            return new ClaimFiled(claims.file(vin.value(), c.userId()));
+            FileOwnershipClaimUseCase.FiledClaim filed = claims.file(vin.value(), c.userId());
+            return new ClaimFiled(filed.claimId(), filed.filedAt());
         }
         // A VIN with history keeps its recorded data; only a brand-new VIN takes the submitted data.
         Vehicle vehicle = vehicles.findByVin(vin).orElse(null);
