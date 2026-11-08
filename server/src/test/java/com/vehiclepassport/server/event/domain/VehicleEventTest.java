@@ -66,6 +66,19 @@ class VehicleEventTest {
     }
 
     @Test
+    void null_cost_rejected() {
+        InvalidEventException e = assertThrows(InvalidEventException.class,
+                () -> manual(LocalDate.parse("2025-03-01"), 1000, null, "RON"));
+        assertEquals("invalid-event", e.code());
+    }
+
+    @Test
+    void null_currency_rejected_even_with_cost() {
+        assertThrows(InvalidEventException.class,
+                () -> manual(LocalDate.parse("2025-03-01"), 1000, BigDecimal.TEN, null));
+    }
+
+    @Test
     void currency_must_be_three_letters() {
         for (String bad : new String[] {"RO", "RONN", "R0N", "", null}) {
             assertThrows(InvalidEventException.class,

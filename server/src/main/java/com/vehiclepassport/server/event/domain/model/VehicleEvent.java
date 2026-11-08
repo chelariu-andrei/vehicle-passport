@@ -44,14 +44,14 @@ public record VehicleEvent(
         if (odometerKm < 0) {
             throw new InvalidEventException("Odometer cannot be negative");
         }
-        if (costAmount != null && costAmount.signum() < 0) {
+        if (costAmount == null) {
+            throw new InvalidEventException("Cost is required");
+        }
+        if (costAmount.signum() < 0) {
             throw new InvalidEventException("Cost cannot be negative");
         }
         String normalisedCurrency = currency == null ? null : currency.trim().toUpperCase(Locale.ROOT);
-        boolean currencyValid = normalisedCurrency == null
-                ? costAmount == null
-                : CURRENCY.matcher(normalisedCurrency).matches();
-        if (!currencyValid) {
+        if (normalisedCurrency == null || !CURRENCY.matcher(normalisedCurrency).matches()) {
             throw new InvalidEventException("Currency must be a three-letter code");
         }
         return new VehicleEvent(UUID.randomUUID(), vin, type, date, odometerKm, costAmount, normalisedCurrency,

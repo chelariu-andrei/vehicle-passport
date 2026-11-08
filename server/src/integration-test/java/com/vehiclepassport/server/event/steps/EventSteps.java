@@ -131,7 +131,7 @@ public class EventSteps {
     @When("I add an event on {word} at {int} km")
     public void iAddAnEvent(String date, int km) {
         world.attempt(() -> world.put(RESULT_KEY, addEvent.add(new AddEventCommand(
-            world.me(), VIN, "SERVICE", LocalDate.parse(date), km, null, null, null))));
+            world.me(), VIN, "SERVICE", LocalDate.parse(date), km, BigDecimal.TEN, "RON", null))));
     }
 
     @When("I request the timeline")
