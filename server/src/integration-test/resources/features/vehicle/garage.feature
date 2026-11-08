@@ -9,6 +9,7 @@ Feature: Garage
     Given vehicle "WVWZZZ1JZXW000001" is owned by another user
     When I register the same VIN
     Then no ownership is created
+    And an ownership claim is filed for the current owner to decide
 
   Scenario: Registering a VIN I already own is rejected
     Given I own vehicle "WVWZZZ1JZXW000001"

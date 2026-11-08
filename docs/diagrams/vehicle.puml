@@ -13,6 +13,7 @@ package "vehicle" {
     interface "DecideOwnershipClaimUseCase" as DC
     interface "AssertActiveOwnerUseCase" as AO
     [VehicleService]
+    [OwnershipClaimService]
     interface "VehicleRepositoryPort" as VRP
     interface "OwnershipRepositoryPort" as ORP
   }
@@ -35,8 +36,10 @@ database "Postgres (Supabase)" as DB
 [VehicleResource] --> DC
 [VehicleResource] ..> Sec : ownerId
 RV <|.. [VehicleService]
-FC <|.. [VehicleService]
-DC <|.. [VehicleService]
+FC <|.. [OwnershipClaimService]
+DC <|.. [OwnershipClaimService]
+[OwnershipClaimService] --> ORP
+[VehicleService] --> FC
 AO <|.. [VehicleService]
 [VehicleService] --> [Vehicle]
 [VehicleService] --> VRP
@@ -63,7 +66,7 @@ alt VIN unknown
   VehicleService -> ORP : open(vin, ownerId, now)
   VehicleResource --> Owner : 201
 else VIN has active owner (other user)
-  VehicleService -> ORP : saveClaim(vin, claimant)
+  VehicleService -> ORP : file claim via FileOwnershipClaimUseCase
   VehicleResource --> Owner : 202 claim pending
 else VIN has no active owner
   VehicleService -> ORP : open(vin, ownerId, now)
