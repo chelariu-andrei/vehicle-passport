@@ -1,0 +1,8 @@
+target/
+.idea/
+.env*
+infra/supabase/.temp/
+infra/supabase/.branches/
+.superpowers/
+.worktrees/
+.claude/worktrees/

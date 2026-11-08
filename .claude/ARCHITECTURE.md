@@ -4,7 +4,7 @@
 
 ```
 contracts/openapi.yaml   # SOURCE OF TRUTH for the HTTP API
-backend/vehicle-server/  # Quarkus (Java) REST backend
+server/  # Quarkus (Java) REST backend
 mobile/                  # Expo + expo-router
 infra/                   # deployment / IaC
 docs/

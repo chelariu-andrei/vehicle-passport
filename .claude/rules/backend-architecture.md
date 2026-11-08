@@ -1,6 +1,6 @@
 ---
 paths:
-  - "backend/**"
+  - "server/**"
 ---
 
 # Backend architecture rules

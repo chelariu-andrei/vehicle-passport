@@ -3,7 +3,10 @@ title passport — components
 skinparam componentStyle rectangle
 
 package "passport" {
-  package "api" { [PassportResource] [PublicPassportResource] }
+  package "api" {
+    [PassportResource]
+    [PublicPassportResource]
+  }
   package "application" {
     interface CreatePassportUseCase
     interface RevokePassportLinkUseCase
@@ -47,7 +50,8 @@ GetPassportPdfUseCase <|.. [PassportService]
 [PassportService] --> QrCodePort
 PassportRepositoryPort <|.. [PassportPanacheRepository]
 SnapshotSourcePort <|.. [SnapshotSourceAdapter]
-[SnapshotSourceAdapter] ..> "vehicle + event\nport/in only"
+component "vehicle + event\nport/in only" as OtherFeaturesPortIn
+[SnapshotSourceAdapter] ..> OtherFeaturesPortIn
 PdfRendererPort <|.. [PdfRendererAdapter]
 QrCodePort <|.. [QrCodeAdapter]
 @enduml
@@ -63,10 +67,10 @@ participant PassportRepositoryPort
 Owner -> PassportService : create(vin, expiresAt?)
 PassportService -> SnapshotSourcePort : load(vin)  (no owner data)
 PassportService -> SnapshotHasher : canonicalize + SHA-256
-PassportService -> PassportRepositoryPort : save(passport, hash(token))
+PassportService -> PassportRepositoryPort : save(passport, token)
 PassportService --> Owner : link + QR + PDF
 Buyer -> PassportService : GET /public/passports/{token}
-PassportService -> PassportRepositoryPort : findByTokenHash
+PassportService -> PassportRepositoryPort : findByToken
 alt active
   PassportService --> Buyer : 200 snapshot + hash
 else unknown / revoked / expired
