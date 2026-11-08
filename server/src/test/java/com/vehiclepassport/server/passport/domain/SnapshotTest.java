@@ -61,6 +61,54 @@ class SnapshotTest {
         assertTrue(rounded.contains("\"costAmount\":\"1.01\""));
     }
 
+    private static String jsonWithParts(List<SnapshotPart> parts) {
+        SnapshotEvent e = new SnapshotEvent(
+                UUID.fromString("00000000-0000-0000-0000-000000000001"), "SERVICE", LocalDate.of(2025, 3, 1),
+                1000, new BigDecimal("1"), "RON", null, null, parts, null, "RECEIPT", false);
+        return Snapshot.of(VEHICLE, List.of(e)).canonicalJson();
+    }
+
+    private static List<SnapshotPart> qty(String q) {
+        return List.of(new SnapshotPart("P", q == null ? null : new BigDecimal(q), new BigDecimal("2")));
+    }
+
+    @Test
+    void part_qty_is_plain_number_without_exponent() {
+        String json = jsonWithParts(qty("100"));
+        assertTrue(json.contains("\"qty\":100}"), json);
+        assertFalse(json.contains("E+"), json);
+    }
+
+    @Test
+    void part_qty_trailing_zeros_stripped() {
+        assertTrue(jsonWithParts(qty("1.50")).contains("\"qty\":1.5}"));
+    }
+
+    @Test
+    void part_qty_1_and_1_0_same_json_and_hash() {
+        Snapshot a = Snapshot.of(VEHICLE, List.of(new SnapshotEvent(
+                UUID.fromString("00000000-0000-0000-0000-000000000001"), "SERVICE", LocalDate.of(2025, 3, 1),
+                1000, null, null, null, null, qty("1"), null, null, false)));
+        Snapshot b = Snapshot.of(VEHICLE, List.of(new SnapshotEvent(
+                UUID.fromString("00000000-0000-0000-0000-000000000001"), "SERVICE", LocalDate.of(2025, 3, 1),
+                1000, null, null, null, null, qty("1.0"), null, null, false)));
+        assertEquals(a.canonicalJson(), b.canonicalJson());
+        assertEquals(a.hash(), b.hash());
+        assertTrue(a.canonicalJson().contains("\"qty\":1}"));
+    }
+
+    @Test
+    void part_null_qty_is_omitted() {
+        String json = jsonWithParts(qty(null));
+        assertFalse(json.contains("qty"), json);
+        assertTrue(json.contains("\"parts\":[{\"name\":\"P\",\"price\":\"2.00\"}]"), json);
+    }
+
+    @Test
+    void empty_parts_list_is_written() {
+        assertTrue(jsonWithParts(List.of()).contains("\"parts\":[]"));
+    }
+
     @Test
     void date_is_iso() {
         assertTrue(Snapshot.of(VEHICLE, List.of(E1)).canonicalJson().contains("\"date\":\"2025-03-01\""));
