@@ -40,7 +40,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ClaimFiledResponse' }
-        '400': { $ref: '#/components/responses/BadRequest' }
+        '400':
+          description: Codes `validation-failed` (request shape), `invalid-vin`, `invalid-vehicle`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '409':
           description: Conflict. Code `already-owner` (caller already owns it) or `ownership-conflict`.
           content:
@@ -71,7 +75,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/VehicleResponse' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
     patch:
       tags: [vehicles]
       operationId: updateVehicle
@@ -87,8 +95,16 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/VehicleResponse' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '400':
+          description: Codes `validation-failed` (request shape), `invalid-vin`, `invalid-vehicle`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /vehicles/{vin}/release:
     parameters:
@@ -99,7 +115,11 @@ paths:
       summary: Give up ownership (active owner only)
       responses:
         '204': { description: Released. }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /vehicles/{vin}/claims:
     parameters:
@@ -116,7 +136,11 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/PendingClaimResponse' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /vehicles/{vin}/claims/{claimId}/approve:
     parameters:
@@ -127,7 +151,11 @@ paths:
       operationId: approveClaim
       responses:
         '204': { description: Approved; ownership transferred, other pending claims rejected. }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Code `vehicle-not-found` or `claim-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '409':
           description: Conflict. Code `claim-not-pending` or `ownership-conflict`.
           content:
@@ -143,8 +171,16 @@ paths:
       operationId: rejectClaim
       responses:
         '204': { description: Rejected. }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '404':
+          description: Code `vehicle-not-found` or `claim-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '409':
+          description: Code `claim-not-pending`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /ownership-claims/{claimId}/withdraw:
     parameters:
@@ -155,8 +191,16 @@ paths:
       summary: Claimant withdraws their own pending claim
       responses:
         '204': { description: Withdrawn. }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '404':
+          description: Code `claim-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '409':
+          description: Code `claim-not-pending`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /vehicles/{vin}/events:
     parameters:
@@ -175,8 +219,16 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EventResponse' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '400':
+          description: Code `validation-failed` (request shape).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '422':
           description: Business rule violated. Code `odometer-inconsistent` or `invalid-event`.
           content:
@@ -202,9 +254,21 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EventResponse' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '400':
+          description: Code `validation-failed` (request shape).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '403':
+          description: Code `event-from-prior-owner` (event was created in a previous ownership period).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `vehicle-not-found` or `event-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '422':
           description: Business rule violated. Code `odometer-inconsistent`, `invalid-event` or `documented-event-immutable`.
           content:
@@ -216,8 +280,16 @@ paths:
       summary: Soft-delete an event (only the owner of the period that created it)
       responses:
         '204': { description: Deleted. }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '403':
+          description: Code `event-from-prior-owner` (event was created in a previous ownership period).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `vehicle-not-found` or `event-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /vehicles/{vin}/events/{eventId}/document:
     parameters:
@@ -239,7 +311,11 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Code `vehicle-not-found` or `event-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /vehicles/{vin}/timeline:
     parameters:
@@ -264,8 +340,16 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TimelinePage' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '400':
+          description: Codes `validation-failed` (limit out of range) or `invalid-cursor`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /vehicles/{vin}/scans:
     parameters:
@@ -289,7 +373,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ScanJobResponse' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
 
@@ -319,7 +407,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ScanBatchResponse' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422':
@@ -340,7 +432,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ScanJobResponse' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Code `scan-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /scans/{jobId}/confirm:
     parameters:
@@ -360,9 +456,21 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ConfirmScanResponse' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '400':
+          description: Code `validation-failed` (request shape).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `scan-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '409':
+          description: Code `scan-state-conflict`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '422':
           description: Business rule violated (for example `odometer-inconsistent`).
           content:
@@ -377,8 +485,16 @@ paths:
       operationId: rejectScan
       responses:
         '204': { description: Rejected. }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '404':
+          description: Code `scan-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '409':
+          description: Code `scan-state-conflict`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /vehicles/{vin}/passports:
     parameters:
@@ -397,7 +513,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PassportResponse' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '422':
           description: Expiry is in the past. Code `expiry-in-past`.
           content:
@@ -426,7 +546,11 @@ paths:
       summary: Revoke the public link (idempotent)
       responses:
         '204': { description: Revoked. }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Code `passport-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /passports/{id}/pdf:
     parameters:
@@ -439,7 +563,11 @@ paths:
           description: The passport PDF.
           content:
             application/pdf: { schema: { type: string, format: binary } }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Code `passport-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /passports/{id}/qr:
     parameters:
@@ -452,7 +580,11 @@ paths:
           description: QR code image encoding the public URL.
           content:
             image/png: { schema: { type: string, format: binary } }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '404':
+          description: Code `passport-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /public/passports/{token}:
     parameters:
@@ -469,7 +601,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PublicPassportResponse' }
         '404':
-          description: Unknown, revoked or expired token (identical response).
+          description: Code `passport-not-found` (unknown, revoked or expired token; identical response).
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -487,7 +619,7 @@ paths:
           content:
             application/pdf: { schema: { type: string, format: binary } }
         '404':
-          description: Unknown, revoked or expired token (identical response).
+          description: Code `passport-not-found` (unknown, revoked or expired token; identical response).
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -532,33 +664,13 @@ components:
       schema: { type: string, minLength: 22 }
 
   responses:
-    BadRequest:
-      description: Malformed or invalid request. Code `validation-failed`.
-      content:
-        application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
-    Forbidden:
-      description: Not allowed (for example editing an event from a previous owner). Code `forbidden`.
-      content:
-        application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
-    NotFound:
-      description: Not found, or not visible to the caller. Code `not-found`.
-      content:
-        application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
-    Conflict:
-      description: State conflict. Code `claim-not-pending`, `scan-not-confirmable` or similar.
-      content:
-        application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
     PayloadTooLarge:
       description: File larger than 10 MB. Code `file-too-large`.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
     UnsupportedMediaType:
-      description: Not image/jpeg, image/png or application/pdf. Code `unsupported-media-type`.
+      description: Not image/jpeg, image/png or application/pdf. Code `unsupported-file`.
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
@@ -743,7 +855,7 @@ components:
       type: object
       required: [code, message]
       properties:
-        code: { type: string, examples: [total-mismatch] }
+        code: { type: string, examples: [TOTAL_MISMATCH, ODOMETER_INCONSISTENT, DATE_IN_FUTURE] }
         message: { type: string }
 
     ScanJobResponse:
