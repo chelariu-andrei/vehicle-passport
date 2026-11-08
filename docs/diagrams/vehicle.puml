@@ -1,0 +1,72 @@
+@startuml vehicle
+title vehicle — hexagonal components + register/claim flow
+skinparam componentStyle rectangle
+
+package "vehicle" {
+  package "api" {
+    [VehicleResource]
+    [VehicleDtoMapper]
+  }
+  package "application" {
+    interface "RegisterVehicleUseCase" as RV
+    interface "FileOwnershipClaimUseCase" as FC
+    interface "DecideOwnershipClaimUseCase" as DC
+    interface "AssertActiveOwnerUseCase" as AO
+    [VehicleService]
+    interface "VehicleRepositoryPort" as VRP
+    interface "OwnershipRepositoryPort" as ORP
+  }
+  package "domain" {
+    [Vehicle]
+    [OwnershipPeriod]
+    [OwnershipClaim]
+    [Vin]
+  }
+  package "infrastructure" {
+    [VehiclePanacheRepository]
+    [OwnershipPanacheRepository]
+  }
+}
+[Supabase JWT (shared/security)] as Sec
+database "Postgres (Supabase)" as DB
+
+[VehicleResource] --> RV
+[VehicleResource] --> FC
+[VehicleResource] --> DC
+[VehicleResource] ..> Sec : ownerId
+RV <|.. [VehicleService]
+FC <|.. [VehicleService]
+DC <|.. [VehicleService]
+AO <|.. [VehicleService]
+[VehicleService] --> [Vehicle]
+[VehicleService] --> VRP
+[VehicleService] --> ORP
+VRP <|.. [VehiclePanacheRepository]
+ORP <|.. [OwnershipPanacheRepository]
+[VehiclePanacheRepository] --> DB
+[OwnershipPanacheRepository] --> DB
+note right of AO : consumed by event, scan, passport\n(only via port/in)
+@enduml
+
+@startuml vehicle-register-seq
+title Register vehicle (new VIN vs. owned VIN)
+actor Owner
+participant VehicleResource
+participant VehicleService
+participant VehicleRepositoryPort as VRP
+participant OwnershipRepositoryPort as ORP
+Owner -> VehicleResource : POST /vehicles {vin,...}
+VehicleResource -> VehicleService : register(cmd)
+VehicleService -> VRP : findByVin(vin)
+alt VIN unknown
+  VehicleService -> VRP : save(vehicle)
+  VehicleService -> ORP : open(vin, ownerId, now)
+  VehicleResource --> Owner : 201
+else VIN has active owner (other user)
+  VehicleService -> ORP : saveClaim(vin, claimant)
+  VehicleResource --> Owner : 202 claim pending
+else VIN has no active owner
+  VehicleService -> ORP : open(vin, ownerId, now)
+  VehicleResource --> Owner : 201
+end
+@enduml

@@ -1,0 +1,76 @@
+@startuml passport
+title passport — components
+skinparam componentStyle rectangle
+
+package "passport" {
+  package "api" { [PassportResource] [PublicPassportResource] }
+  package "application" {
+    interface CreatePassportUseCase
+    interface RevokePassportLinkUseCase
+    interface GetPublicPassportUseCase
+    interface GetPassportPdfUseCase
+    [PassportService]
+    interface PassportRepositoryPort
+    interface SnapshotSourcePort
+    interface PdfRendererPort
+    interface QrCodePort
+    interface DocumentStoragePort
+  }
+  package "domain" {
+    [Passport]
+    [Snapshot]
+    [SnapshotHasher]
+    [PublicLink]
+    [LinkToken]
+  }
+  package "infrastructure" {
+    [PassportPanacheRepository]
+    [SnapshotSourceAdapter]
+    [PdfRendererAdapter]
+    [QrCodeAdapter]
+    [SupabaseS3StorageAdapter]
+  }
+}
+[PassportResource] --> CreatePassportUseCase
+[PassportResource] --> RevokePassportLinkUseCase
+[PublicPassportResource] --> GetPublicPassportUseCase
+[PublicPassportResource] --> GetPassportPdfUseCase
+note top of [PublicPassportResource] : unauthenticated; 404 for\nunknown / revoked / expired
+CreatePassportUseCase <|.. [PassportService]
+RevokePassportLinkUseCase <|.. [PassportService]
+GetPublicPassportUseCase <|.. [PassportService]
+GetPassportPdfUseCase <|.. [PassportService]
+[PassportService] --> [SnapshotHasher]
+[PassportService] --> PassportRepositoryPort
+[PassportService] --> SnapshotSourcePort
+[PassportService] --> PdfRendererPort
+[PassportService] --> QrCodePort
+PassportRepositoryPort <|.. [PassportPanacheRepository]
+SnapshotSourcePort <|.. [SnapshotSourceAdapter]
+[SnapshotSourceAdapter] ..> "vehicle + event\nport/in only"
+PdfRendererPort <|.. [PdfRendererAdapter]
+QrCodePort <|.. [QrCodeAdapter]
+@enduml
+
+@startuml passport-seq
+title Create passport and open public link
+actor Owner
+actor Buyer
+participant PassportService
+participant SnapshotSourcePort
+participant SnapshotHasher
+participant PassportRepositoryPort
+Owner -> PassportService : create(vin, expiresAt?)
+PassportService -> SnapshotSourcePort : load(vin)  (no owner data)
+PassportService -> SnapshotHasher : canonicalize + SHA-256
+PassportService -> PassportRepositoryPort : save(passport, hash(token))
+PassportService --> Owner : link + QR + PDF
+Buyer -> PassportService : GET /public/passports/{token}
+PassportService -> PassportRepositoryPort : findByTokenHash
+alt active
+  PassportService --> Buyer : 200 snapshot + hash
+else unknown / revoked / expired
+  PassportService --> Buyer : 404
+end
+Owner -> PassportService : revoke(link)
+@enduml

@@ -1,0 +1,58 @@
+@startuml event-timeline
+title event — components
+skinparam componentStyle rectangle
+
+package "event" {
+  package "api" { [EventResource] [TimelineResource] }
+  package "application" {
+    interface AddEventUseCase
+    interface GetTimelineUseCase
+    interface SaveConfirmedEventUseCase
+    [EventService]
+    interface EventRepositoryPort
+    interface ActiveOwnerPort
+  }
+  package "domain" {
+    [VehicleEvent]
+    [EvidenceLevel]
+    [OdometerPolicy]
+  }
+  package "infrastructure" {
+    [EventPanacheRepository]
+    [VehicleOwnerAdapter]
+  }
+}
+[EventResource] --> AddEventUseCase
+[TimelineResource] --> GetTimelineUseCase
+AddEventUseCase <|.. [EventService]
+GetTimelineUseCase <|.. [EventService]
+SaveConfirmedEventUseCase <|.. [EventService]
+[EventService] --> [OdometerPolicy]
+[EventService] --> EventRepositoryPort
+[EventService] --> ActiveOwnerPort
+EventRepositoryPort <|.. [EventPanacheRepository]
+ActiveOwnerPort <|.. [VehicleOwnerAdapter]
+[VehicleOwnerAdapter] ..> "vehicle.port.in\nAssertActiveOwnerUseCase" : cross-feature via port/in
+note bottom of SaveConfirmedEventUseCase : called by scan (port/in)
+@enduml
+
+@startuml event-add-seq
+title Add manual event
+actor Owner
+participant EventResource
+participant EventService
+participant ActiveOwnerPort
+participant OdometerPolicy
+participant EventRepositoryPort
+Owner -> EventResource : POST /vehicles/{vin}/events
+EventResource -> EventService : add(cmd)
+EventService -> ActiveOwnerPort : assertActiveOwner(vin, ownerId)
+EventService -> EventRepositoryPort : neighbours(vin, date)
+EventService -> OdometerPolicy : check(km, prev, next)
+alt consistent
+  EventService -> EventRepositoryPort : save(USER_CONFIRMED)
+  EventResource --> Owner : 201
+else contradiction
+  EventResource --> Owner : 422 odometer-inconsistent
+end
+@enduml
