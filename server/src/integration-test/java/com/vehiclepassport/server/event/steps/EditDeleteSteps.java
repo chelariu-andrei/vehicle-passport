@@ -1,7 +1,6 @@
 package com.vehiclepassport.server.event.steps;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -40,6 +39,7 @@ public class EditDeleteSteps {
     private static final String IDS_KEY = "edit.ids";
     private static final String E_KEY = "edit.e";
     private static final String ERRORS_KEY = "edit.errors";
+    private static final String EXPECTED_KEY = "edit.expectedErrors";
 
     @Inject
     World world;
@@ -148,6 +148,7 @@ public class EditDeleteSteps {
         UUID id = world.get(E_KEY);
         tryEdit(id);
         world.put(ERRORS_KEY, listOf(world.lastError()));
+        world.put(EXPECTED_KEY, 1);
     }
 
     @When("I try to edit or delete E")
@@ -158,6 +159,7 @@ public class EditDeleteSteps {
         world.attempt(() -> deleteEvent.delete(world.me(), VIN, id));
         errors.addAll(listOf(world.lastError()));
         world.put(ERRORS_KEY, errors);
+        world.put(EXPECTED_KEY, 2);
     }
 
     @Then("it is rejected as forbidden")
@@ -170,7 +172,8 @@ public class EditDeleteSteps {
             assertEquals(ErrorKind.FORBIDDEN, d.kind());
             assertEquals("event-from-prior-owner", d.code());
         }
-        assertFalse(errors.isEmpty());
+        int expected = world.get(EXPECTED_KEY);
+        assertEquals(expected, errors.size(), "every attempt must be refused");
         // the event is unchanged and still on the timeline
         assertTrue(timeline.get(world.me(), VIN, null, 100).items().stream()
             .anyMatch(e -> e.id().equals(id) && e.odometerKm() == 120000));

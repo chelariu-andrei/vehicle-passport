@@ -31,6 +31,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Clock;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -86,7 +87,6 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
     @Transactional
     public EventView update(UpdateEventCommand c) {
         VehicleEvent current = loadOwned(c.vin(), c.userId(), c.eventId());
-        events.lockTimeline(current.vin());
         VehicleEvent edited = current.edited(EventType.parse(c.type()), c.date(), c.odometerKm(), c.costAmount(),
                 c.currency(), c.notes(), clock);
         Neighbours around = events.neighbours(edited.vin(), edited.date(), edited.createdAt(), edited.id());
@@ -99,7 +99,6 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
     @Transactional
     public void delete(UUID userId, String vin, UUID eventId) {
         VehicleEvent current = loadOwned(vin, userId, eventId);
-        events.lockTimeline(current.vin());
         events.save(current.deleted(clock.instant()));
     }
 
@@ -132,12 +131,18 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
     @Override
     @Transactional
     public List<EventView> history(String vin) {
-        return events.allActive(vin).stream().map(EventService::toView).toList();
+        return events.allActive(vin).stream()
+                .sorted(Comparator.comparing(VehicleEvent::date).thenComparing(e -> e.id().toString()))
+                .map(EventService::toView).toList();
     }
 
-    /** Authorisation order: active owner (404), event exists (404), event belongs to the active period (403). */
+    /**
+     * Authorisation order: active owner (404), event exists (404), event belongs to the active period (403).
+     * The timeline lock is taken after the owner check and before the read, so writes cannot use a stale read.
+     */
     private VehicleEvent loadOwned(String vin, UUID userId, UUID eventId) {
         UUID activePeriod = owners.assertActiveOwner(vin, userId);
+        events.lockTimeline(vin);
         VehicleEvent event = events.findActive(vin, eventId)
                 .orElseThrow(() -> new EventNotFoundException("Event " + eventId + " not found"));
         if (!activePeriod.equals(event.periodId())) {
