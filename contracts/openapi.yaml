@@ -1,0 +1,835 @@
+openapi: 3.1.0
+info:
+  title: Vehicle Passport API
+  version: 1.0.0
+  description: |
+    Source of truth for the v1 HTTP API. All routes require a bearer JWT except `/public/**`.
+    Every error is `application/problem+json` (RFC 9457) with `type`, `title`, `status`, `detail`, `code`.
+    Requests on a vehicle the caller does not own answer 404 (no existence leak).
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+tags:
+  - name: vehicles
+  - name: claims
+  - name: events
+  - name: scans
+  - name: passports
+  - name: public
+
+paths:
+  /vehicles:
+    post:
+      tags: [vehicles]
+      operationId: registerVehicle
+      summary: Register a vehicle, or file an ownership claim if it has an active owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterVehicleRequest' }
+      responses:
+        '201':
+          description: Vehicle registered, caller is now the active owner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VehicleResponse' }
+        '202':
+          description: The VIN has another active owner; an ownership claim was filed for them to decide.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClaimFiledResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: Conflict. Code `already-owner` (caller already owns it) or `ownership-conflict`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    get:
+      tags: [vehicles]
+      operationId: listMyVehicles
+      summary: List vehicles in the caller's garage
+      responses:
+        '200':
+          description: The caller's vehicles.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/VehicleResponse' }
+
+  /vehicles/{vin}:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+    get:
+      tags: [vehicles]
+      operationId: getVehicle
+      responses:
+        '200':
+          description: The vehicle.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VehicleResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [vehicles]
+      operationId: updateVehicle
+      summary: Correct vehicle data (active owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateVehicleRequest' }
+      responses:
+        '200':
+          description: The updated vehicle.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VehicleResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /vehicles/{vin}/release:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+    post:
+      tags: [vehicles]
+      operationId: releaseVehicle
+      summary: Give up ownership (active owner only)
+      responses:
+        '204': { description: Released. }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /vehicles/{vin}/claims:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+    get:
+      tags: [claims]
+      operationId: listPendingClaims
+      summary: Pending ownership claims on the vehicle (active owner only)
+      responses:
+        '200':
+          description: Pending claims.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PendingClaimResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /vehicles/{vin}/claims/{claimId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+      - $ref: '#/components/parameters/ClaimId'
+    post:
+      tags: [claims]
+      operationId: approveClaim
+      responses:
+        '204': { description: Approved; ownership transferred, other pending claims rejected. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Conflict. Code `claim-not-pending` or `ownership-conflict`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /vehicles/{vin}/claims/{claimId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+      - $ref: '#/components/parameters/ClaimId'
+    post:
+      tags: [claims]
+      operationId: rejectClaim
+      responses:
+        '204': { description: Rejected. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /ownership-claims/{claimId}/withdraw:
+    parameters:
+      - $ref: '#/components/parameters/ClaimId'
+    post:
+      tags: [claims]
+      operationId: withdrawClaim
+      summary: Claimant withdraws their own pending claim
+      responses:
+        '204': { description: Withdrawn. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /vehicles/{vin}/events:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+    post:
+      tags: [events]
+      operationId: addEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventRequest' }
+      responses:
+        '201':
+          description: Event saved with evidence USER_CONFIRMED and source MANUAL.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: Business rule violated. Code `odometer-inconsistent` or `invalid-event`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /vehicles/{vin}/events/{eventId}:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+      - $ref: '#/components/parameters/EventId'
+    put:
+      tags: [events]
+      operationId: updateEvent
+      summary: Replace an event (only the owner of the period that created it)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventRequest' }
+      responses:
+        '200':
+          description: The updated event.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: Business rule violated. Code `odometer-inconsistent`, `invalid-event` or `documented-event-immutable`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    delete:
+      tags: [events]
+      operationId: deleteEvent
+      summary: Soft-delete an event (only the owner of the period that created it)
+      responses:
+        '204': { description: Deleted. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /vehicles/{vin}/events/{eventId}/document:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+      - $ref: '#/components/parameters/EventId'
+    get:
+      tags: [events]
+      operationId: getEventDocument
+      summary: Original invoice file (only the owner of the period that created the event)
+      responses:
+        '200':
+          description: The original file.
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            application/pdf: { schema: { type: string, format: binary } }
+        '403':
+          description: Document restricted to the owner of the creating period. Code `document-restricted`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /vehicles/{vin}/timeline:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+    get:
+      tags: [events]
+      operationId: getTimeline
+      summary: Chronological events of the VIN, across owners, creator identity stripped
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+          description: Opaque cursor from a previous page's `nextCursor`.
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: A page of events.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimelinePage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /vehicles/{vin}/scans:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+    post:
+      tags: [scans]
+      operationId: submitScan
+      summary: Upload one invoice (image/jpeg, image/png, application/pdf, up to 10 MB)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '202':
+          description: Scan job accepted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanJobResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+
+  /vehicles/{vin}/scan-batches:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+    post:
+      tags: [scans]
+      operationId: submitScanBatch
+      summary: Upload up to 20 invoices in one request
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: { type: string, format: binary }
+      responses:
+        '202':
+          description: Batch accepted, one job per file.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanBatchResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422':
+          description: More than 20 files. Code `batch-too-large`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /scans/{jobId}:
+    parameters:
+      - $ref: '#/components/parameters/JobId'
+    get:
+      tags: [scans]
+      operationId: getScan
+      responses:
+        '200':
+          description: Current job state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanJobResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /scans/{jobId}/confirm:
+    parameters:
+      - $ref: '#/components/parameters/JobId'
+    post:
+      tags: [scans]
+      operationId: confirmScan
+      summary: Confirm (optionally correcting) extracted data; creates a DOCUMENTED event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConfirmScanRequest' }
+      responses:
+        '201':
+          description: Event created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfirmScanResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422':
+          description: Business rule violated (for example `odometer-inconsistent`).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /scans/{jobId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/JobId'
+    post:
+      tags: [scans]
+      operationId: rejectScan
+      responses:
+        '204': { description: Rejected. }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /vehicles/{vin}/passports:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+    post:
+      tags: [passports]
+      operationId: createPassport
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePassportRequest' }
+      responses:
+        '201':
+          description: Passport created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PassportResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: Expiry is in the past. Code `expiry-in-past`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /passports:
+    get:
+      tags: [passports]
+      operationId: listMyPassports
+      responses:
+        '200':
+          description: The caller's passports.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PassportResponse' }
+
+  /passports/{id}/revoke:
+    parameters:
+      - $ref: '#/components/parameters/PassportId'
+    post:
+      tags: [passports]
+      operationId: revokePassport
+      summary: Revoke the public link (idempotent)
+      responses:
+        '204': { description: Revoked. }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /passports/{id}/pdf:
+    parameters:
+      - $ref: '#/components/parameters/PassportId'
+    get:
+      tags: [passports]
+      operationId: getPassportPdf
+      responses:
+        '200':
+          description: The passport PDF.
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /passports/{id}/qr:
+    parameters:
+      - $ref: '#/components/parameters/PassportId'
+    get:
+      tags: [passports]
+      operationId: getPassportQr
+      responses:
+        '200':
+          description: QR code image encoding the public URL.
+          content:
+            image/png: { schema: { type: string, format: binary } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /public/passports/{token}:
+    parameters:
+      - $ref: '#/components/parameters/Token'
+    get:
+      tags: [public]
+      operationId: getPublicPassport
+      summary: Public, unauthenticated, read-only snapshot
+      security: []
+      responses:
+        '200':
+          description: Snapshot with its integrity hash.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicPassportResponse' }
+        '404':
+          description: Unknown, revoked or expired token (identical response).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /public/passports/{token}/pdf:
+    parameters:
+      - $ref: '#/components/parameters/Token'
+    get:
+      tags: [public]
+      operationId: getPublicPassportPdf
+      security: []
+      responses:
+        '200':
+          description: The passport PDF.
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+        '404':
+          description: Unknown, revoked or expired token (identical response).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Vin:
+      name: vin
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/Vin' }
+    ClaimId:
+      name: claimId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PassportId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Token:
+      name: token
+      in: path
+      required: true
+      schema: { type: string, minLength: 22 }
+
+  responses:
+    BadRequest:
+      description: Malformed or invalid request. Code `validation-failed`.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Not allowed (for example editing an event from a previous owner). Code `forbidden`.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Not found, or not visible to the caller. Code `not-found`.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: State conflict. Code `claim-not-pending`, `scan-not-confirmable` or similar.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    PayloadTooLarge:
+      description: File larger than 10 MB. Code `file-too-large`.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    UnsupportedMediaType:
+      description: Not image/jpeg, image/png or application/pdf. Code `unsupported-media-type`.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status, detail, code]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code: { type: string, description: Stable machine-readable error code. }
+
+    Vin:
+      type: string
+      pattern: '^[A-HJ-NPR-Z0-9]{17}$'
+      description: 17 characters, ISO 3779 charset (no I, O, Q). The check digit is not enforced.
+      examples: [WVWZZZ1JZXW000001]
+
+    FuelType:
+      type: string
+      enum: [PETROL, DIESEL, HYBRID, ELECTRIC, LPG, OTHER]
+
+    EventType:
+      type: string
+      enum: [SERVICE, REPAIR, TIRES, ITP]
+
+    Evidence:
+      type: string
+      enum: [ESTIMATED, USER_CONFIRMED, DOCUMENTED, VERIFIED]
+
+    EventSource:
+      type: string
+      enum: [MANUAL, SCAN]
+
+    RegisterVehicleRequest:
+      type: object
+      required: [vin, make, model, year, fuel]
+      additionalProperties: false
+      properties:
+        vin: { $ref: '#/components/schemas/Vin' }
+        make: { type: string, minLength: 1, maxLength: 100 }
+        model: { type: string, minLength: 1, maxLength: 100 }
+        engine: { type: string, maxLength: 100 }
+        year:
+          type: integer
+          minimum: 1886
+          description: Maximum is the current year + 1, enforced by the server.
+        fuel: { $ref: '#/components/schemas/FuelType' }
+
+    UpdateVehicleRequest:
+      type: object
+      description: Partial update; the VIN cannot change. At least one field is required.
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        make: { type: string, minLength: 1, maxLength: 100 }
+        model: { type: string, minLength: 1, maxLength: 100 }
+        engine: { type: string, maxLength: 100 }
+        year:
+          type: integer
+          minimum: 1886
+          description: Maximum is the current year + 1, enforced by the server.
+        fuel: { $ref: '#/components/schemas/FuelType' }
+
+    VehicleResponse:
+      type: object
+      required: [vin, make, model, year, fuel]
+      properties:
+        vin: { $ref: '#/components/schemas/Vin' }
+        make: { type: string }
+        model: { type: string }
+        engine: { type: [string, 'null'] }
+        year: { type: integer }
+        fuel: { $ref: '#/components/schemas/FuelType' }
+
+    ClaimFiledResponse:
+      type: object
+      required: [claimId, filedAt]
+      properties:
+        claimId: { type: string, format: uuid }
+        filedAt: { type: string, format: date-time }
+
+    PendingClaimResponse:
+      type: object
+      description: Shows only the claim id and filing date, never the claimant's identity.
+      required: [claimId, filedAt]
+      properties:
+        claimId: { type: string, format: uuid }
+        filedAt: { type: string, format: date-time }
+
+    EventRequest:
+      type: object
+      required: [type, date, odometerKm, costAmount, currency]
+      additionalProperties: false
+      properties:
+        type: { $ref: '#/components/schemas/EventType' }
+        date:
+          type: string
+          format: date
+          description: Must not be in the future.
+        odometerKm: { type: integer, minimum: 0 }
+        costAmount: { type: number, minimum: 0, multipleOf: 0.01 }
+        currency: { type: string, pattern: '^[A-Z]{3}$', examples: [RON] }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+
+    Part:
+      type: object
+      required: [name, qty, price]
+      properties:
+        name: { type: string }
+        qty: { type: number, minimum: 0 }
+        price: { type: number, minimum: 0 }
+
+    ScanDetails:
+      type: object
+      description: Structured data from a confirmed scan. Read-only output.
+      properties:
+        serviceName: { type: [string, 'null'] }
+        parts:
+          type: array
+          items: { $ref: '#/components/schemas/Part' }
+        labor: { type: [number, 'null'] }
+
+    EventResponse:
+      type: object
+      description: Carries no creator or ownership-period information.
+      required: [id, type, date, odometerKm, costAmount, currency, evidence, source, documentPresent]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: '#/components/schemas/EventType' }
+        date: { type: string, format: date }
+        odometerKm: { type: integer }
+        costAmount: { type: number }
+        currency: { type: string }
+        notes: { type: [string, 'null'] }
+        details:
+          readOnly: true
+          description: Only scans populate this.
+          oneOf:
+            - $ref: '#/components/schemas/ScanDetails'
+            - type: 'null'
+        evidence: { $ref: '#/components/schemas/Evidence' }
+        source: { $ref: '#/components/schemas/EventSource' }
+        documentPresent: { type: boolean }
+
+    TimelinePage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/EventResponse' }
+        nextCursor:
+          type: [string, 'null']
+          description: Null on the last page.
+
+    ScanStatus:
+      type: string
+      enum: [PENDING, EXTRACTED, CONFIRMED, REJECTED, FAILED]
+
+    ScanField:
+      type: object
+      required: [value, confidence]
+      properties:
+        value: {}
+        confidence: { type: number, minimum: 0, maximum: 1 }
+
+    ScanFields:
+      type: object
+      properties:
+        serviceName: { $ref: '#/components/schemas/ScanField' }
+        date: { $ref: '#/components/schemas/ScanField' }
+        odometerKm: { $ref: '#/components/schemas/ScanField' }
+        parts: { $ref: '#/components/schemas/ScanField' }
+        labor: { $ref: '#/components/schemas/ScanField' }
+        total: { $ref: '#/components/schemas/ScanField' }
+
+    ScanWarning:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, examples: [total-mismatch] }
+        message: { type: string }
+
+    ScanJobResponse:
+      type: object
+      required: [id, status, warnings]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/ScanStatus' }
+        fields:
+          description: Present once extraction has finished.
+          oneOf:
+            - $ref: '#/components/schemas/ScanFields'
+            - type: 'null'
+        warnings:
+          type: array
+          items: { $ref: '#/components/schemas/ScanWarning' }
+
+    ScanBatchResponse:
+      type: object
+      required: [jobs]
+      properties:
+        jobs:
+          type: array
+          maxItems: 20
+          items: { $ref: '#/components/schemas/ScanJobResponse' }
+
+    ConfirmScanRequest:
+      type: object
+      description: The reviewed (possibly corrected) data. Low confidence never blocks confirmation.
+      required: [date, odometerKm, total]
+      additionalProperties: false
+      properties:
+        type:
+          allOf:
+            - $ref: '#/components/schemas/EventType'
+          default: SERVICE
+        serviceName: { type: [string, 'null'] }
+        date: { type: string, format: date }
+        odometerKm: { type: integer, minimum: 0 }
+        parts:
+          type: array
+          items: { $ref: '#/components/schemas/Part' }
+        labor: { type: [number, 'null'], minimum: 0 }
+        total: { type: number, minimum: 0 }
+        currency: { type: string, pattern: '^[A-Z]{3}$', default: RON }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+
+    ConfirmScanResponse:
+      type: object
+      required: [eventId]
+      properties:
+        eventId: { type: string, format: uuid }
+
+    CreatePassportRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expiresAt:
+          type: [string, 'null']
+          format: date-time
+
+    PassportStatus:
+      type: string
+      enum: [ACTIVE, REVOKED, EXPIRED]
+
+    PassportResponse:
+      type: object
+      required: [id, vin, publicUrl, hash, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        vin: { $ref: '#/components/schemas/Vin' }
+        publicUrl: { type: string, format: uri }
+        hash: { type: string, description: Hex SHA-256 of the canonical snapshot. }
+        status: { $ref: '#/components/schemas/PassportStatus' }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: [string, 'null'], format: date-time }
+
+    PublicPassportResponse:
+      type: object
+      required: [snapshot, hash, algorithm]
+      properties:
+        snapshot:
+          type: object
+          description: >
+            Immutable snapshot: vehicle (vin, make, model, engine, year, fuel) and events
+            (type, date, odometerKm, costAmount, currency, notes, details, evidence, documentPresent).
+            No owner, creator or ownership-date information.
+        hash: { type: string }
+        algorithm: { type: string, enum: [SHA-256] }
