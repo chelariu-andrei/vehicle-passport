@@ -79,6 +79,20 @@ class AuthIT {
     }
 
     @Test
+    void token_with_wrong_issuer_is_401() {
+        given().header("Authorization", bearer(claims().issuer("https://evil.example.com")
+                        .subject(UUID.randomUUID().toString())))
+                .when().get("/test/ping").then().statusCode(401);
+    }
+
+    @Test
+    void token_without_aud_is_401() {
+        given().header("Authorization", bearer(
+                        Jwt.claims().issuer("https://server.example.com").subject(UUID.randomUUID().toString())))
+                .when().get("/test/ping").then().statusCode(401);
+    }
+
+    @Test
     void public_path_needs_no_token() {
         given().when().get("/public/test-ping").then().statusCode(200);
     }
