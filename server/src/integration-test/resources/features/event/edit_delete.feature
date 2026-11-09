@@ -38,3 +38,9 @@ Feature: Edit and delete events
     Given I created event E, released V, and registered V again
     When I try to edit E
     Then it is rejected as forbidden
+
+  Scenario: A later owner sees that a document exists but cannot open it
+    Given Alice attached a document to event E, then ownership moved to me
+    When I request E's document
+    Then it is rejected as forbidden
+    And the timeline shows E with a document present

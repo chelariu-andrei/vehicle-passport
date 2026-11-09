@@ -47,7 +47,7 @@ class EventServiceHistoryTest {
             public List<VehicleEvent> allActive(String vin) { return stored; }
         };
         ActiveOwnerPort owners = (vin, user) -> UUID.randomUUID();
-        EventService service = new EventService(repo, owners, Clock.fixed(Instant.parse("2026-01-15T10:00:00Z"),
+        EventService service = new EventService(repo, owners, key -> null, Clock.fixed(Instant.parse("2026-01-15T10:00:00Z"),
                 ZoneOffset.UTC));
         assertEquals(List.of(low, high), service.history(VIN).stream().map(EventView::id).toList());
     }

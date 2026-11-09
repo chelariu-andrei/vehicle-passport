@@ -9,6 +9,7 @@ import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.DeleteEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.EventView;
+import com.vehiclepassport.server.event.application.port.in.GetEventDocumentUseCase;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventCommand;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventUseCase;
@@ -55,6 +56,9 @@ public class EditDeleteSteps {
 
     @Inject
     SaveConfirmedEventUseCase saveConfirmed;
+
+    @Inject
+    GetEventDocumentUseCase eventDocument;
 
     @Inject
     GetTimelineUseCase timeline;
@@ -105,6 +109,18 @@ public class EditDeleteSteps {
         registerAs(world.me());
     }
 
+    @Given("Alice attached a document to event E, then ownership moved to me")
+    public void aliceAttachedADocumentThenOwnershipMoved() {
+        UUID alice = world.user("Alice");
+        registerAs(alice);
+        UUID id = saveConfirmed.save(new SaveConfirmedEventCommand(alice, VIN, "SERVICE",
+            LocalDate.parse("2025-03-01"), 120000, new BigDecimal("450.00"), "RON", "scan", null,
+            "docs/alice.pdf"));
+        world.put(E_KEY, id);
+        release.release(VIN, alice);
+        registerAs(world.me());
+    }
+
     @Given("I created event E, released V, and registered V again")
     public void iCreatedEReleasedAndRegisteredAgain() {
         registerAs(world.me());
@@ -151,6 +167,14 @@ public class EditDeleteSteps {
         world.put(EXPECTED_KEY, 1);
     }
 
+    @When("I request E's document")
+    public void iRequestEsDocument() {
+        UUID id = world.get(E_KEY);
+        world.attempt(() -> eventDocument.get(world.me(), VIN, id));
+        world.put(ERRORS_KEY, listOf(world.lastError()));
+        world.put(EXPECTED_KEY, 1);
+    }
+
     @When("I try to edit or delete E")
     public void iTryToEditOrDeleteE() {
         UUID id = world.get(E_KEY);
@@ -170,13 +194,18 @@ public class EditDeleteSteps {
         for (RuntimeException e : errors) {
             DomainException d = (DomainException) e;
             assertEquals(ErrorKind.FORBIDDEN, d.kind());
-            assertEquals("event-from-prior-owner", d.code());
+            assertTrue(List.of("event-from-prior-owner", "document-restricted").contains(d.code()), d.code());
         }
         int expected = world.get(EXPECTED_KEY);
         assertEquals(expected, errors.size(), "every attempt must be refused");
         // the event is unchanged and still on the timeline
         assertTrue(timeline.get(world.me(), VIN, null, 100).items().stream()
             .anyMatch(e -> e.id().equals(id) && e.odometerKm() == 120000));
+    }
+
+    @Then("the timeline shows E with a document present")
+    public void theTimelineShowsEWithADocument() {
+        assertTrue(find(world.get(E_KEY)).documentPresent());
     }
 
     @Then("the timeline does not contain E")

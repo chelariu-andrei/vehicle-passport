@@ -4,11 +4,14 @@ import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.CheckOdometerUseCase;
 import com.vehiclepassport.server.event.application.port.in.DeleteEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.EventDocument;
+import com.vehiclepassport.server.event.application.port.in.GetEventDocumentUseCase;
 import com.vehiclepassport.server.event.application.port.in.ReadVehicleHistoryUseCase;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventCommand;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.UpdateEventCommand;
 import com.vehiclepassport.server.event.application.port.in.UpdateEventUseCase;
+import com.vehiclepassport.server.event.domain.exception.DocumentRestrictedException;
 import com.vehiclepassport.server.event.domain.exception.EventNotFoundException;
 import com.vehiclepassport.server.event.domain.exception.OdometerInconsistentException;
 import com.vehiclepassport.server.event.domain.exception.PriorPeriodEventException;
@@ -20,6 +23,7 @@ import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
 import com.vehiclepassport.server.event.application.port.in.PartView;
 import com.vehiclepassport.server.event.application.port.in.TimelinePage;
 import com.vehiclepassport.server.event.application.port.out.ActiveOwnerPort;
+import com.vehiclepassport.server.event.application.port.out.DocumentStoragePort;
 import com.vehiclepassport.server.event.application.port.out.EventRepositoryPort;
 import com.vehiclepassport.server.event.domain.model.EventDetails;
 import com.vehiclepassport.server.event.domain.model.EventType;
@@ -37,19 +41,22 @@ import java.util.UUID;
 
 @ApplicationScoped
 public class EventService implements AddEventUseCase, GetTimelineUseCase, UpdateEventUseCase, DeleteEventUseCase,
-        SaveConfirmedEventUseCase, CheckOdometerUseCase, ReadVehicleHistoryUseCase {
+        SaveConfirmedEventUseCase, CheckOdometerUseCase, ReadVehicleHistoryUseCase, GetEventDocumentUseCase {
 
     private static final int MIN_LIMIT = 1;
     private static final int MAX_LIMIT = 100;
 
     private final EventRepositoryPort events;
     private final ActiveOwnerPort owners;
+    private final DocumentStoragePort documents;
     private final Clock clock;
 
     @Inject
-    public EventService(EventRepositoryPort events, ActiveOwnerPort owners, Clock clock) {
+    public EventService(EventRepositoryPort events, ActiveOwnerPort owners, DocumentStoragePort documents,
+            Clock clock) {
         this.events = events;
         this.owners = owners;
+        this.documents = documents;
         this.clock = clock;
     }
 
@@ -134,6 +141,25 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         return events.allActive(vin).stream()
                 .sorted(Comparator.comparing(VehicleEvent::date).thenComparing(e -> e.id().toString()))
                 .map(EventService::toView).toList();
+    }
+
+    /**
+     * Authorisation order: active owner (404), event exists (404), event has a document (404), event belongs to
+     * the active period (403 document-restricted). Later owners see that a document exists but cannot open it.
+     */
+    @Override
+    @Transactional
+    public EventDocument get(UUID userId, String vin, UUID eventId) {
+        UUID activePeriod = owners.assertActiveOwner(vin, userId);
+        VehicleEvent event = events.findActive(vin, eventId)
+                .orElseThrow(() -> new EventNotFoundException("Event " + eventId + " not found"));
+        if (event.documentKey() == null) {
+            throw new EventNotFoundException("Event " + eventId + " has no document");
+        }
+        if (!activePeriod.equals(event.periodId())) {
+            throw new DocumentRestrictedException("The document is restricted to the owner who added it");
+        }
+        return documents.open(event.documentKey());
     }
 
     /**
