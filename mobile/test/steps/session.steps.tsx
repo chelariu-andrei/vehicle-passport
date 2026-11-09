@@ -16,8 +16,8 @@ import { openApp } from '../harness';
 setJestCucumberConfiguration({ errors: true });
 const feature = loadFeature('../../features/session.feature', { loadRelativePath: true });
 
-/* These scenarios are about the session, not the Garage: an inert tab keeps the real Garage's own requests out of the call counts and queued failures. */
-const inertTab = { '(tabs)/index': () => null };
+/* These scenarios are about the session, not the Garage: inert tabs keep the real Garage's and Scans' own requests out of the call counts and queued failures. */
+const inertTab = { '(tabs)/index': () => null, '(tabs)/scans': () => null };
 
 /* The probe stands in for the Garage where a scenario must see every render of the car list: the same query and key, through the real provider. */
 const vinsRendered: string[] = [];

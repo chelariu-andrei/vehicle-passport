@@ -1,10 +1,3 @@
-import { Screen, Text } from '@/shared/design';
-import { en } from '@/shared/i18n/en';
+import { InboxScreen } from '@/features/scan';
 
-export default function ScansScreen() {
-  return (
-    <Screen>
-      <Text variant="display">{en.tabs.scans}</Text>
-    </Screen>
-  );
-}
+export default InboxScreen;
