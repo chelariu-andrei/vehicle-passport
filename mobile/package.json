@@ -66,6 +66,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "gen:api": "npx --yes openapi-typescript@7.13.0 ../contracts/openapi.yaml -o src/shared/api/generated/schema.d.ts",
+    "gen:tokens": "node scripts/gen-tokens.mjs",
     "check:contract": "node scripts/check-contract.mjs",
     "check": "npm run typecheck && npm run lint && npm run check:contract && npm test"
   },
