@@ -22,6 +22,9 @@ jest.mock('expo-secure-store', () => {
   };
 });
 
+/* The real module builds a Supabase client on encrypted storage; tests talk to the scriptable fake instead. */
+jest.mock('@/shared/auth/supabase', () => ({ supabase: require('./auth').supabaseFake }));
+
 jest.mock('expo-image-picker', () => ({
   launchCameraAsync: jest.fn(),
   launchImageLibraryAsync: jest.fn(),
