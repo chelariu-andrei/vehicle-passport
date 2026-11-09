@@ -10,6 +10,7 @@ import com.vehiclepassport.server.shared.config.ScanConfig;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.transaction.Transactional.TxType;
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
@@ -85,5 +86,32 @@ public class ScanJobStateService {
                 jobs.save(job);
             }
         }
+    }
+
+    /**
+     * Cancels a not yet terminal job whose ownership period has ended, in its own transaction so the
+     * cancellation survives a caller that goes on to throw. Returns whether the job is now CANCELLED.
+     */
+    @Transactional(TxType.REQUIRES_NEW)
+    public boolean cancelIfPeriodClosed(UUID jobId) {
+        Optional<ScanJob> found = jobs.findByIdForUpdate(jobId);
+        if (found.isEmpty()) {
+            return false;
+        }
+        ScanJob job = found.get();
+        if (job.status() == ScanStatus.CANCELLED) {
+            return true;
+        }
+        if (!isInFlight(job.status()) || owners.isPeriodOpen(job.periodId())) {
+            return false;
+        }
+        job.cancel();
+        jobs.save(job);
+        return true;
+    }
+
+    static boolean isInFlight(ScanStatus status) {
+        return status == ScanStatus.PENDING || status == ScanStatus.PROCESSING
+                || status == ScanStatus.EXTRACTED;
     }
 }
