@@ -23,7 +23,7 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="passports">
         <NativeTabs.Trigger.Label>{en.tabs.passports}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="checkmark.shield.fill" md="verified_user" />
+        <NativeTabs.Trigger.Icon sf="doc.text.fill" md="description" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="account">
         <NativeTabs.Trigger.Label>{en.tabs.account}</NativeTabs.Trigger.Label>
