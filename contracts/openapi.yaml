@@ -832,7 +832,8 @@ components:
 
     ScanStatus:
       type: string
-      enum: [PENDING, EXTRACTED, CONFIRMED, REJECTED, FAILED]
+      description: CANCELLED means ownership ended before the scan was confirmed.
+      enum: [PENDING, PROCESSING, EXTRACTED, CONFIRMED, REJECTED, FAILED, CANCELLED]
 
     ScanField:
       type: object
