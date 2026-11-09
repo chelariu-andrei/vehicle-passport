@@ -1,5 +1,6 @@
 package com.vehiclepassport.server.shared;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -33,6 +34,33 @@ class ContractConformanceIT {
         undeclared.removeAll(contract);
         assertTrue(undeclared.isEmpty(),
                 "Routes implemented but missing from contracts/openapi.yaml: " + undeclared);
+    }
+
+    @Test
+    void everyContractRouteIsImplemented() throws IOException {
+        Set<String> contract = routes(new YAMLMapper().readTree(contractFile()));
+        String json = RestAssured.given().when().get("/q/openapi?format=json")
+                .then().statusCode(200).extract().asString();
+        Set<String> implemented = routes(new ObjectMapper().readTree(json));
+
+        Set<String> missing = new TreeSet<>(contract);
+        missing.removeAll(implemented);
+        assertTrue(missing.isEmpty(),
+                "Routes in contracts/openapi.yaml but not implemented: " + missing);
+    }
+
+    @Test
+    void publicRoutesAreOnlyTheTwoPassportOnes() throws IOException {
+        Set<String> contract = routes(new YAMLMapper().readTree(contractFile()));
+        Set<String> publicPaths = new TreeSet<>();
+        for (String r : contract) {
+            String path = r.substring(r.indexOf(' ') + 1);
+            if (path.startsWith("/public/")) {
+                publicPaths.add(path);
+            }
+        }
+        assertEquals(Set.of("/public/passports/{token}", "/public/passports/{token}/pdf"),
+                publicPaths);
     }
 
     private static File contractFile() {
