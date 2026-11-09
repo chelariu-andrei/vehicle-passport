@@ -1,10 +1,3 @@
-import { Screen, Text } from '@/shared/design';
-import { en } from '@/shared/i18n/en';
+import { PassportsScreen } from '@/features/passport';
 
-export default function PassportsScreen() {
-  return (
-    <Screen>
-      <Text variant="display">{en.tabs.passports}</Text>
-    </Screen>
-  );
-}
+export default PassportsScreen;
