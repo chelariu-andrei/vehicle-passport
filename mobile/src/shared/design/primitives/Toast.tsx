@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { AccessibilityInfo, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme';
@@ -29,6 +29,8 @@ export function ToastHost() {
 
   useEffect(() => {
     if (!message) return;
+    // accessibilityLiveRegion is Android-only; this reaches VoiceOver on iOS (and TalkBack too).
+    AccessibilityInfo.announceForAccessibility(message);
     const timer = setTimeout(() => setMessage(null), VISIBLE_MS);
     return () => clearTimeout(timer);
   }, [message]);

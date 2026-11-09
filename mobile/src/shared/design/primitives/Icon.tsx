@@ -6,7 +6,7 @@ import type { ColorName } from '../tokens.generated';
 type Shape = { d: string } | { cx: number; cy: number; r: number } | { x: number; y: number; width: number; height: number; rx: number };
 
 // Paths from the design system's icon bundle (24 x 24 grid, stroked).
-const SHAPES: Record<string, Shape[]> = {
+const SHAPES = {
   car: [
     { d: 'M5 16l1.4-4.6A2 2 0 0 1 8.3 10h7.4a2 2 0 0 1 1.9 1.4L19 16' },
     { d: 'M3.5 16h17v3h-2.2a1.5 1.5 0 0 1-3 0H8.7a1.5 1.5 0 0 1-3 0H3.5z' },
@@ -46,7 +46,7 @@ const SHAPES: Record<string, Shape[]> = {
   alert: [{ d: 'M12 4l9 15.5H3z' }, { d: 'M12 10v4.5M12 17.2v.01' }],
   share: [{ d: 'M12 15V4M8 8l4-4 4 4' }, { d: 'M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5' }],
   rotate: [{ d: 'M20 12a8 8 0 1 1-2.6-5.9' }, { d: 'M20 4v4.5h-4.5' }],
-};
+} satisfies Record<string, Shape[]>;
 
 export type IconName = keyof typeof SHAPES;
 export const iconNames = Object.keys(SHAPES) as IconName[];
@@ -70,7 +70,7 @@ export function Icon({ name, size = 24, color = 'ink' }: Props) {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      {SHAPES[name].map((shape, index) => {
+      {(SHAPES[name] as Shape[]).map((shape, index) => {
         if ('d' in shape) return <Path key={index} d={shape.d} />;
         if ('r' in shape) return <Circle key={index} {...shape} />;
         return <Rect key={index} {...shape} />;
