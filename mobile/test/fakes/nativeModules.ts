@@ -74,6 +74,13 @@ jest.mock('expo-web-browser', () => ({
   openBrowserAsync: jest.fn(async () => ({ type: 'dismiss' })),
 }));
 
+/* The system date picker is a host element, so a test reads its props (`maximumDate`) and fires `onChange` as the picker would. */
+jest.mock('@react-native-community/datetimepicker', () => ({
+  __esModule: true,
+  default: 'DateTimePicker',
+  DateTimePickerAndroid: { open: jest.fn(), dismiss: jest.fn() },
+}));
+
 jest.mock('react-native-webview', () => ({
   WebView: 'WebView',
   default: 'WebView',

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 
+import { HistoryList } from '@/features/event';
 import { errorMessage, forgetVehicle, useRefetchOnFocus } from '@/shared/api';
 import { Button, ErrorState, Icon, Screen, Skeleton, Text, toast, tokens, ConfirmSheet, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
@@ -142,7 +143,7 @@ export function VehicleDetailScreen({ vin }: { vin: string }) {
           <Text variant="title-lg" accessibilityRole="header">
             {en.vehicle.history}
           </Text>
-          {/* Task 10 renders the timeline here: TimelineItem rows, newest first, grouped by year. */}
+          <HistoryList vin={vin} />
 
           <View style={{ gap: tokens.space['space-3'] }}>
             <Button kind="secondary" title={en.vehicle.edit} onPress={() => router.push(`/vehicles/${vin}/edit`)} />

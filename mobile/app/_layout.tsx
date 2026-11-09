@@ -25,6 +25,8 @@ function Shell() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen name="vehicles/new" options={{ presentation: 'modal' }} />
         <Stack.Screen name="vehicles/[vin]/edit" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="vehicles/[vin]/events/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="vehicles/[vin]/events/[eventId]/edit" options={{ presentation: 'modal' }} />
       </Stack>
       {/* The side of the app follows the session. Both redirects wait until the session is known. */}
       {status === 'signedOut' && !inAuth ? <Redirect href="/sign-in" /> : null}
