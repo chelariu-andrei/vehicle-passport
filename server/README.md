@@ -28,13 +28,16 @@ Never commit keys or tokens; pass them via the environment.
 ```bash
 # dev mode
 mvn -f server/pom.xml quarkus:dev
-
-# unit tests
-mvn -f server/pom.xml test
-
-# full build: unit + integration tests (needs Docker)
-mvn -f server/pom.xml verify -Dquarkus.http.test-port=0 -Dquarkus.http.test-ssl-port=0
 ```
+
+Test commands:
+
+- UNIT: one unit test class.
+  `mvn -f server/pom.xml -B -ntp test -Dtest=<Class>`
+- FAST: ArchUnit, unit tests, all Gherkin; no database.
+  `mvn -f server/pom.xml -B -ntp verify -Dquarkus.build.skip=true -Dit.test=BehaviourIT`
+- FULL: everything; Docker required.
+  `mvn -f server/pom.xml -B -ntp verify`
 
 ## Receipt extraction
 
