@@ -1,3 +1,3 @@
-export default function GarageScreen() {
-  return null;
-}
+import { GarageScreen } from '@/features/vehicle';
+
+export default GarageScreen;

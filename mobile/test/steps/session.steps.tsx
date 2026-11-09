@@ -16,7 +16,10 @@ import { openApp } from '../harness';
 setJestCucumberConfiguration({ errors: true });
 const feature = loadFeature('../../features/session.feature', { loadRelativePath: true });
 
-/* The Garage tab is built in a later task. Until then this stands in for it: the same query and key, through the real provider. */
+/* These scenarios are about the session, not the Garage: an inert tab keeps the real Garage's own requests out of the call counts and queued failures. */
+const inertTab = { '(tabs)/index': () => null };
+
+/* The probe stands in for the Garage where a scenario must see every render of the car list: the same query and key, through the real provider. */
 const vinsRendered: string[] = [];
 function GaragePeek() {
   const garage = useQuery({ queryKey: qk.vehicles, queryFn: async () => unwrap(await api.GET('/vehicles')) });
@@ -49,7 +52,7 @@ defineFeature(feature, (test) => {
     let before = 0;
     let result: unknown;
     given('my access token has expired', async () => {
-      fake = await openApp('/');
+      fake = await openApp('/', { routes: inertTab });
       await waitFor(() => expect(screen).toHavePathname('/'));
       fake.expireToken(fakeAuth.token!);
       before = fake.callsTo('listMyVehicles').length;
@@ -66,7 +69,7 @@ defineFeature(feature, (test) => {
 
   test('A refused refresh signs me out', ({ given, then }) => {
     given('the retried request also answers 401', async () => {
-      fake = await openApp('/');
+      fake = await openApp('/', { routes: inertTab });
       await waitFor(() => expect(screen).toHavePathname('/'));
       // The first attempt and the retry after the refresh both answer an empty 401.
       fake.failNext('listMyVehicles', 401, null);
