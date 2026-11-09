@@ -2,6 +2,7 @@ export { ApiError, isApiError, unwrap } from './apiError';
 export { createAuthedFetch } from './authedFetch';
 export { authHeaders, saveAndShare } from './binary';
 export { api } from './client';
+export { forgetVehicle } from './forgetVehicle';
 export { errorMessage } from './errorMessage';
 export { registerOnlineStatus, useIsOnline } from './onlineStatus';
 export { createAppQueryClient } from './queryClient';

@@ -1,5 +1,7 @@
 /* Opens the real app (router, providers, session) against the fake API. Every steps file starts here. */
-import { renderRouter } from 'expo-router/testing-library';
+import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+
+import { en } from '@/shared/i18n/en';
 
 import { fakeAuth } from './fakes/auth';
 import { installFakeApi } from './fake-api';
@@ -23,4 +25,15 @@ export async function openApp(url: string, opts: OpenAppOptions = {}): Promise<F
   else if (opts.as) fakeAuth.signInAs(opts.as.id, opts.as.email);
   await renderRouter({ appDir: './app', overrides: opts.routes ?? {} }, { initialUrl: url });
   return api;
+}
+
+/** Opens the Add vehicle sheet from the garage and submits a valid form for `vin`. */
+export async function registerVin(vin: string) {
+  await fireEvent.press(screen.getByRole('button', { name: en.garage.addVehicle }));
+  await fireEvent.changeText(await screen.findByLabelText(en.vehicleForm.vin), vin.toLowerCase());
+  await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.make), 'Volkswagen');
+  await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.model), 'Golf');
+  await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.year), '2015');
+  await fireEvent.press(screen.getByRole('radio', { name: en.fuel.DIESEL }));
+  await fireEvent.press(screen.getByRole('button', { name: en.vehicleForm.submit }));
 }

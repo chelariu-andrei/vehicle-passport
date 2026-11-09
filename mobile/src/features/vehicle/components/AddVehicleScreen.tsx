@@ -3,61 +3,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import type { z } from 'zod';
-import { Pressable, View } from 'react-native';
 
 import { errorMessage, isApiError } from '@/shared/api';
-import { Button, Field, Icon, Screen, Text, tokens, useTheme } from '@/shared/design';
+import { Button, Field, Screen, Text } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 
 import { useRegisterVehicle } from '../api/useRegisterVehicle';
-import { FUEL_TYPES, vehicleFormSchema } from '../model/vehicleForm';
-import type { FuelType, VehicleFormValues } from '../model/vehicleForm';
+import { vehicleFormSchema } from '../model/vehicleForm';
+import type { VehicleFormValues } from '../model/vehicleForm';
+import { FuelPicker } from './FuelPicker';
 
 type FieldName = 'vin' | 'make' | 'model' | 'engine' | 'year' | 'fuel';
-
-function FuelPicker({ value, onChange, error }: { value: FuelType | null; onChange(fuel: FuelType): void; error?: string }) {
-  const { colors } = useTheme();
-  return (
-    <View style={{ gap: tokens.space['space-1'] }} accessibilityRole="radiogroup" accessibilityLabel={en.vehicleForm.fuel}>
-      <Text variant="label">{en.vehicleForm.fuel}</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: tokens.space['space-2'] }}>
-        {FUEL_TYPES.map((fuel) => {
-          const selected = fuel === value;
-          return (
-            <Pressable
-              key={fuel}
-              accessibilityRole="radio"
-              accessibilityLabel={en.fuel[fuel]}
-              accessibilityState={{ selected }}
-              onPress={() => onChange(fuel)}
-              style={{
-                minHeight: 48,
-                minWidth: 48,
-                paddingHorizontal: tokens.space['space-4'],
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: tokens.space['space-1'],
-                borderRadius: tokens.radius['radius-pill'],
-                borderWidth: selected ? 2 : 1,
-                borderColor: selected ? colors.brand : colors['line-strong'],
-                backgroundColor: selected ? colors['surface-raised'] : 'transparent',
-              }}
-            >
-              {selected ? <Icon name="check" size={16} color="brand" /> : null}
-              <Text variant="label">{en.fuel[fuel]}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      {error ? (
-        <Text variant="caption" color="danger" accessibilityRole="alert">
-          {error}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
 
 type FormInput = z.input<ReturnType<typeof vehicleFormSchema>>;
 

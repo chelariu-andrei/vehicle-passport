@@ -9,7 +9,7 @@ import { en } from '@/shared/i18n/en';
 import { fakeAuth } from '../fakes/auth';
 import type { FakeApi } from '../fake-api';
 import { aClaim, aVehicle, anEvent, SAMPLE_VIN } from '../fake-api';
-import { openApp } from '../harness';
+import { openApp, registerVin } from '../harness';
 
 setJestCucumberConfiguration({ errors: true });
 const feature = loadFeature('../../features/garage.feature', { loadRelativePath: true });
@@ -33,17 +33,6 @@ function hostTypes(node: unknown): string[] {
   if (typeof node !== 'object' || node === null) return [];
   const { type, children } = node as { type: string; children: unknown };
   return [type, ...hostTypes(children)];
-}
-
-/** Opens the Add vehicle sheet from the garage and submits a valid form for `vin`. */
-async function registerVin(vin: string) {
-  await press(en.garage.addVehicle);
-  await fireEvent.changeText(await screen.findByLabelText(en.vehicleForm.vin), vin.toLowerCase());
-  await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.make), 'Volkswagen');
-  await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.model), 'Golf');
-  await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.year), '2015');
-  await fireEvent.press(screen.getByRole('radio', { name: en.fuel.DIESEL }));
-  await press(en.vehicleForm.submit);
 }
 
 /** The app comes back to the foreground: stale queries refetch. */

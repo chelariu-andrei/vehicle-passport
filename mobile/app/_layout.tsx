@@ -1,14 +1,15 @@
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
-import { Redirect, SplashScreen, Stack, useSegments } from 'expo-router';
+import { Redirect, router, SplashScreen, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { createAppQueryClient } from '@/shared/api';
+import { createAppQueryClient, forgetVehicle } from '@/shared/api';
 import { onSessionEnd, startSession, useSession } from '@/shared/auth/session';
-import { fontAssets, OfflineBanner, ThemeProvider, ToastHost, useTheme } from '@/shared/design';
+import { fontAssets, OfflineBanner, ThemeProvider, toast, ToastHost, useTheme } from '@/shared/design';
+import { en } from '@/shared/i18n/en';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -36,8 +37,17 @@ function Shell() {
 
 export default function RootLayout() {
   const [loaded, error] = useFonts(fontAssets);
-  // Task 9 makes the car-gone handler real; until then nothing reacts to it.
-  const [queryClient] = useState(() => createAppQueryClient({ onVehicleGone: () => undefined }));
+  // A car the server no longer lists for this account (transfer or release) is dropped, and the user is told (integration 2.3).
+  const [queryClient] = useState(() => {
+    const client: QueryClient = createAppQueryClient({
+      onVehicleGone: (vin) => {
+        forgetVehicle(client, vin);
+        router.replace('/');
+        toast(en.vehicle.gone);
+      },
+    });
+    return client;
+  });
   const { status } = useSession();
   const ready = (loaded || error !== null) && status !== 'loading';
 
