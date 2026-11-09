@@ -51,7 +51,11 @@ jest.mock('expo-file-system', () => {
     get size(): number {
       return 0;
     }
-    write = jest.fn();
+    static written: { uri: string; data: unknown }[] = [];
+    create = jest.fn();
+    write = jest.fn(async (data: unknown) => {
+      File.written.push({ uri: this.uri, data });
+    });
     copy = jest.fn();
     delete = jest.fn();
   }

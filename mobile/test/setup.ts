@@ -1,3 +1,12 @@
+import { fakeAuth } from './fakes/auth';
+
+process.env.EXPO_PUBLIC_API_URL ??= 'http://api.test';
+
+/* A signed-in fake session is installed before every test; tests change it through `fakeAuth`. */
+beforeEach(() => {
+  fakeAuth.reset();
+});
+
 /* The fake API is installed per test by the tests that need it; this only checks and tears it down. */
 afterEach(() => {
   const installed = (globalThis as Record<string, unknown>).__vehiclePassportFakeApi as

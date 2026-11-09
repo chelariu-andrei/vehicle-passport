@@ -14,6 +14,7 @@ export type { Evidence } from './primitives/EvidenceBadge';
 export { Field } from './primitives/Field';
 export { Icon } from './primitives/Icon';
 export type { IconName } from './primitives/Icon';
+export { OfflineBanner } from './primitives/OfflineBanner';
 export { Screen } from './primitives/Screen';
 export { Skeleton } from './primitives/Skeleton';
 export { Text } from './primitives/Text';
