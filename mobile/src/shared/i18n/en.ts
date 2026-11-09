@@ -142,7 +142,7 @@ export const en = {
   },
   event: {
     type: { SERVICE: 'Service', REPAIR: 'Repair', TIRES: 'Tires', ITP: 'ITP' },
-    source: { MANUAL: 'Added by you', SCAN: 'Scanned invoice' },
+    source: { MANUAL: 'Added manually', SCAN: 'Scanned invoice' },
     historyEmpty: 'No entries yet',
     historyEmptyBody: 'Add a service, repair, tires or ITP to start the history.',
     detailTitle: 'Event details',
