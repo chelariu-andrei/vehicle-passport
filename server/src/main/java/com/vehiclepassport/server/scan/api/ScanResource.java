@@ -15,6 +15,7 @@ import com.vehiclepassport.server.scan.domain.exception.MissingFileException;
 import com.vehiclepassport.server.shared.security.CurrentUser;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -80,7 +81,7 @@ public class ScanResource {
     @Path("scans/{jobId}/confirm")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response confirm(@PathParam("jobId") UUID jobId, @Valid ConfirmScanRequest request) {
+    public Response confirm(@PathParam("jobId") UUID jobId, @Valid @NotNull ConfirmScanRequest request) {
         UUID currentId = currentUser.id();
         UUID eventId = confirming.confirm(mapper.toCommand(currentId, jobId, request));
         return Response.status(Response.Status.CREATED).entity(new ConfirmScanResponse(eventId)).build();

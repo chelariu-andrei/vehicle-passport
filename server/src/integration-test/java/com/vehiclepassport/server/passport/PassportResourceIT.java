@@ -193,4 +193,29 @@ class PassportResourceIT {
             org.junit.jupiter.api.Assertions.assertFalse(raw.contains("createdBy"));
         }
     }
+
+    @Test
+    @TestSecurity(user = "f2")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void create_with_lowercase_vin_201_for_the_canonical_vin() {
+        String vin = vehicleOf(ME);
+        given().contentType(ContentType.JSON).body("{}")
+                .when().post("/vehicles/" + vin.toLowerCase() + "/passports")
+                .then().statusCode(201).body("vin", equalTo(vin));
+    }
+
+    @Test
+    @TestSecurity(user = "f2")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void misspelt_expiry_field_400_and_no_passport_created() {
+        String vin = vehicleOf(ME);
+        int before = given().when().get("/passports").then().statusCode(200).extract().jsonPath().getList("$").size();
+        given().contentType(ContentType.JSON).body("{\"expiresat\":\"2030-01-01T00:00:00Z\"}")
+                .when().post("/vehicles/" + vin + "/passports")
+                .then().statusCode(400)
+                .contentType(startsWith("application/problem+json"))
+                .body("code", equalTo("validation-failed"));
+        int after = given().when().get("/passports").then().statusCode(200).extract().jsonPath().getList("$").size();
+        assertEquals(before, after);
+    }
 }

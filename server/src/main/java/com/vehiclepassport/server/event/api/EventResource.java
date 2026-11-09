@@ -11,6 +11,7 @@ import com.vehiclepassport.server.event.application.port.in.UpdateEventUseCase;
 import com.vehiclepassport.server.shared.security.CurrentUser;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -44,7 +45,7 @@ public class EventResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response add(@PathParam("vin") String vin, @Valid EventRequest request) {
+    public Response add(@PathParam("vin") String vin, @Valid @NotNull EventRequest request) {
         EventResponse body = mapper.toResponse(adding.add(mapper.toAddCommand(currentUser.id(), vin, request)));
         return Response.status(Response.Status.CREATED).entity(body).build();
     }
@@ -54,7 +55,7 @@ public class EventResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public EventResponse update(@PathParam("vin") String vin, @PathParam("eventId") UUID eventId,
-            @Valid EventRequest request) {
+            @Valid @NotNull EventRequest request) {
         return mapper.toResponse(updating.update(mapper.toUpdateCommand(currentUser.id(), vin, eventId, request)));
     }
 

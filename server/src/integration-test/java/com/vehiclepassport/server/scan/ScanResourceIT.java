@@ -306,4 +306,19 @@ class ScanResourceIT {
 
         assertEquals(ScanStatus.CANCELLED, support.reload(job.id()).status());
     }
+
+    @Test
+    @TestSecurity(user = "f1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void lowercase_vin_submit_202_and_the_object_is_stored_under_the_canonical_vin() {
+        Fixture f = mine();
+        storage.reset();
+
+        upload("file", "receipt.png", PNG, "image/png")
+                .when().post("/vehicles/" + f.vin().toLowerCase() + "/scans")
+                .then().statusCode(202).body("status", equalTo("PENDING"));
+
+        assertEquals(1, storage.keys().size());
+        assertTrue(storage.keys().iterator().next().startsWith("scans/" + f.vin() + "/"));
+    }
 }

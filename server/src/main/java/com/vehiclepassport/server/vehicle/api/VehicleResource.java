@@ -19,6 +19,7 @@ import com.vehiclepassport.server.vehicle.application.port.in.UpdateVehicleUseCa
 import com.vehiclepassport.server.vehicle.application.port.in.VehicleView;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PATCH;
@@ -57,7 +58,7 @@ public class VehicleResource {
     @POST
     @Path("vehicles")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response register(@Valid RegisterVehicleRequest request) {
+    public Response register(@Valid @NotNull RegisterVehicleRequest request) {
         RegistrationResult result = registering.register(mapper.toCommand(currentUser.id(), request));
         if (result instanceof Registered registered) {
             return Response.status(Response.Status.CREATED).entity(mapper.toResponse(registered.vehicle())).build();
@@ -80,7 +81,7 @@ public class VehicleResource {
     @PATCH
     @Path("vehicles/{vin}")
     @Consumes(MediaType.APPLICATION_JSON)
-    public VehicleResponse update(@PathParam("vin") String vin, @Valid UpdateVehicleRequest request) {
+    public VehicleResponse update(@PathParam("vin") String vin, @Valid @NotNull UpdateVehicleRequest request) {
         UUID userId = currentUser.id();
         VehicleView current = getting.get(vin, userId);
         return mapper.toResponse(updating.update(mapper.toCommand(userId, vin, request, current)));

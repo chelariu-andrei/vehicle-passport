@@ -4,7 +4,10 @@ info:
   version: 1.0.0
   description: |
     Source of truth for the v1 HTTP API. All routes require a bearer JWT except `/public/**`.
-    Every error is `application/problem+json` (RFC 9457) with `type`, `title`, `status`, `detail`, `code`.
+    Every error produced by the API is `application/problem+json` (RFC 9457) with `type`, `title`, `status`, `detail`, `code`.
+    Malformed JSON, unknown request fields, empty or null bodies and unparseable path ids answer 400 with code `validation-failed`.
+    The one exception is 401: authentication is rejected before the API runs, so a missing, invalid or expired bearer token
+    answers 401 with an empty body (not problem+json) on every route except `/public/**`.
     Requests on a vehicle the caller does not own answer 404 (no existence leak).
 servers:
   - url: /
@@ -942,7 +945,10 @@ components:
           type: object
           description: >
             Immutable snapshot: vehicle (vin, make, model, engine, year, fuel) and events
-            (type, date, odometerKm, costAmount, currency, notes, details, evidence, documentPresent).
+            (type, date, odometerKm, costAmount, currency, notes, serviceName, parts, labor, evidence,
+            documentPresent). `serviceName`, `parts` and `labor` are flat keys on the event, not nested under
+            `details`; `parts` is omitted when the event has no parts detail, and money values are strings
+            with two decimals.
             No owner, creator or ownership-date information.
         hash: { type: string }
         algorithm: { type: string, enum: [SHA-256] }

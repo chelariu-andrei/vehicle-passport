@@ -386,4 +386,39 @@ class EventResourceIT {
             node.elements().forEachRemaining(child -> collectKeys(child, keys));
         }
     }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void lowercase_vin_timeline_shows_the_history() {
+        String vin = registerAs(ME);
+        addAs(ME, vin, "2025-03-01", 1000);
+        given().when().get("/vehicles/" + vin.toLowerCase() + "/timeline")
+                .then().statusCode(200).body("items", hasSize(1));
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void lowercase_vin_add_event_201_stored_under_the_canonical_vin() {
+        String vin = registerAs(ME);
+        given().contentType(JSON_UTF8).body(body("2025-03-01", 120000, null))
+                .when().post("/vehicles/" + vin.toLowerCase() + "/events")
+                .then().statusCode(201);
+        assertEquals(1, history.history(vin).size());
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void unknown_field_details_on_a_manual_event_400_and_nothing_stored() {
+        String vin = registerAs(ME);
+        given().contentType(JSON_UTF8).body(Map.of("type", "SERVICE", "date", "2025-03-01", "odometerKm", 1000,
+                        "costAmount", 10, "currency", "RON", "details", Map.of("labor", 5)))
+                .when().post("/vehicles/" + vin + "/events")
+                .then().statusCode(400)
+                .contentType(startsWith("application/problem+json"))
+                .body("code", equalTo("validation-failed"));
+        assertEquals(0, history.history(vin).size());
+    }
 }
