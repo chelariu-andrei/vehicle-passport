@@ -218,6 +218,33 @@ class EventResourceIT {
     @Test
     @TestSecurity(user = "e1")
     @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void limit_100_succeeds_and_absent_limit_defaults_to_20() {
+        String vin = registerAs(ME);
+        LocalDate start = LocalDate.parse("2023-01-01");
+        for (int i = 0; i < 101; i++) {
+            addAs(ME, vin, start.plusDays(i).toString(), 1000 + i);
+        }
+        given().queryParam("limit", 100).when().get("/vehicles/" + vin + "/timeline")
+                .then().statusCode(200).body("items", hasSize(100)).body("nextCursor", notNullValue());
+        given().when().get("/vehicles/" + vin + "/timeline")
+                .then().statusCode(200).body("items", hasSize(20));
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void limit_out_of_range_or_not_a_number_is_400_validation_failed() {
+        String vin = registerAs(ME);
+        for (String limit : new String[] {"0", "-5", "101", "abc", "1.5"}) {
+            given().queryParam("limit", limit).when().get("/vehicles/" + vin + "/timeline")
+                    .then().statusCode(400)
+                    .contentType(startsWith("application/problem+json"))
+                    .body("code", equalTo("validation-failed"));
+        }
+    }
+
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
     void limit_over_100_is_clamped() {
         String vin = registerAs(ME);
         LocalDate start = LocalDate.parse("2023-01-01");
