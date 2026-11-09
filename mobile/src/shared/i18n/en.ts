@@ -13,6 +13,11 @@ export const en = {
     errorTitle: 'Something went wrong',
     errorBody: 'Check your connection and try again.',
   },
+  viewer: {
+    devTitle: '3D viewer check',
+    fps: (value: number | null) => (value === null ? 'FPS: waiting' : `FPS: ${value}`),
+    colourButton: (name: string) => `Colour: ${name}`,
+  },
   evidence: {
     ESTIMATED: 'Estimated',
     USER_CONFIRMED: 'Confirmed',
