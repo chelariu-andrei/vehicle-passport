@@ -24,6 +24,8 @@ export interface Ctx {
   state: FakeState;
   /** Which car each scan job was uploaded for. */
   scanVins: Map<string, string>;
+  /** Ids of claims that were approved, rejected, withdrawn or closed by the car leaving; `state.claims` holds only pending ones. */
+  decidedClaims: Set<string>;
   params: Record<string, string>;
   query: URLSearchParams;
   /** Parsed JSON body, or undefined when the request had none. */
@@ -123,23 +125,38 @@ const updateVehicle: Handler = (c) => {
   return ok(vehicle);
 };
 
+/** The car leaves the garage: its pending claims are decided and its unconfirmed scans are cancelled. */
+function endOwnership(c: Ctx, vin: string): void {
+  c.state.vehicles = c.state.vehicles.filter((v) => v.vin !== vin);
+  for (const claim of c.state.claims[vin] ?? []) c.decidedClaims.add(claim.claimId);
+  delete c.state.claims[vin];
+  for (const [jobId, jobVin] of c.scanVins) {
+    const job = c.state.scans[jobId];
+    if (jobVin === vin && job && job.status !== 'CONFIRMED' && job.status !== 'REJECTED') job.status = 'CANCELLED';
+  }
+}
+
 const releaseVehicle: Handler = (c) => {
   if (!ownedVehicle(c)) return notOwned();
-  c.state.vehicles = c.state.vehicles.filter((v) => v.vin !== c.params.vin);
-  delete c.state.claims[c.params.vin];
+  endOwnership(c, c.params.vin);
   return noContent();
 };
 
-const listPendingClaims: Handler = (c) => (ownedVehicle(c) ? ok(c.state.claims[c.params.vin] ?? []) : notOwned());
+const listPendingClaims: Handler = (c) =>
+  ownedVehicle(c)
+    ? ok((c.state.claims[c.params.vin] ?? []).map(({ claimId, filedAt }) => ({ claimId, filedAt })))
+    : notOwned();
 
 const decideClaim = (approve: boolean): Handler => (c) => {
   if (!ownedVehicle(c)) return notOwned();
   const pending = c.state.claims[c.params.vin] ?? [];
-  if (!pending.some((claim) => claim.claimId === c.params.claimId)) return problem(404, 'claim-not-found');
+  if (!pending.some((claim) => claim.claimId === c.params.claimId)) {
+    return problem(c.decidedClaims.has(c.params.claimId) ? 409 : 404, c.decidedClaims.has(c.params.claimId) ? 'claim-not-pending' : 'claim-not-found');
+  }
   if (approve) {
-    c.state.vehicles = c.state.vehicles.filter((v) => v.vin !== c.params.vin);
-    delete c.state.claims[c.params.vin];
+    endOwnership(c, c.params.vin);
   } else {
+    c.decidedClaims.add(c.params.claimId);
     c.state.claims[c.params.vin] = pending.filter((claim) => claim.claimId !== c.params.claimId);
   }
   return noContent();
@@ -147,7 +164,8 @@ const decideClaim = (approve: boolean): Handler => (c) => {
 
 const withdrawClaim: Handler = (c) => {
   const found = claimsOf(c.state).find(([, claim]) => claim.claimId === c.params.claimId);
-  if (!found) return problem(404, 'claim-not-found');
+  if (!found) return c.decidedClaims.has(c.params.claimId) ? problem(409, 'claim-not-pending') : problem(404, 'claim-not-found');
+  c.decidedClaims.add(c.params.claimId);
   c.state.claims[found[0]] = c.state.claims[found[0]].filter((claim) => claim.claimId !== c.params.claimId);
   return noContent();
 };

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
-import { aPassport, aScanJob, aVehicle, anEvent, handlers, installFakeApi, operations } from '.';
+import { aClaim, aPassport, aScanJob, aVehicle, anEvent, handlers, installFakeApi, operations } from '.';
 import type { FakeApi } from '.';
 
 const BASE = 'http://api.test';
@@ -252,4 +252,73 @@ test('builders produce records the fake serves without breaking the contract', a
     expect((await send('GET', path, { headers: auth })).status).toBe(200);
   }
   expect(api.violations).toEqual([]);
+});
+
+describe('ownership ending', () => {
+  const post = (path: string, body?: object) =>
+    send('POST', path, { headers: json, body: body ? JSON.stringify(body) : undefined });
+
+  async function carWithJobs() {
+    api.state.vehicles.push(aVehicle({ vin: VIN }));
+    const form = new FormData();
+    form.append('file', blobOf(10, 'image/jpeg'), 'a.jpg');
+    const uploaded = await send('POST', `/vehicles/${VIN}/scans`, { headers: auth, body: form }).then((r) => r.json());
+    api.state.scans[uploaded.id].status = 'EXTRACTED';
+    const confirmed = aScanJob({ status: 'CONFIRMED' });
+    api.state.scans[confirmed.id] = confirmed;
+    return uploaded.id as string;
+  }
+
+  test('releaseVehicle cancels unconfirmed scan jobs, and confirm then answers 409', async () => {
+    const jobId = await carWithJobs();
+    expect((await post(`/vehicles/${VIN}/release`)).status).toBe(204);
+    expect(api.state.scans[jobId].status).toBe('CANCELLED');
+    const confirm = await post(`/scans/${jobId}/confirm`, { date: '2024-03-10', odometerKm: 1, total: 1 });
+    expect(confirm.status).toBe(409);
+    expect((await confirm.json()).code).toBe('scan-state-conflict');
+    expect(api.state.events[VIN] ?? []).toEqual([]);
+  });
+
+  test('approveClaim cancels unconfirmed scan jobs and leaves confirmed ones', async () => {
+    const jobId = await carWithJobs();
+    const claim = aClaim();
+    api.state.claims[VIN] = [claim];
+    expect((await post(`/vehicles/${VIN}/claims/${claim.claimId}/approve`)).status).toBe(204);
+    expect(api.state.scans[jobId].status).toBe('CANCELLED');
+    expect(Object.values(api.state.scans).filter((j) => j.status === 'CONFIRMED')).toHaveLength(1);
+  });
+
+  test('a decided claim answers 409 claim-not-pending, an unknown one 404 claim-not-found', async () => {
+    api.state.vehicles.push(aVehicle({ vin: VIN }));
+    const [a, b, c] = [aClaim(), aClaim(), aClaim()];
+    api.state.claims[VIN] = [a, b, c];
+    expect((await post(`/vehicles/${VIN}/claims/${a.claimId}/reject`)).status).toBe(204);
+    const again = await post(`/vehicles/${VIN}/claims/${a.claimId}/reject`);
+    expect(again.status).toBe(409);
+    expect((await again.json()).code).toBe('claim-not-pending');
+    const unknown = await post(`/vehicles/${VIN}/claims/11111111-1111-4111-8111-111111111111/reject`);
+    expect(unknown.status).toBe(404);
+    expect((await unknown.json()).code).toBe('claim-not-found');
+    const list = await send('GET', `/vehicles/${VIN}/claims`, { headers: auth }).then((r) => r.json());
+    expect(list).toEqual([{ claimId: b.claimId, filedAt: b.filedAt }, { claimId: c.claimId, filedAt: c.filedAt }]);
+  });
+
+  test('approving rejects the other pending claims, so withdrawing one answers 409', async () => {
+    api.state.vehicles.push(aVehicle({ vin: VIN }));
+    const [a, b] = [aClaim(), aClaim()];
+    api.state.claims[VIN] = [a, b];
+    expect((await post(`/vehicles/${VIN}/claims/${a.claimId}/approve`)).status).toBe(204);
+    const withdrawOther = await post(`/ownership-claims/${b.claimId}/withdraw`);
+    expect(withdrawOther.status).toBe(409);
+    expect((await withdrawOther.json()).code).toBe('claim-not-pending');
+  });
+
+  test('withdrawing twice answers 409 the second time', async () => {
+    api.state.otherOwnerVins.add(VIN);
+    const claimId = (await register(carBody).then((r) => r.json())).claimId;
+    expect((await post(`/ownership-claims/${claimId}/withdraw`)).status).toBe(204);
+    const again = await post(`/ownership-claims/${claimId}/withdraw`);
+    expect(again.status).toBe(409);
+    expect((await again.json()).code).toBe('claim-not-pending');
+  });
 });

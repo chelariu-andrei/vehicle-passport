@@ -65,6 +65,7 @@ export function installFakeApi(): FakeApi {
     passports: [],
   };
   const scanVins = new Map<string, string>();
+  const decidedClaims = new Set<string>();
   const violations: string[] = [];
   const expired = new Set<string>();
   const failures = new Map<string, { status: number; code: string | null }[]>();
@@ -148,7 +149,7 @@ export function installFakeApi(): FakeApi {
       }
     }
 
-    const ctx: Ctx = { state, scanVins, params, query: url.searchParams, body: record.body, form };
+    const ctx: Ctx = { state, scanVins, decidedClaims, params, query: url.searchParams, body: record.body, form };
     const reply = await handler(ctx);
 
     if (!documentsStatus(op, reply.status)) violate(`${op.operationId}: answered undocumented status ${reply.status}`);
