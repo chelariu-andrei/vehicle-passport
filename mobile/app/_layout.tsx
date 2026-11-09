@@ -25,7 +25,7 @@ function Shell() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen name="vehicles/new" options={{ presentation: 'modal' }} />
         <Stack.Screen name="scans/new" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="vehicles/[vin]/edit"options={{ presentation: 'modal' }} />
+        <Stack.Screen name="vehicles/[vin]/edit" options={{ presentation: 'modal' }} />
         <Stack.Screen name="vehicles/[vin]/events/new" options={{ presentation: 'modal' }} />
         <Stack.Screen name="vehicles/[vin]/events/[eventId]/edit" options={{ presentation: 'modal' }} />
       </Stack>

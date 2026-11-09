@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import { File } from 'expo-file-system';
 
 import { deletedFiles, manipulator } from '../../../../test/fakes/photos';
@@ -44,6 +45,21 @@ test('throws PhotoUnusableError when 0.4 is still too large, and leaves no file 
 test('a photo that cannot be decoded is unusable', async () => {
   manipulator.failFor = () => true;
   await expect(preparePhoto(photo(4000, 3000))).rejects.toBeInstanceOf(PhotoUnusableError);
+});
+
+test('a programming error is not reported as an unusable photo', async () => {
+  jest.spyOn(Crypto, 'randomUUID').mockImplementationOnce(() => {
+    throw new TypeError('randomUUID is not available');
+  });
+  const result = preparePhoto(photo(1000, 800));
+  await expect(result).rejects.toBeInstanceOf(TypeError);
+  await expect(result).rejects.not.toBeInstanceOf(PhotoUnusableError);
+});
+
+test('the kept file name comes from expo-crypto, not a global', async () => {
+  jest.spyOn(Crypto, 'randomUUID').mockReturnValueOnce('11111111-1111-4111-8111-111111111111');
+  const result = await preparePhoto(photo(1000, 800));
+  expect(result.uri).toBe('document/scan-11111111-1111-4111-8111-111111111111.jpg');
 });
 
 test('output is always JPEG and lives in the document directory', async () => {

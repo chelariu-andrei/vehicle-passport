@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { randomUUID } from 'expo-crypto';
 import { File } from 'expo-file-system';
 
 import { api, unwrap } from '@/shared/api';
@@ -41,12 +42,12 @@ export async function uploadScans(vin: string, photos: PreparedPhoto[]): Promise
     return [{ jobId: job.id, vin, localUri: photos[0].uri, submittedAt, batchId: null }];
   }
 
+  const batchId = randomUUID(); // before sending, so nothing can fail after the files are out
   const form = new FormData();
   photos.forEach((photo) => addPart(form, 'files', photo));
   const { jobs } = unwrap(
     await api.POST('/vehicles/{vin}/scan-batches', { params: { path }, body: { files: [] }, bodySerializer: () => form }),
   );
-  const batchId = crypto.randomUUID();
   return jobs.map((job, i) => ({ jobId: job.id, vin, localUri: photos[i].uri, submittedAt, batchId }));
 }
 

@@ -9,6 +9,13 @@ jest.mock('@react-native-community/netinfo', () =>
   require('@react-native-community/netinfo/jest/netinfo-mock.js'),
 );
 
+/* The native UUID generator is not there under Node; everything else keeps its real implementation. */
+jest.mock('expo-crypto', () => ({
+  __esModule: true,
+  ...jest.requireActual('expo-crypto'),
+  randomUUID: () => require('node:crypto').randomUUID(),
+}));
+
 jest.mock('expo-secure-store', () => {
   const store = new Map<string, string>();
   return {

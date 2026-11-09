@@ -8,9 +8,9 @@ import { useSession } from '@/shared/auth/session';
 import { toast } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 
-import { inboxRow, isActive } from '../model/inboxRow';
+import { inboxRow } from '../model/inboxRow';
 import type { InboxAction, ScanStatus } from '../model/inboxRow';
-import { nextPollDelay } from '../model/polling';
+import { pollInterval } from '../model/polling';
 import { scanJobStore } from '../model/scanJobStore';
 import { LOCAL_SCANS, uploadScans } from './uploadScans';
 
@@ -53,9 +53,7 @@ export function useScanJobs() {
       queryKey: qk.scan(job.jobId),
       queryFn: async () => unwrap(await api.GET('/scans/{jobId}', { params: { path: { jobId: job.jobId } } })),
       enabled: focused,
-      // Only a job still being read is asked again; the first answer is attempt 0.
-      refetchInterval: (query: { state: { data?: { status: ScanStatus }; dataUpdateCount: number } }) =>
-        isActive(query.state.data?.status) ? nextPollDelay(Math.max(0, query.state.dataUpdateCount - 1)) : false,
+      refetchInterval: (query: { state: Parameters<typeof pollInterval>[0] }) => pollInterval(query.state),
     })),
   });
 

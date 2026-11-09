@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import { File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
@@ -25,27 +26,33 @@ export class PhotoUnusableError extends Error {
  */
 export async function preparePhoto(asset: { uri: string; width: number; height: number }): Promise<PreparedPhoto> {
   const longEdge = Math.max(asset.width, asset.height);
-  try {
+  // Only decoding and re-encoding failures mean "this photo is unusable"; anything else is a bug and must surface.
+  const unusable = async <T>(work: () => Promise<T>): Promise<T> => {
+    try {
+      return await work();
+    } catch {
+      throw new PhotoUnusableError();
+    }
+  };
+
+  const image = await unusable(() => {
     let context = ImageManipulator.manipulate(asset.uri);
     if (longEdge > MAX_LONG_EDGE) {
       context = context.resize(asset.width >= asset.height ? { width: MAX_LONG_EDGE } : { height: MAX_LONG_EDGE });
     }
-    const image = await context.renderAsync();
-    for (const compress of QUALITIES) {
-      const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress });
-      const attempt = new File(saved.uri);
-      const size = attempt.size;
-      if (size > MAX_UPLOAD_BYTES) {
-        deleteKeptFile(saved.uri);
-        continue;
-      }
-      const kept = new File(Paths.document, `scan-${crypto.randomUUID()}.jpg`);
-      attempt.move(kept);
-      return { uri: kept.uri, size };
+    return context.renderAsync();
+  });
+  for (const compress of QUALITIES) {
+    const saved = await unusable(() => image.saveAsync({ format: SaveFormat.JPEG, compress }));
+    const attempt = new File(saved.uri);
+    const size = attempt.size;
+    if (size > MAX_UPLOAD_BYTES) {
+      deleteKeptFile(saved.uri);
+      continue;
     }
-  } catch (error) {
-    if (error instanceof PhotoUnusableError) throw error;
-    throw new PhotoUnusableError();
+    const kept = new File(Paths.document, `scan-${randomUUID()}.jpg`);
+    attempt.move(kept);
+    return { uri: kept.uri, size };
   }
   throw new PhotoUnusableError('The photo is too large even at the lowest quality');
 }
