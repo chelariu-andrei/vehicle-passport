@@ -1,12 +1,14 @@
 package com.vehiclepassport.server.vehicle.infrastructure.persistence.repository;
 
 import com.vehiclepassport.server.vehicle.application.port.out.VehicleRepositoryPort;
+import com.vehiclepassport.server.vehicle.domain.exception.ConcurrentOwnershipChangeException;
 import com.vehiclepassport.server.vehicle.domain.model.Fuel;
 import com.vehiclepassport.server.vehicle.domain.model.Vehicle;
 import com.vehiclepassport.server.vehicle.domain.model.Vin;
 import com.vehiclepassport.server.vehicle.infrastructure.persistence.entity.VehicleEntity;
 import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.persistence.PersistenceException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -40,8 +42,15 @@ public class VehiclePanacheRepository implements VehicleRepositoryPort, PanacheR
         entity.engine = vehicle.engine();
         entity.year = vehicle.year();
         entity.fuel = vehicle.fuel().name();
-        persist(entity);
-        flush();
+        try {
+            persist(entity);
+            flush();
+        } catch (PersistenceException e) {
+            if (UniqueViolations.isUniqueViolation(e)) {
+                throw new ConcurrentOwnershipChangeException("The vehicle was registered concurrently; retry");
+            }
+            throw e;
+        }
     }
 
     private static Vehicle toDomain(VehicleEntity e) {

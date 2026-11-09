@@ -12,7 +12,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceException;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,8 +23,6 @@ import java.util.UUID;
 @ApplicationScoped
 public class OwnershipPanacheRepository implements OwnershipRepositoryPort {
 
-    private static final String UNIQUE_VIOLATION = "23505";
-
     @Inject
     EntityManager em;
 
@@ -35,6 +32,10 @@ public class OwnershipPanacheRepository implements OwnershipRepositoryPort {
         em.createNativeQuery("select count(*) from (select pg_advisory_xact_lock(hashtext(:vin))) l")
                 .setParameter("vin", vin.value())
                 .getSingleResult();
+        // Anything read before the lock may be stale once another transaction committed while this one waited;
+        // drop the first-level cache so later reads see the committed state. Every save flushes, so nothing is lost.
+        em.flush();
+        em.clear();
     }
 
     @Override
@@ -117,24 +118,12 @@ public class OwnershipPanacheRepository implements OwnershipRepositoryPort {
             em.persist(entity);
             em.flush();
         } catch (PersistenceException e) {
-            if (isUniqueViolation(e)) {
+            if (UniqueViolations.isUniqueViolation(e)) {
                 throw new ConcurrentOwnershipChangeException(
                         "The ownership of this vehicle was changed concurrently; retry");
             }
             throw e;
         }
-    }
-
-    private static boolean isUniqueViolation(Throwable e) {
-        for (Throwable t = e; t != null; t = t.getCause()) {
-            if (t instanceof SQLException sql && UNIQUE_VIOLATION.equals(sql.getSQLState())) {
-                return true;
-            }
-            if (t.getCause() == t) {
-                break;
-            }
-        }
-        return false;
     }
 
     private OwnershipPeriod toDomain(OwnershipPeriodEntity e) {
