@@ -13,7 +13,7 @@ import { useRegisterVehicle } from '../api/useRegisterVehicle';
 import { FUEL_TYPES, vehicleFormSchema } from '../model/vehicleForm';
 import type { FuelType, VehicleFormValues } from '../model/vehicleForm';
 
-type Errors = Partial<Record<'vin' | 'make' | 'model' | 'engine' | 'year' | 'fuel', string>>;
+type FieldName = 'vin' | 'make' | 'model' | 'engine' | 'year' | 'fuel';
 
 function FuelPicker({ value, onChange, error }: { value: FuelType | null; onChange(fuel: FuelType): void; error?: string }) {
   const { colors } = useTheme();
@@ -60,7 +60,6 @@ function FuelPicker({ value, onChange, error }: { value: FuelType | null; onChan
 }
 
 type FormInput = z.input<ReturnType<typeof vehicleFormSchema>>;
-type Field_ = keyof Errors;
 
 export function AddVehicleScreen() {
   const router = useRouter();
@@ -75,8 +74,10 @@ export function AddVehicleScreen() {
     resolver: zodResolver(schema),
     defaultValues: { vin: '', make: '', model: '', engine: '', year: '', fuel: undefined },
   });
-  // Editing any field clears a stale server error.
-  const edited = () => register.reset();
+  // Editing clears a settled server error. A request in flight must never be reset: that would detach its callbacks.
+  const edited = () => {
+    if (register.isError) register.reset();
+  };
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const openCar = (carVin: string) => router.replace(`/vehicles/${carVin}`);
@@ -103,7 +104,7 @@ export function AddVehicleScreen() {
   });
 
   const maxYear = new Date().getFullYear() + 1;
-  const problem = (field: Field_): string | undefined =>
+  const problem = (field: FieldName): string | undefined =>
     errors[field] === undefined
       ? undefined
       : field === 'vin'
