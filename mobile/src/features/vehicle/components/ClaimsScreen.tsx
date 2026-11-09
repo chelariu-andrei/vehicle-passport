@@ -6,6 +6,7 @@ import { View } from 'react-native';
 import { errorMessage, forgetVehicle, useRefetchOnFocus } from '@/shared/api';
 import { AsyncList, Button, Card, ConfirmSheet, Screen, Text, toast, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { goToGarage } from '@/shared/navigation/goToGarage';
 
 import { useApproveClaim, useClaims, useRejectClaim } from '../api/useClaims';
 import type { PendingClaim } from '../api/useClaims';
@@ -39,7 +40,7 @@ export function ClaimsScreen({ vin }: { vin: string }) {
         onSuccess: () => {
           setDeciding(null);
           // The car is no longer ours: leave first, then drop what is cached for it.
-          router.replace('/');
+          goToGarage();
           forgetVehicle(queryClient, vin);
         },
         onError: fail,

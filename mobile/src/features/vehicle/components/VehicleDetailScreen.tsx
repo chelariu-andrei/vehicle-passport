@@ -6,6 +6,7 @@ import { Pressable, useWindowDimensions, View } from 'react-native';
 import { errorMessage, forgetVehicle, useRefetchOnFocus } from '@/shared/api';
 import { Button, ErrorState, Icon, Screen, Skeleton, Text, toast, tokens, ConfirmSheet, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { goToGarage } from '@/shared/navigation/goToGarage';
 import { CarViewer, VIEWER_COLOURS } from '@/shared/viewer';
 
 import { useClaims } from '../api/useClaims';
@@ -94,7 +95,7 @@ export function VehicleDetailScreen({ vin }: { vin: string }) {
       onSuccess: () => {
         setConfirming(false);
         // Leave first, so the screen is not mounted on queries that are about to be removed.
-        router.replace('/');
+        goToGarage();
         forgetVehicle(queryClient, vin);
       },
       onError: (error) => {
@@ -135,7 +136,7 @@ export function VehicleDetailScreen({ vin }: { vin: string }) {
           <View style={{ gap: tokens.space['space-3'] }}>
             <Button title={en.vehicle.addEvent} onPress={() => router.push(`/vehicles/${vin}/events/new`)} />
             <Button kind="secondary" title={en.vehicle.scanInvoice} onPress={() => router.push(`/scans/new?vin=${vin}`)} />
-            <Button kind="secondary" title={en.vehicle.createPassport} onPress={() => router.push(`/passports/new?vin=${vin}`)} />
+            <Button kind="secondary" title={en.vehicle.createPassport} onPress={() => router.push(`/vehicles/${vin}/passports/new`)} />
           </View>
 
           <Text variant="title-lg" accessibilityRole="header">

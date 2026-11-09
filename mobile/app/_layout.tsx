@@ -1,6 +1,6 @@
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
-import { Redirect, router, SplashScreen, Stack, useSegments } from 'expo-router';
+import { Redirect, SplashScreen, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -10,6 +10,7 @@ import { createAppQueryClient, forgetVehicle } from '@/shared/api';
 import { onSessionEnd, startSession, useSession } from '@/shared/auth/session';
 import { fontAssets, OfflineBanner, ThemeProvider, toast, ToastHost, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { goToGarage } from '@/shared/navigation/goToGarage';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -23,6 +24,7 @@ function Shell() {
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen name="vehicles/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="vehicles/[vin]/edit" options={{ presentation: 'modal' }} />
       </Stack>
       {/* The side of the app follows the session. Both redirects wait until the session is known. */}
       {status === 'signedOut' && !inAuth ? <Redirect href="/sign-in" /> : null}
@@ -42,7 +44,7 @@ export default function RootLayout() {
     const client: QueryClient = createAppQueryClient({
       onVehicleGone: (vin) => {
         forgetVehicle(client, vin);
-        router.replace('/');
+        goToGarage();
         toast(en.vehicle.gone);
       },
     });
