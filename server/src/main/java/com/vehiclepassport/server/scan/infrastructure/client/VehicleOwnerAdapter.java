@@ -1,6 +1,7 @@
 package com.vehiclepassport.server.scan.infrastructure.client;
 
 import com.vehiclepassport.server.scan.application.port.out.ActiveOwnerPort;
+import com.vehiclepassport.server.scan.application.port.out.OwnedPeriod;
 import com.vehiclepassport.server.vehicle.application.port.in.AssertActiveOwnerUseCase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -17,8 +18,9 @@ public class VehicleOwnerAdapter implements ActiveOwnerPort {
     }
 
     @Override
-    public UUID assertActiveOwner(String vin, UUID userId) {
-        return vehicles.assertActiveOwner(vin, userId).periodId();
+    public OwnedPeriod assertActiveOwner(String vin, UUID userId) {
+        var o = vehicles.assertActiveOwner(vin, userId);
+        return new OwnedPeriod(o.vin(), o.periodId());
     }
 
     @Override

@@ -46,7 +46,7 @@ class EventServiceHistoryTest {
             public List<VehicleEvent> page(String vin, TimelineCursor a, int l) { return List.of(); }
             public List<VehicleEvent> allActive(String vin) { return stored; }
         };
-        ActiveOwnerPort owners = (vin, user) -> UUID.randomUUID();
+        ActiveOwnerPort owners = (vin, user) -> new com.vehiclepassport.server.event.application.port.out.OwnedPeriod(vin, UUID.randomUUID());
         EventService service = new EventService(repo, owners, key -> null, Clock.fixed(Instant.parse("2026-01-15T10:00:00Z"),
                 ZoneOffset.UTC));
         assertEquals(List.of(low, high), service.history(VIN).stream().map(EventView::id).toList());

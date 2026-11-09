@@ -104,7 +104,8 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
 
     @Override
     public ActiveOwnership assertActiveOwner(String vin, UUID userId) {
-        return new ActiveOwnership(requireOwner(Vin.of(vin), userId).id());
+        Vin parsed = Vin.of(vin);
+        return new ActiveOwnership(requireOwner(parsed, userId).id(), parsed.value());
     }
 
     @Override

@@ -11,6 +11,7 @@ import com.vehiclepassport.server.scan.application.port.in.SubmitScanUseCase;
 import com.vehiclepassport.server.scan.application.port.in.UploadedFile;
 import com.vehiclepassport.server.scan.application.port.out.ActiveOwnerPort;
 import com.vehiclepassport.server.scan.application.port.out.ConfirmedEvent;
+import com.vehiclepassport.server.scan.application.port.out.OwnedPeriod;
 import com.vehiclepassport.server.scan.application.port.out.DocumentStoragePort;
 import com.vehiclepassport.server.scan.application.port.out.EventSavePort;
 import com.vehiclepassport.server.scan.application.port.out.ScanJobRepositoryPort;
@@ -62,21 +63,21 @@ public class ScanService implements SubmitScanUseCase, SubmitScanBatchUseCase, G
     @Override
     @Transactional
     public ScanJobView submit(UUID userId, String vin, UploadedFile file) {
-        UUID periodId = owners.assertActiveOwner(vin, userId);
+        OwnedPeriod owned = owners.assertActiveOwner(vin, userId);
         check(file);
-        return toView(store(UUID.randomUUID(), vin, userId, periodId, file));
+        return toView(store(UUID.randomUUID(), owned.vin(), userId, owned.periodId(), file));
     }
 
     @Override
     @Transactional
     public ScanBatchView submit(UUID userId, String vin, List<UploadedFile> files) {
-        UUID periodId = owners.assertActiveOwner(vin, userId);
+        OwnedPeriod owned = owners.assertActiveOwner(vin, userId);
         ScanFilePolicy.checkBatchSize(files.size());
         files.forEach(this::check);
         UUID batchId = UUID.randomUUID();
         List<ScanJobView> views = new ArrayList<>();
         for (UploadedFile file : files) {
-            views.add(toView(store(batchId, vin, userId, periodId, file)));
+            views.add(toView(store(batchId, owned.vin(), userId, owned.periodId(), file)));
         }
         return new ScanBatchView(batchId, views);
     }
@@ -128,7 +129,7 @@ public class ScanService implements SubmitScanUseCase, SubmitScanBatchUseCase, G
                 .orElseThrow(ScanJobNotFoundException::new);
         UUID period;
         try {
-            period = owners.assertActiveOwner(seen.vin(), userId);
+            period = owners.assertActiveOwner(seen.vin(), userId).periodId();
         } catch (DomainException e) {
             state.cancelIfPeriodClosed(jobId);
             throw e;
