@@ -24,26 +24,26 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 
 /**
- * Plain JUnit against an S3-compatible container: no Quarkus. The minio/minio image cannot be pulled in
+ * Plain JUnit against an S3-compatible container (adobe/s3mock, pinned): no Quarkus. The minio/minio image cannot be pulled in
  * this environment, so adobe/s3mock stands in; the adapter only uses put and get object.
  */
 class S3StorageAdapterIT {
 
-    private static final String IMAGE = "adobe/s3mock:latest";
+    private static final String IMAGE = "adobe/s3mock:5.2.3";
     private static final String BUCKET = "vehicle-passport";
-    private static GenericContainer<?> minio;
+    private static GenericContainer<?> s3mock;
     private static S3Client s3;
     private static SupabaseS3StorageAdapter adapter;
 
     @BeforeAll
     static void start() {
-        minio = new GenericContainer<>(IMAGE).withExposedPorts(9090)
+        s3mock = new GenericContainer<>(IMAGE).withExposedPorts(9090)
                 .waitingFor(Wait.forListeningPort());
-        minio.start();
-        String endpoint = "http://" + minio.getHost() + ":" + minio.getMappedPort(9090);
+        s3mock.start();
+        String endpoint = "http://" + s3mock.getHost() + ":" + s3mock.getMappedPort(9090);
         s3 = S3Client.builder().endpointOverride(URI.create(endpoint)).region(Region.US_EAST_1)
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create("minioadmin", "minioadmin")))
+                        AwsBasicCredentials.create("test-key", "test-key")))
                 .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
                 .httpClient(UrlConnectionHttpClient.create()).build();
         s3.createBucket(CreateBucketRequest.builder().bucket(BUCKET).build());
@@ -60,12 +60,12 @@ class S3StorageAdapterIT {
 
             @Override
             public String accessKey() {
-                return "minioadmin";
+                return "test-key";
             }
 
             @Override
             public String secretKey() {
-                return "minioadmin";
+                return "test-key";
             }
 
             @Override
@@ -80,8 +80,8 @@ class S3StorageAdapterIT {
         if (s3 != null) {
             s3.close();
         }
-        if (minio != null) {
-            minio.stop();
+        if (s3mock != null) {
+            s3mock.stop();
         }
     }
 

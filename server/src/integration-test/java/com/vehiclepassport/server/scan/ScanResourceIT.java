@@ -164,6 +164,16 @@ class ScanResourceIT {
     @Test
     @TestSecurity(user = "f1")
     @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void batch_without_files_part_is_not_accepted() {
+        Fixture f = mine();
+
+        given().multiPart("other", "x").when().post("/vehicles/" + f.vin() + "/scan-batches")
+                .then().statusCode(422).body("code", equalTo("batch-too-large"));
+    }
+
+    @Test
+    @TestSecurity(user = "f1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
     void post_without_file_part_400() {
         Fixture f = mine();
 
@@ -278,7 +288,7 @@ class ScanResourceIT {
 
         given().contentType(ContentType.JSON).body(CONFIRM_BODY)
                 .when().post("/scans/" + job.id() + "/confirm")
-                .then().statusCode(org.hamcrest.Matchers.greaterThanOrEqualTo(400));
+                .then().statusCode(404).body("code", equalTo("vehicle-not-found"));
 
         assertEquals(ScanStatus.CANCELLED, support.reload(job.id()).status());
         assertEquals(0, history.history(f.vin()).size());
