@@ -20,6 +20,8 @@ export function createAuthedFetch(auth: AuthPort, baseFetch: typeof fetch): (req
   };
 
   return async (request) => {
+    // Integration 2.2: /public/** is anonymous, so no token, no refresh and no sign-out.
+    if (new URL(request.url).pathname.startsWith('/public/')) return baseFetch(request);
     const pristine = request.clone(); // a consumed body cannot be sent twice
     const usedToken = await auth.getAccessToken();
     const response = await send(pristine, usedToken);

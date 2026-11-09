@@ -91,3 +91,18 @@ test('three concurrent 401s cause one refresh and three retries', async () => {
   expect(s.mock).toHaveBeenCalledTimes(6);
   expect(s.seen.slice(3).every((x) => x.token === 'Bearer new-1')).toBe(true);
 });
+
+test('a public path gets no Authorization header', async () => {
+  const s = setup([{ status: 200 }]);
+  await createAuthedFetch(s.auth, s.baseFetch)(new Request('http://api.test/public/passports/abc'));
+  expect(s.seen[0].token).toBeNull();
+});
+
+test('an empty 401 on a public path causes no refresh and no sign-out', async () => {
+  const s = setup([{ status: 401 }, { status: 200 }]);
+  const response = await createAuthedFetch(s.auth, s.baseFetch)(new Request('http://api.test/public/passports/abc'));
+  expect(response.status).toBe(401);
+  expect(s.auth.refreshCalls).toBe(0);
+  expect(s.auth.signOutCalls).toBe(0);
+  expect(s.mock).toHaveBeenCalledTimes(1);
+});
