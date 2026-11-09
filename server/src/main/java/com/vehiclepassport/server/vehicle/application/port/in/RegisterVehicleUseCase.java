@@ -1,5 +1,6 @@
 package com.vehiclepassport.server.vehicle.application.port.in;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public interface RegisterVehicleUseCase {
@@ -16,6 +17,6 @@ public interface RegisterVehicleUseCase {
     record Registered(VehicleView vehicle) implements RegistrationResult {
     }
 
-    record ClaimFiled(UUID claimId) implements RegistrationResult {
+    record ClaimFiled(UUID claimId, Instant filedAt) implements RegistrationResult {
     }
 }

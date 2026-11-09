@@ -2,6 +2,7 @@ package com.vehiclepassport.server.vehicle.application.service;
 
 import com.vehiclepassport.server.vehicle.application.port.in.ActiveOwnership;
 import com.vehiclepassport.server.vehicle.application.port.in.AssertActiveOwnerUseCase;
+import com.vehiclepassport.server.vehicle.application.port.in.FileOwnershipClaimUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.GetVehicleUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.ListMyVehiclesUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.RegisterVehicleUseCase;
@@ -19,6 +20,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,12 +31,15 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
 
     private final VehicleRepositoryPort vehicles;
     private final OwnershipRepositoryPort ownerships;
+    private final FileOwnershipClaimUseCase claims;
     private final Clock clock;
 
     @Inject
-    public VehicleService(VehicleRepositoryPort vehicles, OwnershipRepositoryPort ownerships, Clock clock) {
+    public VehicleService(VehicleRepositoryPort vehicles, OwnershipRepositoryPort ownerships,
+                          FileOwnershipClaimUseCase claims, Clock clock) {
         this.vehicles = vehicles;
         this.ownerships = ownerships;
+        this.claims = claims;
         this.clock = clock;
     }
 
@@ -49,8 +54,8 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
             if (open.get().ownerId().equals(c.userId())) {
                 throw new AlreadyOwnerException("You already own vehicle " + vin.value());
             }
-            // Stub until the claim half lands: report a claim without persisting anything.
-            return new ClaimFiled(UUID.randomUUID());
+            FileOwnershipClaimUseCase.FiledClaim filed = claims.file(vin.value(), c.userId());
+            return new ClaimFiled(filed.claimId(), filed.filedAt());
         }
         // A VIN with history keeps its recorded data; only a brand-new VIN takes the submitted data.
         Vehicle vehicle = vehicles.findByVin(vin).orElse(null);
@@ -92,7 +97,9 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
         Vin parsed = Vin.of(vin);
         ownerships.lockVin(parsed);
         OwnershipPeriod period = requireOwner(parsed, userId);
-        ownerships.save(period.close(clock.instant()));
+        Instant now = clock.instant();
+        ownerships.save(period.close(now));
+        ownerships.findPendingClaims(parsed).forEach(claim -> ownerships.save(claim.reject(now)));
     }
 
     @Override

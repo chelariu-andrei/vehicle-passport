@@ -2,6 +2,7 @@ package com.vehiclepassport.server.testsupport.fake;
 
 import com.vehiclepassport.server.testsupport.Resettable;
 import com.vehiclepassport.server.vehicle.application.port.out.OwnershipRepositoryPort;
+import com.vehiclepassport.server.vehicle.domain.model.OwnershipClaim;
 import com.vehiclepassport.server.vehicle.domain.model.OwnershipPeriod;
 import com.vehiclepassport.server.vehicle.domain.model.Vin;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -17,6 +18,7 @@ import java.util.UUID;
 public class FakeOwnershipRepository implements OwnershipRepositoryPort, Resettable {
 
     private final Map<UUID, OwnershipPeriod> store = new LinkedHashMap<>();
+    private final Map<UUID, OwnershipClaim> claims = new LinkedHashMap<>();
 
     @Override
     public void lockVin(Vin vin) {
@@ -44,7 +46,30 @@ public class FakeOwnershipRepository implements OwnershipRepositoryPort, Resetta
     }
 
     @Override
+    public Optional<OwnershipClaim> findClaim(UUID id) {
+        return Optional.ofNullable(claims.get(id));
+    }
+
+    @Override
+    public Optional<OwnershipClaim> findPendingClaim(Vin vin, UUID claimantId) {
+        return claims.values().stream()
+            .filter(c -> c.vin().equals(vin) && c.claimantId().equals(claimantId) && c.isPending())
+            .findFirst();
+    }
+
+    @Override
+    public List<OwnershipClaim> findPendingClaims(Vin vin) {
+        return claims.values().stream().filter(c -> c.vin().equals(vin) && c.isPending()).toList();
+    }
+
+    @Override
+    public void save(OwnershipClaim claim) {
+        claims.put(claim.id(), claim);
+    }
+
+    @Override
     public void reset() {
         store.clear();
+        claims.clear();
     }
 }
