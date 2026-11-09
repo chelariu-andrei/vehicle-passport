@@ -1,5 +1,8 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMemo } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import type { z } from 'zod';
 import { Pressable, View } from 'react-native';
 
 import { errorMessage, isApiError } from '@/shared/api';
@@ -8,7 +11,7 @@ import { en } from '@/shared/i18n/en';
 
 import { useRegisterVehicle } from '../api/useRegisterVehicle';
 import { FUEL_TYPES, vehicleFormSchema } from '../model/vehicleForm';
-import type { FuelType } from '../model/vehicleForm';
+import type { FuelType, VehicleFormValues } from '../model/vehicleForm';
 
 type Errors = Partial<Record<'vin' | 'make' | 'model' | 'engine' | 'year' | 'fuel', string>>;
 
@@ -56,16 +59,24 @@ function FuelPicker({ value, onChange, error }: { value: FuelType | null; onChan
   );
 }
 
+type FormInput = z.input<ReturnType<typeof vehicleFormSchema>>;
+type Field_ = keyof Errors;
+
 export function AddVehicleScreen() {
   const router = useRouter();
   const register = useRegisterVehicle();
-  const [vin, setVin] = useState('');
-  const [make, setMake] = useState('');
-  const [model, setModel] = useState('');
-  const [engine, setEngine] = useState('');
-  const [year, setYear] = useState('');
-  const [fuel, setFuel] = useState<FuelType | null>(null);
-  const [errors, setErrors] = useState<Errors>({});
+  const schema = useMemo(() => vehicleFormSchema(new Date()), []);
+  const {
+    control,
+    handleSubmit,
+    getValues,
+    formState: { errors },
+  } = useForm<FormInput, unknown, VehicleFormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { vin: '', make: '', model: '', engine: '', year: '', fuel: undefined },
+  });
+  // Editing any field clears a stale server error.
+  const edited = () => register.reset();
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const openCar = (carVin: string) => router.replace(`/vehicles/${carVin}`);
@@ -82,31 +93,28 @@ export function AddVehicleScreen() {
     );
   }
 
-  const submit = () => {
-    const maxYear = new Date().getFullYear() + 1;
-    const parsed = vehicleFormSchema(new Date()).safeParse({ vin, make, model, engine, year, fuel });
-    if (!parsed.success) {
-      const next: Errors = {};
-      for (const issue of parsed.error.issues) {
-        const field = issue.path[0] as keyof Errors;
-        next[field] ??=
-          field === 'vin' ? en.vehicleForm.invalidVin : field === 'year' ? en.vehicleForm.invalidYear(maxYear) : en.vehicleForm.required;
-      }
-      setErrors(next);
-      return;
-    }
-    setErrors({});
+  const submit = handleSubmit((values) => {
     // Only contract fields go out; `engine` is already absent when left empty.
-    register.mutate(parsed.data, {
+    register.mutate(values, {
       onSuccess: (result) => {
         if (result.kind === 'created') openCar(result.vehicle.vin);
       },
     });
-  };
+  });
+
+  const maxYear = new Date().getFullYear() + 1;
+  const problem = (field: Field_): string | undefined =>
+    errors[field] === undefined
+      ? undefined
+      : field === 'vin'
+        ? en.vehicleForm.invalidVin
+        : field === 'year'
+          ? en.vehicleForm.invalidYear(maxYear)
+          : en.vehicleForm.required;
 
   const failure = register.isError ? register.error : null;
   const alreadyMine = isApiError(failure, 'already-owner');
-  const vinProblem = isApiError(failure, 'invalid-vin') ? errorMessage(failure) : errors.vin;
+  const vinProblem = isApiError(failure, 'invalid-vin') ? errorMessage(failure) : problem('vin');
   const formProblem = failure && !isApiError(failure, 'invalid-vin') ? errorMessage(failure) : null;
 
   return (
@@ -114,34 +122,114 @@ export function AddVehicleScreen() {
       <Text variant="display-xl" accessibilityRole="header">
         {en.vehicleForm.title}
       </Text>
-      <Field
-        label={en.vehicleForm.vin}
-        value={vin}
-        onChangeText={(text) => setVin(text.toUpperCase())}
-        autoCapitalize="characters"
-        autoCorrect={false}
-        maxLength={17}
-        helper={en.vehicleForm.vinHelper}
-        error={vinProblem}
+      <Controller
+        control={control}
+        name="vin"
+        render={({ field }) => (
+          <Field
+            label={en.vehicleForm.vin}
+            value={field.value}
+            onChangeText={(text) => {
+              edited();
+              field.onChange(text.toUpperCase());
+            }}
+            onBlur={field.onBlur}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={17}
+            helper={en.vehicleForm.vinHelper}
+            error={vinProblem}
+          />
+        )}
       />
-      <Field label={en.vehicleForm.make} value={make} onChangeText={setMake} maxLength={100} error={errors.make} />
-      <Field label={en.vehicleForm.model} value={model} onChangeText={setModel} maxLength={100} error={errors.model} />
-      <Field label={en.vehicleForm.engine} value={engine} onChangeText={setEngine} maxLength={100} />
-      <Field
-        label={en.vehicleForm.year}
-        value={year}
-        onChangeText={setYear}
-        keyboardType="number-pad"
-        maxLength={4}
-        error={errors.year}
+      <Controller
+        control={control}
+        name="make"
+        render={({ field }) => (
+          <Field
+            label={en.vehicleForm.make}
+            value={field.value}
+            onChangeText={(text) => {
+              edited();
+              field.onChange(text);
+            }}
+            onBlur={field.onBlur}
+            maxLength={100}
+            error={problem('make')}
+          />
+        )}
       />
-      <FuelPicker value={fuel} onChange={setFuel} error={errors.fuel} />
+      <Controller
+        control={control}
+        name="model"
+        render={({ field }) => (
+          <Field
+            label={en.vehicleForm.model}
+            value={field.value}
+            onChangeText={(text) => {
+              edited();
+              field.onChange(text);
+            }}
+            onBlur={field.onBlur}
+            maxLength={100}
+            error={problem('model')}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="engine"
+        render={({ field }) => (
+          <Field
+            label={en.vehicleForm.engine}
+            value={field.value ?? ''}
+            onChangeText={(text) => {
+              edited();
+              field.onChange(text);
+            }}
+            onBlur={field.onBlur}
+            maxLength={100}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="year"
+        render={({ field }) => (
+          <Field
+            label={en.vehicleForm.year}
+            value={String(field.value ?? '')}
+            onChangeText={(text) => {
+              edited();
+              field.onChange(text);
+            }}
+            onBlur={field.onBlur}
+            keyboardType="number-pad"
+            maxLength={4}
+            error={problem('year')}
+          />
+        )}
+      />
+      <Controller
+        control={control}
+        name="fuel"
+        render={({ field }) => (
+          <FuelPicker
+            value={field.value ?? null}
+            onChange={(fuel) => {
+              edited();
+              field.onChange(fuel);
+            }}
+            error={problem('fuel')}
+          />
+        )}
+      />
       {formProblem ? (
         <Text color="danger" accessibilityRole="alert">
           {formProblem}
         </Text>
       ) : null}
-      {alreadyMine ? <Button kind="secondary" title={en.vehicleForm.viewCar} onPress={() => openCar(vin)} /> : null}
+      {alreadyMine ? <Button kind="secondary" title={en.vehicleForm.viewCar} onPress={() => openCar(getValues('vin'))} /> : null}
       <Button title={en.vehicleForm.submit} loading={register.isPending} onPress={submit} />
       <Button kind="secondary" title={en.common.cancel} onPress={close} />
     </Screen>
