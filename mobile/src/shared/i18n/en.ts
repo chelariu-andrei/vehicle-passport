@@ -28,6 +28,16 @@ export const en = {
     weakPassword: 'Choose a stronger password.',
     confirmationRequired: 'Check your email to confirm your account, then sign in.',
   },
+  account: {
+    email: 'Email',
+    appearance: 'Appearance',
+    system: 'System',
+    dark: 'Night garage',
+    light: 'Daylight',
+    signOut: 'Sign out',
+    version: 'Version',
+    modelCredit: 'Ferrari 458 model: vicent091036, CC BY 4.0',
+  },
   errors: {
     generic: 'Something went wrong. Try again.',
     network: "You're offline. Try again when you're connected.",

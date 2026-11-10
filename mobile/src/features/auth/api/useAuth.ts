@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 
-import { AuthFailed, signIn, signUp } from '@/shared/auth/session';
+import { AuthFailed, signIn, signOut, signUp } from '@/shared/auth/session';
 import { en } from '@/shared/i18n/en';
 
 export function authErrorMessage(error: unknown): string {
@@ -23,6 +23,10 @@ type Credentials = { email: string; password: string };
 
 export function useSignIn() {
   return useMutation({ mutationFn: ({ email, password }: Credentials) => signIn(email, password) });
+}
+
+export function useSignOut() {
+  return useMutation({ mutationFn: signOut });
 }
 
 export function useSignUp() {
