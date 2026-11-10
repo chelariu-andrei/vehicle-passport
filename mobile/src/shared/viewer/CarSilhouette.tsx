@@ -1,8 +1,9 @@
 import Svg, { Circle, G, Path } from 'react-native-svg';
 
 import { useTheme } from '@/shared/design';
+import { en } from '@/shared/i18n/en';
 
-import { BODY_LABELS, carSilhouette } from '../../../viewer/car-kit';
+import { carSilhouette } from '../../../viewer/car-kit';
 import { paintHex, type Look } from './look';
 
 const WHEEL_STROKE = 1.6;
@@ -14,7 +15,7 @@ export function CarSilhouette({ look, width }: { look: Look; width: number }) {
   return (
     <Svg
       testID="car-silhouette"
-      accessibilityLabel={BODY_LABELS[look.bodyType ?? 'SEDAN']}
+      accessibilityLabel={en.look.body[look.bodyType ?? 'SEDAN']}
       width={width}
       height={width * 0.4}
       viewBox={shape.viewBox}

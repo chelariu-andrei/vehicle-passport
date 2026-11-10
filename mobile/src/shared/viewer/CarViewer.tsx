@@ -39,7 +39,8 @@ const SILHOUETTE_SHARE = 0.7;
 
 /** The silhouette centred in its stage, at 70% of the stage width. */
 function Silhouette({ look }: { look: Look }) {
-  const [width, setWidth] = useState(useWindowDimensions().width);
+  const window = useWindowDimensions();
+  const [width, setWidth] = useState(window.width);
   return (
     <View
       pointerEvents="none"

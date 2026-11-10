@@ -148,6 +148,17 @@ export const en = {
     LPG: 'LPG',
     OTHER: 'Other',
   },
+  look: {
+    body: {
+      HATCHBACK: 'Hatchback',
+      SEDAN: 'Sedan',
+      ESTATE: 'Estate',
+      SUV: 'SUV',
+      COUPE: 'Coupé / Cabrio',
+      MPV: 'MPV / Van',
+      PICKUP: 'Pickup',
+    },
+  },
   viewer: {
     devTitle: '3D viewer check',
     fps: (value: number | null) => (value === null ? 'FPS: waiting' : `FPS: ${value}`),
