@@ -6,11 +6,11 @@ import { en } from '@/shared/i18n/en';
 import { CarSilhouette } from './CarSilhouette';
 import { BODY_TYPES, NEUTRAL_LOOK, paintHex, type Look } from './look';
 
-type Json = { type: string; props: Record<string, unknown>; children?: Json[] | null } | null | Json[];
-function collect(node: Json, type: string): { props: Record<string, unknown> }[] {
-  if (!node) return [];
+type Json = ReturnType<typeof screen.toJSON>;
+function collect(node: Json | string, type: string): { props: Record<string, unknown> }[] {
+  if (!node || typeof node === 'string') return [];
   if (Array.isArray(node)) return node.flatMap((child) => collect(child, type));
-  return [...(node.type === type ? [node] : []), ...collect(node.children ?? null, type)];
+  return [...(node.type === type ? [node] : []), ...(node.children ?? []).flatMap((child) => collect(child, type))];
 }
 
 test.each(BODY_TYPES)('%s is labelled from en.ts', async (bodyType) => {
