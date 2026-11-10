@@ -8,6 +8,7 @@ import com.vehiclepassport.server.vehicle.application.port.in.AppearanceView;
 import com.vehiclepassport.server.vehicle.application.port.in.GetVehicleUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.RegisterVehicleUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.RegisterVehicleUseCase.RegisterVehicleCommand;
+import com.vehiclepassport.server.vehicle.application.port.in.ReleaseVehicleUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.UpdateVehicleUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.UpdateVehicleUseCase.UpdateVehicleCommand;
 import com.vehiclepassport.server.vehicle.application.port.in.VehicleView;
@@ -34,6 +35,8 @@ public class LookSteps {
     GetVehicleUseCase get;
     @Inject
     UpdateVehicleUseCase update;
+    @Inject
+    ReleaseVehicleUseCase release;
 
     @Given("my vehicle has the look {word} {word} {word} {word} {word} {word} with a black roof")
     public void myVehicleHasTheLook(String body, String color, String finish, String wheels, String rims,
@@ -50,6 +53,31 @@ public class LookSteps {
     public void myVehicleHasPlateAndLook(String plate, String body, String color, String finish, String wheels,
             String rims, String tint) {
         styleAs(world.me(), myVin(), plate, true, look(body, color, finish, wheels, rims, tint));
+    }
+
+    @Given("Alice's vehicle has plate {string} and the look {word} {word} {word} {word} {word} {word} with a black roof")
+    public void alicesVehicleHasPlateAndLook(String plate, String body, String color, String finish, String wheels,
+            String rims, String tint) {
+        styleAs(world.user("Alice"), alicesVin(), plate, true, look(body, color, finish, wheels, rims, tint));
+    }
+
+    @Given("Alice's vehicle has plate {string}")
+    public void alicesVehicleHasPlate(String plate) {
+        styleAs(world.user("Alice"), alicesVin(), plate, true, null);
+    }
+
+    @Given("Alice released it")
+    public void aliceReleasedIt() {
+        release.release(world.get(VIN_KEY), world.user("Alice"));
+    }
+
+    @Then("Alice's vehicle still has plate {string}")
+    public void alicesVehicleStillHasPlate(String plate) {
+        RuntimeException error = world.lastError();
+        if (error != null) {
+            throw new AssertionError("unexpected failure: " + error, error);
+        }
+        assertEquals(plate, get.get(world.get(VIN_KEY), world.user("Alice")).plate());
     }
 
     @When("I save the look {word} {word} {word} {word} {word} {word} with a black roof and plate {string}")
@@ -102,6 +130,18 @@ public class LookSteps {
     @Then("my vehicle's look is exactly colour {string}")
     public void myVehiclesLookIsExactlyColour(String color) {
         assertEquals(new AppearanceView(null, color, null, null, null, null, null, null), mine().appearance());
+    }
+
+    /** Registers the default VIN for Alice when no step has named a vehicle yet. */
+    private String alicesVin() {
+        String vin = world.get(VIN_KEY);
+        if (vin == null) {
+            vin = DEFAULT_VIN;
+            register.register(new RegisterVehicleCommand(world.user("Alice"), vin, "Volkswagen", "Golf", null, 2018,
+                    "diesel"));
+            world.put(VIN_KEY, vin);
+        }
+        return vin;
     }
 
     /** Registers the default VIN for me when no step has named a vehicle yet. */

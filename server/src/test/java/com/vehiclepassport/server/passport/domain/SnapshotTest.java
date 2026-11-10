@@ -9,8 +9,10 @@ import com.vehiclepassport.server.passport.domain.model.SnapshotEvent;
 import com.vehiclepassport.server.passport.domain.model.SnapshotHasher;
 import com.vehiclepassport.server.passport.domain.model.SnapshotPart;
 import com.vehiclepassport.server.passport.domain.model.SnapshotVehicle;
+import java.lang.reflect.RecordComponent;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -33,6 +35,13 @@ class SnapshotTest {
             event("00000000-0000-0000-0000-000000000002", LocalDate.of(2025, 3, 1), new BigDecimal("10"));
     private static final SnapshotEvent E3 =
             event("00000000-0000-0000-0000-000000000000", LocalDate.of(2025, 4, 1), new BigDecimal("20"));
+
+    @Test
+    void snapshot_vehicle_has_no_plate_or_look() {
+        // The plate is owner-only and the look stays in the app: neither may ever join the passport snapshot.
+        assertEquals(List.of("vin", "make", "model", "engine", "year", "fuel"),
+                Arrays.stream(SnapshotVehicle.class.getRecordComponents()).map(RecordComponent::getName).toList());
+    }
 
     @Test
     void same_input_same_hash() {

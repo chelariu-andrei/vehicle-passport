@@ -113,6 +113,7 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
         Instant now = clock.instant();
         ownerships.save(period.close(now));
         ownerships.findPendingClaims(parsed).forEach(claim -> ownerships.save(claim.reject(now)));
+        vehicles.findByVin(parsed).ifPresent(v -> vehicles.save(v.withoutPlate()));
     }
 
     @Override

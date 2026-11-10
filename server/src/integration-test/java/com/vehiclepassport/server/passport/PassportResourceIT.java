@@ -197,6 +197,27 @@ class PassportResourceIT {
     @Test
     @TestSecurity(user = "f2")
     @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void passport_never_contains_plate_or_appearance() {
+        String vin = vehicleOf(ME);
+        given().contentType(ContentType.JSON)
+                .body("{\"plate\":\"B 123 ABC\",\"appearance\":{\"bodyType\":\"SUV\",\"contrastRoof\":true}}")
+                .when().patch("/vehicles/" + vin).then().statusCode(200);
+        String created = given().contentType(ContentType.JSON).body("{}")
+                .when().post("/vehicles/" + vin + "/passports").then().statusCode(201).extract().asString();
+        String url = io.restassured.path.json.JsonPath.from(created).getString("publicUrl");
+        String publicPage = given().when().get(url.substring(url.indexOf("/public/")))
+                .then().statusCode(200).extract().asString();
+        for (String raw : new String[] {created, publicPage}) {
+            org.junit.jupiter.api.Assertions.assertFalse(raw.contains("B 123 ABC"), raw);
+            org.junit.jupiter.api.Assertions.assertFalse(raw.contains("plate"), raw);
+            org.junit.jupiter.api.Assertions.assertFalse(raw.contains("appearance"), raw);
+            org.junit.jupiter.api.Assertions.assertFalse(raw.contains("contrastRoof"), raw);
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "f2")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
     void create_with_lowercase_vin_201_for_the_canonical_vin() {
         String vin = vehicleOf(ME);
         given().contentType(ContentType.JSON).body("{}")

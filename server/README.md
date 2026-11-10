@@ -44,3 +44,10 @@ Test commands:
 Per decision D7, no extraction provider is configured by default: scans are stored and
 can be reviewed and confirmed manually, but no data is extracted automatically until a
 provider is wired in.
+
+## Plate and look
+
+A vehicle has an optional `plate` and an optional `appearance` (the look of the app's illustrative model).
+The plate is owner-only: it is cleared when the car is released or a claim is approved, and it never enters a
+passport snapshot, the public passport or the PDF. The look stays with the car on transfer and is not part of
+a passport either.

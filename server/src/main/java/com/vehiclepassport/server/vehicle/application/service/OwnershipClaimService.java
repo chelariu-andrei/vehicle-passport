@@ -4,6 +4,7 @@ import com.vehiclepassport.server.vehicle.application.port.in.DecideOwnershipCla
 import com.vehiclepassport.server.vehicle.application.port.in.FileOwnershipClaimUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.PendingClaimView;
 import com.vehiclepassport.server.vehicle.application.port.out.OwnershipRepositoryPort;
+import com.vehiclepassport.server.vehicle.application.port.out.VehicleRepositoryPort;
 import com.vehiclepassport.server.vehicle.domain.exception.AlreadyOwnerException;
 import com.vehiclepassport.server.vehicle.domain.exception.ClaimNotFoundException;
 import com.vehiclepassport.server.vehicle.domain.exception.VehicleNotFoundException;
@@ -23,11 +24,13 @@ import java.util.UUID;
 public class OwnershipClaimService implements FileOwnershipClaimUseCase, DecideOwnershipClaimUseCase {
 
     private final OwnershipRepositoryPort ownerships;
+    private final VehicleRepositoryPort vehicles;
     private final Clock clock;
 
     @Inject
-    public OwnershipClaimService(OwnershipRepositoryPort ownerships, Clock clock) {
+    public OwnershipClaimService(OwnershipRepositoryPort ownerships, VehicleRepositoryPort vehicles, Clock clock) {
         this.ownerships = ownerships;
+        this.vehicles = vehicles;
         this.clock = clock;
     }
 
@@ -86,6 +89,8 @@ public class OwnershipClaimService implements FileOwnershipClaimUseCase, DecideO
         for (OwnershipClaim other : ownerships.findPendingClaims(parsed)) {
             ownerships.save(other.reject(now));
         }
+        // The plate is the previous owner's; the look stays with the car.
+        vehicles.findByVin(parsed).ifPresent(v -> vehicles.save(v.withoutPlate()));
     }
 
     @Override

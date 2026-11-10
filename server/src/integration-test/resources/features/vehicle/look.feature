@@ -33,3 +33,23 @@ Feature: Plate and look
     Given I own vehicle "WVWZZZ1JZXW000001"
     When I save the plate "b 123"
     Then it is rejected with code "invalid-vehicle"
+
+  Scenario: Approving a claim clears the plate and keeps the look
+    Given a pending claim by me on a vehicle owned by Alice
+    And Alice's vehicle has plate "B 123 ABC" and the look SUV BLUE MATTE AERO BLACK DARK with a black roof
+    When Alice approves my claim
+    Then my vehicle has no plate
+    And my vehicle has body type "SUV" and colour "BLUE"
+
+  Scenario: Releasing clears the plate for the next owner
+    Given Alice's vehicle has plate "B 123 ABC" and the look SUV BLUE MATTE AERO BLACK DARK with a black roof
+    And Alice released it
+    When I register the same VIN
+    Then my vehicle has no plate
+    And my vehicle has body type "SUV" and colour "BLUE"
+
+  Scenario: Rejecting a claim keeps the plate
+    Given a pending claim by me on a vehicle owned by Alice
+    And Alice's vehicle has plate "B 123 ABC"
+    When Alice rejects the claim
+    Then Alice's vehicle still has plate "B 123 ABC"
