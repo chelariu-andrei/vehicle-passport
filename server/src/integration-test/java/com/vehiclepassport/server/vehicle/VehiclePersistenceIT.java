@@ -2,6 +2,7 @@ package com.vehiclepassport.server.vehicle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -17,15 +18,24 @@ import com.vehiclepassport.server.vehicle.application.port.in.RegisterVehicleUse
 import com.vehiclepassport.server.vehicle.application.port.out.OwnershipRepositoryPort;
 import com.vehiclepassport.server.vehicle.application.port.out.VehicleRepositoryPort;
 import com.vehiclepassport.server.vehicle.domain.exception.ConcurrentOwnershipChangeException;
+import com.vehiclepassport.server.vehicle.domain.model.Appearance;
+import com.vehiclepassport.server.vehicle.domain.model.BodyType;
 import com.vehiclepassport.server.vehicle.domain.model.Fuel;
+import com.vehiclepassport.server.vehicle.domain.model.GlassTint;
 import com.vehiclepassport.server.vehicle.domain.model.OwnershipPeriod;
+import com.vehiclepassport.server.vehicle.domain.model.PaintColor;
+import com.vehiclepassport.server.vehicle.domain.model.PaintFinish;
+import com.vehiclepassport.server.vehicle.domain.model.Plate;
+import com.vehiclepassport.server.vehicle.domain.model.RimColor;
 import com.vehiclepassport.server.vehicle.domain.model.Vehicle;
 import com.vehiclepassport.server.vehicle.domain.model.Vin;
+import com.vehiclepassport.server.vehicle.domain.model.WheelStyle;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -72,6 +82,51 @@ class VehiclePersistenceIT {
         assertEquals(Optional.of(vehicle(vin)), found);
         List<Vehicle> many = QuarkusTransaction.requiringNew().call(() -> vehicles.findByVins(List.of(vin)));
         assertEquals(1, many.size());
+    }
+
+    private static final Appearance FULL_LOOK = new Appearance(BodyType.SUV, PaintColor.GREEN, "#1c6b49",
+            PaintFinish.MATTE, WheelStyle.AERO, RimColor.BLACK, GlassTint.DARK, true);
+
+    @Test
+    void saves_and_reads_plate_and_full_appearance() {
+        Vin vin = Vin.of(TestVins.random());
+        Vehicle styled = new Vehicle(vin, "Dacia", "Duster", null, 2020, Fuel.DIESEL, new Plate("B 123 ABC"),
+                FULL_LOOK);
+        QuarkusTransaction.requiringNew().run(() -> vehicles.save(styled));
+        assertEquals(Optional.of(styled), QuarkusTransaction.requiringNew().call(() -> vehicles.findByVin(vin)));
+    }
+
+    @Test
+    void saves_and_reads_a_vehicle_with_neither() {
+        Vin vin = Vin.of(TestVins.random());
+        QuarkusTransaction.requiringNew().run(() -> vehicles.save(vehicle(vin)));
+        Vehicle found = QuarkusTransaction.requiringNew().call(() -> vehicles.findByVin(vin)).orElseThrow();
+        assertNull(found.plate());
+        assertNull(found.appearance());
+    }
+
+    @Test
+    void saving_without_plate_clears_the_column() {
+        Vin vin = Vin.of(TestVins.random());
+        Vehicle styled = new Vehicle(vin, "Dacia", "Duster", null, 2020, Fuel.DIESEL, new Plate("B 123 ABC"),
+                FULL_LOOK);
+        QuarkusTransaction.requiringNew().run(() -> vehicles.save(styled));
+        QuarkusTransaction.requiringNew().run(() -> vehicles.save(styled.withoutPlate()));
+        Object plate = QuarkusTransaction.requiringNew().call(() -> em.createNativeQuery(
+                "select plate from vehicle_passport.vehicle where vin = ?1").setParameter(1, vin.value())
+                .getSingleResult());
+        assertNull(plate);
+        assertEquals(FULL_LOOK,
+                QuarkusTransaction.requiringNew().call(() -> vehicles.findByVin(vin)).orElseThrow().appearance());
+    }
+
+    @Test
+    void database_refuses_an_unknown_body_type() {
+        Vin vin = Vin.of(TestVins.random());
+        QuarkusTransaction.requiringNew().run(() -> vehicles.save(vehicle(vin)));
+        assertThrows(PersistenceException.class, () -> QuarkusTransaction.requiringNew().run(() -> em.createNativeQuery(
+                "update vehicle_passport.vehicle set body_type = 'BUGGY' where vin = ?1")
+                .setParameter(1, vin.value()).executeUpdate()));
     }
 
     @Test
