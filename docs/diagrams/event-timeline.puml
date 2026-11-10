@@ -3,7 +3,10 @@ title event — components
 skinparam componentStyle rectangle
 
 package "event" {
-  package "api" { [EventResource] [TimelineResource] }
+  package "api" {
+    [EventResource]
+    [TimelineResource]
+  }
   package "application" {
     interface AddEventUseCase
     interface GetTimelineUseCase
@@ -32,7 +35,8 @@ SaveConfirmedEventUseCase <|.. [EventService]
 [EventService] --> ActiveOwnerPort
 EventRepositoryPort <|.. [EventPanacheRepository]
 ActiveOwnerPort <|.. [VehicleOwnerAdapter]
-[VehicleOwnerAdapter] ..> "vehicle.port.in\nAssertActiveOwnerUseCase" : cross-feature via port/in
+component "vehicle.port.in\nAssertActiveOwnerUseCase" as VehiclePortIn
+[VehicleOwnerAdapter] ..> VehiclePortIn : cross-feature via port/in
 note bottom of SaveConfirmedEventUseCase : called by scan (port/in)
 @enduml
 

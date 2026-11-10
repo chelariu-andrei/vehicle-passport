@@ -3,7 +3,9 @@ title scan — components
 skinparam componentStyle rectangle
 
 package "scan" {
-  package "api" { [ScanResource] }
+  package "api" {
+    [ScanResource]
+  }
   package "application" {
     interface SubmitScanUseCase
     interface SubmitScanBatchUseCase
@@ -27,6 +29,7 @@ package "scan" {
     [SupabaseS3StorageAdapter]
     [ExtractionAdapter] #LightYellow
     [EventFeatureAdapter]
+    [VehicleOwnerAdapter]
   }
 }
 note right of [ExtractionAdapter] : **TO BE DISCUSSED**\nOCR / AI provider undefined.\nTests use a fake adapter.
@@ -47,7 +50,11 @@ ScanJobRepositoryPort <|.. [ScanJobPanacheRepository]
 DocumentStoragePort <|.. [SupabaseS3StorageAdapter]
 ReceiptExtractionPort <|.. [ExtractionAdapter]
 EventSavePort <|.. [EventFeatureAdapter]
-[EventFeatureAdapter] ..> "event.port.in\nSaveConfirmedEventUseCase"
+ActiveOwnerPort <|.. [VehicleOwnerAdapter]
+component "event.port.in\nSaveConfirmedEventUseCase" as EventPortIn
+component "vehicle.port.in\nAssertActiveOwnerUseCase" as VehiclePortIn
+[EventFeatureAdapter] ..> EventPortIn
+[VehicleOwnerAdapter] ..> VehiclePortIn : cross-feature via port/in
 @enduml
 
 @startuml scan-seq
