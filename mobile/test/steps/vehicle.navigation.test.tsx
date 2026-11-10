@@ -21,12 +21,10 @@ const seed = (api: Parameters<NonNullable<Parameters<typeof openApp>[1]>['seed']
 
 // Those screens arrive in later tasks; stand-ins let the router resolve the pushed path.
 const stub = () => null;
-// The Scans tab has its own "Scan an invoice"; an inert one leaves the Car tab's the only one.
 const laterRoutes = {
   'vehicles/[vin]/events/new': stub,
   'vehicles/[vin]/passports/new': stub,
   'scans/new': stub,
-  '(tabs)/scans': stub,
 };
 
 test.each([

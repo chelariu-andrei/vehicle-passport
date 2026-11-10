@@ -231,7 +231,6 @@ export const en = {
     submitted: (when: string) => `Sent ${when}`,
     needCarTitle: 'Add a car first',
     needCarBody: 'An invoice is scanned for a car in your garage. Add one, then come back.',
-    pickCar: 'Which car is this invoice for?',
     onePhoto: 'One photo per invoice',
     onePhotoBody: 'Each photo becomes one entry in the history. Multi-page invoices are not supported yet.',
     takePhoto: 'Take photo',
@@ -285,6 +284,7 @@ export const en = {
     /** Never "verified": the hash only shows the snapshot has not changed (design section 11). */
     frozen: 'Frozen snapshot',
     emptyTitle: 'No passports yet',
+    formerCars: 'Cars you no longer own',
     emptyBody: "Create one from a car's page when you want to share its history.",
     status: { ACTIVE: 'Active', EXPIRED: 'Expired', REVOKED: 'Revoked' },
     noExpiry: 'No expiry',

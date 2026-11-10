@@ -12,5 +12,5 @@ test.each([
 ])('the %s tab renders its screen', async (path, title) => {
   await renderRouter('./app', { initialUrl: path });
   expect(screen).toHavePathname(path);
-  expect(screen.getAllByText(title).length).toBeGreaterThan(0);
+  expect((await screen.findAllByText(title)).length).toBeGreaterThan(0);
 });

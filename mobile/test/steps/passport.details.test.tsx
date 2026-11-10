@@ -74,13 +74,13 @@ test('the list shows an empty state with no passports', async () => {
 
 test('the list shows the car, the status and the frozen label', async () => {
   await openApp('/passports', {
-    routes: { '(tabs)/index': () => null },
     seed: (api) => {
       api.state.vehicles.push(aVehicle());
       api.state.passports.push(aPassport({ vin: SAMPLE_VIN }));
     },
   });
-  expect(await screen.findByText('Volkswagen Golf')).toBeTruthy();
+  // The car is the title and the card's heading; the card's label names its car and VIN.
+  expect(await screen.findByRole('button', { name: `Volkswagen Golf, ${SAMPLE_VIN}, ${en.passport.status.ACTIVE}` })).toBeTruthy();
   expect(screen.getByText(en.passport.status.ACTIVE)).toBeTruthy();
   expect(screen.getByText(en.passport.frozen)).toBeTruthy();
 });

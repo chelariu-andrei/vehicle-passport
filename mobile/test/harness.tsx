@@ -19,18 +19,26 @@ export interface OpenAppOptions {
   routes?: Routes;
 }
 
+const inert = () => null;
+
+/** The Car, Scans and Passports tabs all mount and all carry the active car's name. Only the tab the URL is about stays real, so a screen's text and buttons are not found twice; a test passes its own `routes` to override. */
+function neighbourTabs(url: string): Routes {
+  const owner = url.startsWith('/scans') ? '(tabs)/scans' : url.startsWith('/passports') ? '(tabs)/passports' : '(tabs)/index';
+  return Object.fromEntries(['(tabs)/index', '(tabs)/scans', '(tabs)/passports'].filter((r) => r !== owner).map((r) => [r, inert]));
+}
+
 export async function openApp(url: string, opts: OpenAppOptions = {}): Promise<FakeApi> {
   const api = installFakeApi();
   opts.seed?.(api);
   if (opts.as === null) fakeAuth.clear();
   else if (opts.as) fakeAuth.signInAs(opts.as.id, opts.as.email);
-  await renderRouter({ appDir: './app', overrides: opts.routes ?? {} }, { initialUrl: url });
+  await renderRouter({ appDir: './app', overrides: { ...neighbourTabs(url), ...opts.routes } }, { initialUrl: url });
   return api;
 }
 
 /** The app is opened again on the same phone: storage and the fake API stay, every in-memory cache starts empty (the first tree is left to the test cleanup; unmounting it breaks the next test's render). */
 export async function reopenApp(url: string): Promise<void> {
-  await renderRouter({ appDir: './app', overrides: {} }, { initialUrl: url });
+  await renderRouter({ appDir: './app', overrides: neighbourTabs(url) }, { initialUrl: url });
 }
 
 /** Opens the Add vehicle sheet. The "Add a car" actions go to `/onboarding` (Task 10); until it replaces this form they cannot reach it. */
