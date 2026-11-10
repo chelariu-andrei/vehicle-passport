@@ -19,6 +19,8 @@ export function aVehicle(o: Partial<VehicleResponse> = {}): VehicleResponse {
     engine: '1.6 TDI',
     year: 2015,
     fuel: 'DIESEL',
+    plate: null,
+    appearance: null,
     ...o,
   };
 }

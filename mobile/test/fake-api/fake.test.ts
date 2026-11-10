@@ -61,7 +61,7 @@ test('an expired token answers 401 with an empty body', async () => {
 test('registerVehicle answers 201 for a free VIN, and 409 already-owner for one in the garage', async () => {
   const created = await register(carBody);
   expect(created.status).toBe(201);
-  expect(api.state.vehicles).toEqual([{ ...carBody, engine: null }]);
+  expect(api.state.vehicles).toEqual([{ ...carBody, engine: null, plate: null, appearance: null }]);
   const again = await register(carBody);
   expect(again.status).toBe(409);
   expect((await again.json()).code).toBe('already-owner');
@@ -320,5 +320,48 @@ describe('ownership ending', () => {
     const again = await post(`/ownership-claims/${claimId}/withdraw`);
     expect(again.status).toBe(409);
     expect((await again.json()).code).toBe('claim-not-pending');
+  });
+});
+
+describe('vehicle plate and appearance', () => {
+  const patch = (body: object) => send('PATCH', `/vehicles/${VIN}`, { headers: json, body: JSON.stringify(body) });
+
+  test('stores a look and a plate on update', async () => {
+    api.state.vehicles.push(aVehicle({ vin: VIN }));
+    const res = await patch({ plate: 'B 123 ABC', appearance: { bodyType: 'SUV', color: 'BLUE', finish: 'MATTE' } });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ plate: 'B 123 ABC', appearance: { bodyType: 'SUV', color: 'BLUE', finish: 'MATTE' } });
+  });
+
+  test('clears the plate with null and replaces the whole appearance', async () => {
+    api.state.vehicles.push(aVehicle({ vin: VIN, plate: 'B 123 ABC', appearance: { bodyType: 'SUV', color: 'BLUE' } }));
+    const res = await patch({ plate: null, appearance: { color: 'RED' } });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.plate).toBeNull();
+    expect(body.appearance).toEqual({ color: 'RED' });
+  });
+
+  test.each([
+    { plate: 'b 123' },
+    { plate: 'ABCDEFGHIJK' },
+    { appearance: { bodyType: 'BUGGY' } },
+    { appearance: { colorHex: 'red' } },
+    { appearance: { extra: 1 } },
+  ])('rejects %j against the contract', async (body) => {
+    api.state.vehicles.push(aVehicle({ vin: VIN }));
+    const res = await patch(body);
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('validation-failed');
+    expect(api.violations).toHaveLength(1);
+    api.violations.length = 0;
+  });
+
+  test('registers a car with no plate and no look', async () => {
+    const res = await register(carBody);
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.plate).toBeNull();
+    expect(body.appearance).toBeNull();
   });
 });
