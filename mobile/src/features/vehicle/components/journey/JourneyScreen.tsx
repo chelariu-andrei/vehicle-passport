@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useNavigation } from 'expo-router';
+import { useNavigation, usePreventRemove } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { AccessibilityInfo, Animated } from 'react-native';
@@ -26,12 +26,9 @@ import { StepDetails } from './StepDetails';
 import { StepProgress } from './StepProgress';
 import { StepVin } from './StepVin';
 
-/** The part of the screen's navigation the journey uses. expo-router's own typing does not cover `beforeRemove`. */
+/** The part of the screen's navigation the journey uses. */
 type ScreenNavigation = {
-  addListener(
-    type: 'beforeRemove',
-    listener: (event: { data: { action: { type: string } }; preventDefault(): void }) => void,
-  ): () => void;
+  addListener(type: 'focus', listener: () => void): () => void;
   setOptions(options: { gestureEnabled: boolean }): void;
 };
 
@@ -98,6 +95,7 @@ function Journey({ auto, initial, draft }: { auto: boolean; initial: JourneyDraf
   });
   const [step, setStep] = useState<Step>(initial.step === 'details' && isVin(initial.vin) ? 'details' : 'vin');
   const [asking, setAsking] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const values = useWatch({ control });
   const vin = values.vin ?? '';
 
@@ -108,7 +106,6 @@ function Journey({ auto, initial, draft }: { auto: boolean; initial: JourneyDraf
     stepRef.current = step;
     sessionRef.current = sessionStatus;
   });
-  const leaving = useRef(false);
   const submitted = useRef(false);
   const lastSuggestion = useRef<string | null>(null);
 
@@ -139,11 +136,22 @@ function Journey({ auto, initial, draft }: { auto: boolean; initial: JourneyDraf
   }, [navigation, step]);
 
   const leave = () => {
-    leaving.current = true;
     // "Later" on an automatic start holds the automatic start back until the app is next launched.
     if (auto) autoJourney.dismiss();
-    leaveScreen();
+    setLeaving(true);
   };
+  // The pop waits for the guard below to let go; a pop that did not happen must not leave the guard off.
+  useEffect(() => {
+    if (leaving) leaveScreen();
+  }, [leaving, leaveScreen]);
+  useEffect(() => navigation.addListener('focus', () => setLeaving(false)), [navigation]);
+  // Leaving by Back from an empty step 1 passes the guard untouched; the automatic start still stands down.
+  useEffect(
+    () => () => {
+      if (auto && sessionRef.current === 'signedIn') autoJourney.dismiss();
+    },
+    [auto],
+  );
 
   /** Back or "Later" on step 1: with something typed, ask; with nothing, just go. */
   const leaveFromVin = () => {
@@ -156,40 +164,25 @@ function Journey({ auto, initial, draft }: { auto: boolean; initial: JourneyDraf
   };
   const keepDraft = () => {
     draft.saveNow(snapshot());
-    setAsking(false);
     leave();
   };
   const discardDraft = () => {
     draft.clear();
-    setAsking(false);
     leave();
   };
 
   const backFromDetails = () => setStep('vin');
 
-  const handlers = useRef({ leaveFromVin, backFromDetails });
-  useEffect(() => {
-    handlers.current = { leaveFromVin, backFromDetails };
+  // The guard is a native one, so the iOS edge swipe is held back before it starts. Step 1 is guarded only while
+  // something is typed. A sign-out or a reset of the stack is not a person going back: it is let through.
+  const typed = Boolean(values.vin || values.make || values.model || values.year || values.engine || values.fuel);
+  const guard = !leaving && sessionStatus === 'signedIn' && (step === 'details' || step === 'look' || (step === 'vin' && typed));
+  usePreventRemove(guard, ({ data, repeat }) => {
+    const type = data.action.type;
+    if (type !== 'GO_BACK' && type !== 'POP') repeat();
+    else if (step === 'details') backFromDetails();
+    else if (step === 'vin') leaveFromVin();
   });
-  useEffect(
-    () =>
-      navigation.addListener('beforeRemove', (event) => {
-        // Only a person going back is intercepted: a sign-out or a reset of the stack must get through.
-        const type = event.data.action.type;
-        if (leaving.current || sessionRef.current !== 'signedIn' || (type !== 'GO_BACK' && type !== 'POP')) return;
-        const current = stepRef.current;
-        if (current === 'details') {
-          event.preventDefault();
-          handlers.current.backFromDetails();
-        } else if (current === 'vin') {
-          event.preventDefault();
-          handlers.current.leaveFromVin();
-        } else if (current === 'look') {
-          event.preventDefault();
-        }
-      }),
-    [navigation],
-  );
 
   const edited = () => {
     // A settled server error clears on the next edit. A request in flight must never be reset: that would detach its callbacks.

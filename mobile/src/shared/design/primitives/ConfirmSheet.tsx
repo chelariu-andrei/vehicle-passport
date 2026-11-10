@@ -19,12 +19,14 @@ type Props = {
   onCancel: () => void;
   /** Tapping outside or the system Back. Defaults to `onCancel`; a caller whose quiet button destroys something sets it to merely close. */
   onClose?: () => void;
+  /** iOS reports here once the sheet has fully gone; a caller that goes somewhere next waits for it. */
+  onDismiss?: () => void;
 };
 
-export function ConfirmSheet({ visible, title, body, confirmLabel, dismissLabel, danger = false, onConfirm, onCancel, onClose = onCancel }: Props) {
+export function ConfirmSheet({ visible, title, body, confirmLabel, dismissLabel, danger = false, onConfirm, onCancel, onClose = onCancel, onDismiss }: Props) {
   const { colors, scheme } = useTheme();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={onDismiss}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.scrim }}>
         <Pressable accessibilityLabel={en.common.dismiss} style={{ flex: 1 }} onPress={onClose} />
         <View
