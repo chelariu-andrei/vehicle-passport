@@ -137,8 +137,7 @@ defineFeature(feature, (test) => {
 
   test('One car can still add another', ({ given, when, then }) => {
     given('I own one car', async () => {
-      // `/onboarding` arrives with Task 10; a stand-in lets the router land on it.
-      fake = await openApp('/', { seed: (api) => api.state.vehicles.push(golf()), routes: { onboarding: () => null } });
+      fake = await openApp('/', { seed: (api) => api.state.vehicles.push(golf()) });
       await titleIs('Volkswagen Golf');
     });
     when('I choose Add a car from the overflow menu', async () => {
@@ -149,6 +148,7 @@ defineFeature(feature, (test) => {
     });
     then('onboarding step 1 opens', async () => {
       await waitFor(() => expect(screen).toHavePathname('/onboarding'));
+      expect(await screen.findByText(en.journey.vinTitle)).toBeTruthy();
     });
   });
 

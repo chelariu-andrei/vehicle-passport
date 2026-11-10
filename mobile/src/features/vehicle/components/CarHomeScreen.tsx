@@ -29,6 +29,7 @@ import { useLocalClaims } from '../api/useLocalClaims';
 import { useReleaseVehicle } from '../api/useReleaseVehicle';
 import { useVehicle, useVehicles } from '../api/useVehicles';
 import type { VehicleResponse } from '../api/useVehicles';
+import { autoJourney } from '../model/autoJourney';
 import { CarFacts } from './CarFacts';
 import { CarSwitcher } from './CarSwitcher';
 import { ClaimsBanner } from './ClaimsBanner';
@@ -220,7 +221,15 @@ export function CarHomeScreen() {
   const active = useActiveCar();
   const vehicles = useVehicles();
   const claims = useLocalClaims(vehicles.data?.map((v) => v.vin));
+  const focused = useIsFocused();
   useRefetchOnFocus(active.refetch);
+
+  // An empty garage with nothing on its way opens the add-a-car journey, unless "Later" was chosen this launch.
+  const claimsLoaded = claims.data !== undefined;
+  const claimCount = claims.data?.length ?? 0;
+  useEffect(() => {
+    if (focused && autoJourney.shouldStart({ status: active.status, claimsLoaded, claimCount })) router.push('/onboarding?auto=1');
+  }, [focused, active.status, claimsLoaded, claimCount, router]);
 
   if (active.status === 'ready') {
     // Keyed by VIN so a switch starts the new car's queries and focus handling from scratch.

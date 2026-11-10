@@ -15,15 +15,18 @@ type Props = {
   dismissLabel: string;
   danger?: boolean;
   onConfirm: () => void;
+  /** The quiet button. */
   onCancel: () => void;
+  /** Tapping outside or the system Back. Defaults to `onCancel`; a caller whose quiet button destroys something sets it to merely close. */
+  onClose?: () => void;
 };
 
-export function ConfirmSheet({ visible, title, body, confirmLabel, dismissLabel, danger = false, onConfirm, onCancel }: Props) {
+export function ConfirmSheet({ visible, title, body, confirmLabel, dismissLabel, danger = false, onConfirm, onCancel, onClose = onCancel }: Props) {
   const { colors, scheme } = useTheme();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.scrim }}>
-        <Pressable accessibilityLabel={en.common.dismiss} style={{ flex: 1 }} onPress={onCancel} />
+        <Pressable accessibilityLabel={en.common.dismiss} style={{ flex: 1 }} onPress={onClose} />
         <View
           accessibilityViewIsModal
           style={{

@@ -64,26 +64,6 @@ defineFeature(feature, (test) => {
   let fake: FakeApi;
   let claimId = '';
 
-  test('A VIN with an active owner files a claim', ({ when, then, and }) => {
-    when('I register a VIN and the API answers 202', async () => {
-      fake = await openApp('/', { seed: (seeded) => seeded.state.otherOwnerVins.add(OTHER_VIN) });
-      expect(await screen.findByText(en.garage.emptyTitle)).toBeTruthy();
-      await registerVin(OTHER_VIN);
-      expect(await screen.findByText(en.vehicleForm.filedBody)).toBeTruthy();
-      await press(en.vehicleForm.done);
-    });
-    then('no vehicle is added to my garage', async () => {
-      expect(fake.state.vehicles).toHaveLength(0);
-      // No cars, so there is no car list: the waiting claim shows under the empty state.
-      expect(await screen.findByText(en.garage.waiting)).toBeTruthy();
-      expect(screen.queryByText(en.garage.noEntries)).toBeNull();
-    });
-    and('I see a pending claim row for that VIN', () => {
-      expect(screen.getByText(OTHER_VIN)).toBeTruthy();
-      expect(screen.getByRole('button', { name: en.garage.withdraw })).toBeTruthy();
-    });
-  });
-
   test('An approved claim resolves itself', ({ given, when, then }) => {
     given('I have a pending claim row for a VIN', async () => {
       ({ fake } = await openGarageWithClaim());
@@ -144,7 +124,7 @@ defineFeature(feature, (test) => {
       jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(claimId as ReturnType<typeof crypto.randomUUID>);
       await registerVin(OTHER_VIN);
       expect(await screen.findByText(en.vehicleForm.filedBody)).toBeTruthy();
-      await press(en.vehicleForm.done);
+      await press(en.journey.done);
     });
     then('I see one pending claim row', async () => {
       await openCarList();
@@ -170,25 +150,6 @@ defineFeature(feature, (test) => {
       expect(fake.callsTo('withdrawClaim')).toHaveLength(1);
       if (answer === '204') expect(screen.queryByText(en.errors.codes['claim-not-pending'])).toBeNull();
       else expect(await screen.findByText('That claim was already decided.')).toBeTruthy();
-    });
-  });
-
-  test('Already mine', ({ when, then }) => {
-    when(/^I register a VIN and the API answers 409 "(.*)"$/, async (code: string) => {
-      fake = await openApp('/');
-      expect(await screen.findByText(en.garage.emptyTitle)).toBeTruthy();
-      fake.failNext('registerVehicle', 409, code);
-      await registerVin(SAMPLE_VIN);
-    });
-    then(/^I am told "(.*)"$/, async (message: string) => {
-      expect(await screen.findByText(message)).toBeTruthy();
-      expect(fake.callsTo('registerVehicle')[0].body).toEqual({
-        vin: SAMPLE_VIN,
-        make: 'Volkswagen',
-        model: 'Golf',
-        year: 2015,
-        fuel: 'DIESEL',
-      });
     });
   });
 

@@ -276,7 +276,7 @@ defineFeature(feature, (test) => {
     then('I am told to add a car first and offered Add vehicle', async () => {
       expect(await screen.findByText(en.scans.needCarTitle)).toBeTruthy();
       await press(en.garage.addVehicle);
-      await waitFor(() => expect(screen).toHavePathname('/vehicles/new'));
+      await waitFor(() => expect(screen).toHavePathname('/onboarding'));
     });
   });
 

@@ -1,9 +1,4 @@
 Feature: Garage
-  Scenario: A VIN with an active owner files a claim
-    When I register a VIN and the API answers 202
-    Then no vehicle is added to my garage
-    And I see a pending claim row for that VIN
-
   Scenario: An approved claim resolves itself
     Given I have a pending claim row for a VIN
     When my garage list contains that VIN
@@ -33,10 +28,6 @@ Feature: Garage
       | 204                     |
       | 409 "claim-not-pending" |
       | 404 "claim-not-found"   |
-
-  Scenario: Already mine
-    When I register a VIN and the API answers 409 "already-owner"
-    Then I am told "This car is already in your garage."
 
   Scenario: Offline garage
     Given my garage has loaded

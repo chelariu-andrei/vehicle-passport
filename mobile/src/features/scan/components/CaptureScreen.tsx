@@ -136,7 +136,7 @@ export function CaptureScreen({ vin }: { vin?: string }) {
         <EmptyState
           title={en.scans.needCarTitle}
           body={en.scans.needCarBody}
-          action={{ title: en.garage.addVehicle, onPress: () => router.replace('/vehicles/new') }}
+          action={{ title: en.garage.addVehicle, onPress: () => router.replace('/onboarding') }}
         />
       )}
     </Screen>
