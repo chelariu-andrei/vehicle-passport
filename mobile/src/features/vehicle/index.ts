@@ -1,3 +1,4 @@
+export { useActiveCar } from './api/useActiveCar';
 export { useLocalClaims } from './api/useLocalClaims';
 export { useRegisterVehicle } from './api/useRegisterVehicle';
 export { useVehicle, useVehicles } from './api/useVehicles';
