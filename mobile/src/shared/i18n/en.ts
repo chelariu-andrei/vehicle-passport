@@ -1,7 +1,7 @@
 /* Every user-visible string. Later tasks add their own sections. */
 export const en = {
   tabs: {
-    garage: 'Garage',
+    car: 'Car',
     scans: 'Scans',
     passports: 'Passports',
     account: 'Account',
@@ -71,6 +71,13 @@ export const en = {
       'expiry-in-past': 'Choose a date in the future.',
     },
   },
+  cars: {
+    title: 'Your cars',
+    add: 'Add a car',
+    switch: 'Switch car',
+    nowShowing: (name: string) => `Now showing ${name}`,
+    emptyTitle: 'Your garage',
+  },
   garage: {
     title: 'Garage',
     addVehicle: 'Add vehicle',
@@ -105,12 +112,15 @@ export const en = {
     /** Shown after the app leaves a car that the server no longer lists for this account (integration 2.3). */
     gone: 'This car is no longer in your garage.',
     illustrative: 'Illustrative model',
-    colours: 'Car colour',
+    more: 'More options',
     engine: 'Engine',
     addEvent: 'Add event',
     scanInvoice: 'Scan an invoice',
     createPassport: 'Create passport',
     history: 'History',
+    historyCount: (n: number) => `${n} entries`,
+    noHistoryTitle: 'No history yet',
+    noHistoryBody: 'Scan a service invoice and the first entry writes itself.',
     edit: 'Edit vehicle',
     release: 'Give up ownership',
     releaseConfirm: 'Give up this car',
@@ -149,6 +159,7 @@ export const en = {
     OTHER: 'Other',
   },
   look: {
+    change: 'Change look',
     body: {
       HATCHBACK: 'Hatchback',
       SEDAN: 'Sedan',

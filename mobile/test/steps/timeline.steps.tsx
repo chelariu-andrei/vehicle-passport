@@ -140,8 +140,9 @@ defineFeature(feature, (test) => {
       expect(fake.callsTo('addEvent')[0].body).toMatchObject({ currency });
     });
     and(/^the new entry shows evidence "(.*)"$/, async (word: string) => {
-      await waitFor(() => expect(screen).toHavePathname(detailUrl));
-      expect(await screen.findByLabelText(en.evidence.a11y(word))).toBeTruthy();
+      await waitFor(() => expect(screen).toHavePathname('/'));
+      // The entry's own row; the odometer in the facts shows the same badge.
+      expect(within(await screen.findByTestId('timeline-item')).getByLabelText(en.evidence.a11y(word))).toBeTruthy();
     });
   });
 

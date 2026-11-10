@@ -74,6 +74,7 @@ test('the list shows an empty state with no passports', async () => {
 
 test('the list shows the car, the status and the frozen label', async () => {
   await openApp('/passports', {
+    routes: { '(tabs)/index': () => null },
     seed: (api) => {
       api.state.vehicles.push(aVehicle());
       api.state.passports.push(aPassport({ vin: SAMPLE_VIN }));

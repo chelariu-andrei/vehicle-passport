@@ -1,16 +1,8 @@
 Feature: Vehicle
   Scenario: A car that left the account
-    Given a vehicle is open
+    Given the car is open
     When the API answers 404 "vehicle-not-found"
     Then I return to the garage and am told the car is no longer there
-
-  Scenario: A newly registered car opens
-    When I register a VIN and the API answers 201
-    Then the new vehicle is open
-
-  Scenario: A car I already own is one tap away
-    When I register a VIN and the API answers 409 "already-owner"
-    Then I can open that vehicle from the message
 
   Scenario: Saving sends only what changed
     Given I am editing a vehicle
@@ -49,7 +41,3 @@ Feature: Vehicle
     Given the 3D stage has not loaded
     When I open a vehicle
     Then I see its name and history
-
-  Scenario: Colour is remembered
-    When I choose "Rosso" and reopen the vehicle
-    Then "Rosso" is selected

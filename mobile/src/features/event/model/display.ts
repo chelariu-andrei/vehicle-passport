@@ -25,3 +25,10 @@ export function groupByYear(events: EventResponse[]): { year: number; events: Ev
   }
   return groups;
 }
+
+/** "10 Mar" for an ISO date; the year is the label above the row. */
+export function dayAndMonth(isoDate: string): { day: string; month: string } {
+  const [, month, day] = isoDate.split('-').map(Number);
+  const name = new Date(Date.UTC(2000, month - 1, 1)).toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
+  return { day: String(day), month: name };
+}

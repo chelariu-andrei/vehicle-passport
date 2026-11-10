@@ -26,6 +26,8 @@ export function useActiveCar(): ActiveCar {
   const cars = vehicles.data ?? [];
   const select = (vin: string) => {
     if (userId === null) return;
+    // A read of the stored choice may still be in flight (a car link opens before it lands); it must not overwrite this.
+    void queryClient.cancelQueries({ queryKey: qk.activeCar(userId) }, { revert: false });
     queryClient.setQueryData(qk.activeCar(userId), vin);
     void activeCarStore.set(userId, vin);
   };

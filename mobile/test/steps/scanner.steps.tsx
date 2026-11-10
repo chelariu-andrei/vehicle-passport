@@ -286,7 +286,7 @@ defineFeature(feature, (test) => {
 
   test('One car skips the car picker', ({ given, when, then }) => {
     given('I have one car', async () => {
-      fake = await openApp('/scans', { seed: withCar });
+      fake = await openApp('/scans', { seed: withCar, routes: { '(tabs)/index': () => null } });
       expect(await screen.findByText(en.scans.emptyTitle)).toBeTruthy();
     });
     when('I start a scan', async () => {

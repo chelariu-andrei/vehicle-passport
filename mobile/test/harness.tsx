@@ -1,5 +1,6 @@
 /* Opens the real app (router, providers, session) against the fake API. Every steps file starts here. */
-import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
+import { router } from 'expo-router';
+import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 import { en } from '@/shared/i18n/en';
 
@@ -27,9 +28,19 @@ export async function openApp(url: string, opts: OpenAppOptions = {}): Promise<F
   return api;
 }
 
-/** Opens the Add vehicle sheet from the garage and submits a valid form for `vin`. */
+/** The app is opened again on the same phone: storage and the fake API stay, every in-memory cache starts empty (the first tree is left to the test cleanup; unmounting it breaks the next test's render). */
+export async function reopenApp(url: string): Promise<void> {
+  await renderRouter({ appDir: './app', overrides: {} }, { initialUrl: url });
+}
+
+/** Opens the Add vehicle sheet. The "Add a car" actions go to `/onboarding` (Task 10); until it replaces this form they cannot reach it. */
+export async function openAddVehicle() {
+  await act(async () => router.push('/vehicles/new'));
+}
+
+/** Opens the Add vehicle sheet and submits a valid form for `vin`. */
 export async function registerVin(vin: string) {
-  await fireEvent.press(screen.getByRole('button', { name: en.garage.addVehicle }));
+  await openAddVehicle();
   await fireEvent.changeText(await screen.findByLabelText(en.vehicleForm.vin), vin.toLowerCase());
   await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.make), 'Volkswagen');
   await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.model), 'Golf');

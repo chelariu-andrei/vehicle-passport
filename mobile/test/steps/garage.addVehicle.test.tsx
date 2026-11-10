@@ -4,14 +4,14 @@ import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
 import { en } from '@/shared/i18n/en';
 
 import { SAMPLE_VIN } from '../fake-api';
-import { openApp } from '../harness';
+import { openAddVehicle, openApp } from '../harness';
 
 beforeEach(async () => {
   await AsyncStorage.clear();
 });
 
 async function fillForm(vin: string) {
-  await fireEvent.press(screen.getByRole('button', { name: en.garage.addVehicle }));
+  await openAddVehicle();
   await fireEvent.changeText(await screen.findByLabelText(en.vehicleForm.vin), vin);
   await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.make), 'Volkswagen');
   await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.model), 'Golf');

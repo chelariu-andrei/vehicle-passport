@@ -18,21 +18,26 @@ const seed = (api: Parameters<NonNullable<Parameters<typeof openApp>[1]>['seed']
 
 // Those screens arrive in later tasks; stand-ins let the router resolve the pushed path.
 const stub = () => null;
-const laterRoutes = { 'vehicles/[vin]/events/new': stub, 'vehicles/[vin]/passports/new': stub, 'scans/new': stub };
+// The Scans tab has its own "Scan an invoice"; an inert one leaves the Car tab's the only one.
+const laterRoutes = {
+  'vehicles/[vin]/events/new': stub,
+  'vehicles/[vin]/passports/new': stub,
+  'scans/new': stub,
+  '(tabs)/scans': stub,
+};
 
 test.each([
   [en.vehicle.addEvent, `/vehicles/${SAMPLE_VIN}/events/new`],
   [en.vehicle.scanInvoice, '/scans/new'],
   [en.vehicle.createPassport, `/vehicles/${SAMPLE_VIN}/passports/new`],
 ])('the %s action opens %s', async (action, pathname) => {
-  await openApp(`/vehicles/${SAMPLE_VIN}`, { seed, routes: laterRoutes });
+  await openApp('/', { seed, routes: laterRoutes });
   await fireEvent.press(await screen.findByRole('button', { name: action }));
   await waitFor(() => expect(screen).toHavePathname(pathname));
 });
 
 test('approving from the claims screen leaves no departed-car screen to go back to', async () => {
   await openApp('/', { seed });
-  await fireEvent.press(await screen.findByRole('button', { name: 'Volkswagen Golf' }));
   await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.reviewClaims }));
   await fireEvent.press(await screen.findByRole('button', { name: en.claims.approve }));
   await fireEvent.press(screen.getByRole('button', { name: en.claims.approveConfirm }));
@@ -44,11 +49,28 @@ test('approving from the claims screen leaves no departed-car screen to go back 
 
 test('giving up a car from its detail leaves nothing to go back to', async () => {
   await openApp('/', { seed });
-  await fireEvent.press(await screen.findByRole('button', { name: 'Volkswagen Golf' }));
+  await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.more }));
   await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.release }));
   await fireEvent.press(screen.getByRole('button', { name: en.vehicle.releaseConfirm }));
 
   expect(await screen.findByText(en.garage.emptyTitle)).toBeTruthy();
   await waitFor(() => expect(screen).toHavePathname('/'));
   expect(router.canGoBack()).toBe(false);
+});
+
+test('approving the active car\'s claim moves the app on to the next car, with no notice', async () => {
+  await openApp('/', {
+    seed: (api) => {
+      seed(api);
+      api.state.vehicles.push(aVehicle({ vin: 'UU1HSDDN5K0000002', make: 'Dacia', model: 'Duster' }));
+    },
+  });
+  await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.reviewClaims }));
+  await fireEvent.press(await screen.findByRole('button', { name: en.claims.approve }));
+  await fireEvent.press(screen.getByRole('button', { name: en.claims.approveConfirm }));
+
+  expect(await screen.findByText('Dacia Duster')).toBeTruthy();
+  await waitFor(() => expect(screen).toHavePathname('/'));
+  expect(screen.queryByText('Volkswagen Golf')).toBeNull();
+  expect(screen.queryByText(en.vehicle.gone)).toBeNull();
 });

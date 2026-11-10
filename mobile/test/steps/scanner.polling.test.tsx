@@ -30,6 +30,7 @@ async function openInboxWith(status: 'PROCESSING', setup: (api: FakeApi) => void
     { jobId: job.id, vin: SAMPLE_VIN, localUri: `document/${job.id}.jpg`, submittedAt: '2025-01-15T10:00:00Z', batchId: null },
   ]);
   const fake = await openApp('/scans', {
+    routes: { '(tabs)/index': () => null },
     seed: (api) => {
       api.state.vehicles.push(aVehicle());
       api.state.scans[job.id] = job;

@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor } from 'expo-router/testing-library';
 
 import { en } from '@/shared/i18n/en';
 
-import { aVehicle, SAMPLE_VIN } from '../fake-api';
+import { aVehicle } from '../fake-api';
 import { openApp } from '../harness';
 
 beforeEach(async () => {
@@ -11,7 +11,8 @@ beforeEach(async () => {
 });
 
 test('confirming gives the car up, returns to the garage and does not say the car was taken away', async () => {
-  const fake = await openApp(`/vehicles/${SAMPLE_VIN}`, { seed: (api) => api.state.vehicles.push(aVehicle()) });
+  const fake = await openApp('/', { seed: (api) => api.state.vehicles.push(aVehicle()) });
+  await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.more }));
   await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.release }));
   await fireEvent.press(screen.getByRole('button', { name: en.vehicle.releaseConfirm }));
 
@@ -23,11 +24,12 @@ test('confirming gives the car up, returns to the garage and does not say the ca
 });
 
 test('cancelling the warning sends nothing', async () => {
-  const fake = await openApp(`/vehicles/${SAMPLE_VIN}`, { seed: (api) => api.state.vehicles.push(aVehicle()) });
+  const fake = await openApp('/', { seed: (api) => api.state.vehicles.push(aVehicle()) });
+  await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.more }));
   await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.release }));
   await fireEvent.press(screen.getByRole('button', { name: en.vehicle.releaseKeep }));
 
   await waitFor(() => expect(screen.queryByText(en.vehicle.releaseBody)).toBeNull());
   expect(fake.callsTo('releaseVehicle')).toHaveLength(0);
-  expect(screen).toHavePathname(`/vehicles/${SAMPLE_VIN}`);
+  expect(screen).toHavePathname('/');
 });
