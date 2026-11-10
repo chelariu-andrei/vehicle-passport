@@ -2,22 +2,27 @@ import { ActivityIndicator, Pressable } from 'react-native';
 
 import { useTheme } from '../theme';
 import { tokens, type ColorName } from '../tokens.generated';
+import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
 
 type Props = {
-  kind?: 'primary' | 'secondary' | 'danger';
+  kind?: 'primary' | 'secondary' | 'danger' | 'quiet';
   title: string;
   onPress: () => void;
   disabled?: boolean;
   loading?: boolean;
+  icon?: IconName;
+  /** Only for `quiet`: draws the text in the danger colour. */
+  danger?: boolean;
 };
 
 export const MIN_TOUCH = 48;
 
-export function Button({ kind = 'primary', title, onPress, disabled = false, loading = false }: Props) {
+export function Button({ kind = 'primary', title, onPress, disabled = false, loading = false, icon, danger = false }: Props) {
   const { colors } = useTheme();
   const inactive = disabled || loading;
-  const text: ColorName = kind === 'primary' ? 'on-brand' : kind === 'danger' ? 'danger' : 'ink';
+  const text: ColorName =
+    kind === 'primary' ? 'on-brand' : kind === 'danger' || (kind === 'quiet' && danger) ? 'danger' : kind === 'quiet' ? 'ink-muted' : 'ink';
   const border = kind === 'danger' ? colors.danger : colors['line-strong'];
 
   return (
@@ -43,10 +48,12 @@ export function Button({ kind = 'primary', title, onPress, disabled = false, loa
         },
         kind === 'primary'
           ? { backgroundColor: colors.brand, borderRadius: tokens.radius['radius-pill'] }
-          : { borderWidth: 1, borderColor: border, borderRadius: tokens.radius['radius-md'] },
+          : kind === 'quiet'
+            ? { borderRadius: tokens.radius['radius-md'] }
+            : { borderWidth: 1, borderColor: border, borderRadius: tokens.radius['radius-md'] },
       ]}
     >
-      {loading ? <ActivityIndicator color={colors[text]} /> : null}
+      {loading ? <ActivityIndicator color={colors[text]} /> : icon ? <Icon name={icon} size={20} color={text} /> : null}
       <Text variant="label" color={text}>
         {title}
       </Text>

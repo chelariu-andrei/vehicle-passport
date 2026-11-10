@@ -3,7 +3,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { useTheme } from '../theme';
 import type { ColorName } from '../tokens.generated';
 
-type Shape = { d: string } | { cx: number; cy: number; r: number } | { x: number; y: number; width: number; height: number; rx: number };
+type Shape = { d: string; strokeWidth?: number } | { cx: number; cy: number; r: number } | { x: number; y: number; width: number; height: number; rx: number };
 
 // Paths from the design system's icon bundle (24 x 24 grid, stroked).
 const SHAPES = {
@@ -46,6 +46,24 @@ const SHAPES = {
   alert: [{ d: 'M12 4l9 15.5H3z' }, { d: 'M12 10v4.5M12 17.2v.01' }],
   share: [{ d: 'M12 15V4M8 8l4-4 4 4' }, { d: 'M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5' }],
   rotate: [{ d: 'M20 12a8 8 0 1 1-2.6-5.9' }, { d: 'M20 4v4.5h-4.5' }],
+  back: [{ d: 'M15 5l-7 7 7 7' }],
+  close: [{ d: 'M6 6l12 12M18 6L6 18' }],
+  down: [{ d: 'M6 9l6 6 6-6' }],
+  more: [{ d: 'M5.5 12h.01M12 12h.01M18.5 12h.01', strokeWidth: 2.6 }],
+  paint: [
+    { d: 'M12 3.5c3.2 3.6 5.5 6.6 5.5 9.6a5.5 5.5 0 0 1-11 0c0-3 2.3-6 5.5-9.6z' },
+    { d: 'M9.5 14a2.6 2.6 0 0 0 2.5 2.4' },
+  ],
+  wheel: [
+    { cx: 12, cy: 12, r: 8.5 },
+    { cx: 12, cy: 12, r: 2.2 },
+    { d: 'M12 3.5v6.3M12 14.2v6.3M4.6 7.8l5.5 3.1M13.9 13.1l5.5 3.1M4.6 16.2l5.5-3.1M13.9 10.9l5.5-3.1' },
+  ],
+  window: [
+    { d: 'M4 15l3.2-6.2A2 2 0 0 1 9 7.7h6.5a2 2 0 0 1 1.6.8L20 12.5V15z' },
+    { d: 'M12.5 7.7V15' },
+  ],
+  plate: [{ x: 3, y: 7.5, width: 18, height: 9, rx: 2 }, { d: 'M7 7.5v9M10.5 12h7' }],
 } satisfies Record<string, Shape[]>;
 
 export type IconName = keyof typeof SHAPES;
@@ -71,7 +89,7 @@ export function Icon({ name, size = 24, color = 'ink' }: Props) {
       importantForAccessibility="no-hide-descendants"
     >
       {(SHAPES[name] as Shape[]).map((shape, index) => {
-        if ('d' in shape) return <Path key={index} d={shape.d} />;
+        if ('d' in shape) return <Path key={index} d={shape.d} strokeWidth={shape.strokeWidth} />;
         if ('r' in shape) return <Circle key={index} {...shape} />;
         return <Rect key={index} {...shape} />;
       })}
