@@ -1,0 +1,9 @@
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+python-multipart>=0.0.9
+pillow>=10.3
+numpy>=1.26,<3
+# PaddleOCR 3.7.0 was the latest release per the project README when researched (2026-11-09).
+# Exact pins are UNVERIFIED against PyPI: run `docker compose build ocr`, then freeze what resolves.
+paddleocr==3.7.0
+paddlepaddle>=3.0,<4
