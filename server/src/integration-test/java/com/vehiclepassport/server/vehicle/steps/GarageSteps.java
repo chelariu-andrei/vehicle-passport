@@ -100,7 +100,7 @@ public class GarageSteps {
     public void iChangeItsModelTo(String model) {
         String vin = world.get(VIN_KEY);
         world.attempt(() -> update.update(
-            new UpdateVehicleCommand(world.me(), vin, "Volkswagen", model, null, 2018, "diesel")));
+            new UpdateVehicleCommand(world.me(), vin, "Volkswagen", model, null, 2018, "diesel", false, null, null)));
     }
 
     @Then("the vehicle exists in my garage")

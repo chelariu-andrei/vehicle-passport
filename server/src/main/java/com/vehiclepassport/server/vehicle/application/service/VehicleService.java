@@ -1,6 +1,7 @@
 package com.vehiclepassport.server.vehicle.application.service;
 
 import com.vehiclepassport.server.vehicle.application.port.in.ActiveOwnership;
+import com.vehiclepassport.server.vehicle.application.port.in.AppearanceView;
 import com.vehiclepassport.server.vehicle.application.port.in.AssertActiveOwnerUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.FileOwnershipClaimUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.GetVehicleUseCase;
@@ -13,9 +14,17 @@ import com.vehiclepassport.server.vehicle.application.port.out.OwnershipReposito
 import com.vehiclepassport.server.vehicle.application.port.out.VehicleRepositoryPort;
 import com.vehiclepassport.server.vehicle.domain.exception.AlreadyOwnerException;
 import com.vehiclepassport.server.vehicle.domain.exception.VehicleNotFoundException;
+import com.vehiclepassport.server.vehicle.domain.model.Appearance;
+import com.vehiclepassport.server.vehicle.domain.model.BodyType;
+import com.vehiclepassport.server.vehicle.domain.model.GlassTint;
 import com.vehiclepassport.server.vehicle.domain.model.OwnershipPeriod;
+import com.vehiclepassport.server.vehicle.domain.model.PaintColor;
+import com.vehiclepassport.server.vehicle.domain.model.PaintFinish;
+import com.vehiclepassport.server.vehicle.domain.model.Plate;
+import com.vehiclepassport.server.vehicle.domain.model.RimColor;
 import com.vehiclepassport.server.vehicle.domain.model.Vehicle;
 import com.vehiclepassport.server.vehicle.domain.model.Vin;
+import com.vehiclepassport.server.vehicle.domain.model.WheelStyle;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -86,7 +95,11 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
         Vin vin = Vin.of(c.vin());
         ownerships.lockVin(vin);
         requireOwner(vin, c.userId());
-        Vehicle vehicle = Vehicle.of(vin, c.make(), c.model(), c.engine(), c.year(), c.fuel(), null, null, clock);
+        Vehicle current = vehicles.findByVin(vin).orElseThrow(() -> notFound(vin));
+        Plate plate = c.plateGiven() ? Plate.ofNullable(c.plate()) : current.plate();
+        Appearance appearance = c.appearance() != null ? appearance(c.appearance()) : current.appearance();
+        Vehicle vehicle = Vehicle.of(vin, c.make(), c.model(), c.engine(), c.year(), c.fuel(), plate, appearance,
+                clock);
         vehicles.save(vehicle);
         return view(vehicle);
     }
@@ -124,6 +137,22 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
     }
 
     private static VehicleView view(Vehicle v) {
-        return new VehicleView(v.vin().value(), v.make(), v.model(), v.engine(), v.year(), v.fuel().name());
+        return new VehicleView(v.vin().value(), v.make(), v.model(), v.engine(), v.year(), v.fuel().name(),
+                v.plate() == null ? null : v.plate().value(), view(v.appearance()));
+    }
+
+    private static AppearanceView view(Appearance a) {
+        return a == null ? null : new AppearanceView(name(a.bodyType()), name(a.color()), a.colorHex(),
+                name(a.finish()), name(a.wheels()), name(a.rimColor()), name(a.glassTint()), a.contrastRoof());
+    }
+
+    private static Appearance appearance(AppearanceView a) {
+        return new Appearance(BodyType.parse(a.bodyType()), PaintColor.parse(a.color()), a.colorHex(),
+                PaintFinish.parse(a.finish()), WheelStyle.parse(a.wheels()), RimColor.parse(a.rimColor()),
+                GlassTint.parse(a.glassTint()), a.contrastRoof());
+    }
+
+    private static String name(Enum<?> value) {
+        return value == null ? null : value.name();
     }
 }
