@@ -58,6 +58,17 @@
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <!-- serve the contract (source of truth) as the static OpenAPI document -->
+        <directory>../contracts</directory>
+        <includes><include>openapi.yaml</include></includes>
+        <targetPath>META-INF</targetPath>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>io.quarkus.platform</groupId>
