@@ -79,7 +79,7 @@ export function ClaimsScreen({ vin }: { vin: string }) {
         title={approving ? en.claims.approveTitle : en.claims.rejectTitle}
         body={approving ? en.claims.approveBody : en.claims.rejectBody}
         confirmLabel={approving ? en.claims.approveConfirm : en.claims.rejectConfirm}
-        dismissLabel={approving ? en.claims.approveLater : en.common.dismiss}
+        dismissLabel={approving ? en.claims.approveLater : en.claims.rejectKeep}
         danger
         onConfirm={confirm}
         onCancel={() => setDeciding(null)}

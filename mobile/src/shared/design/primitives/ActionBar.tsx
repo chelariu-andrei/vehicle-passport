@@ -5,7 +5,7 @@ import { Button } from './Button';
 
 type Props = {
   primary: { title: string; onPress: () => void; loading?: boolean; disabled?: boolean };
-  quiet?: { title: string; onPress: () => void; danger?: boolean };
+  quiet?: { title: string; onPress: () => void; danger?: boolean; disabled?: boolean };
 };
 
 /** The bar pinned to the bottom of a screen: one primary action and at most one quiet action. */
@@ -25,7 +25,7 @@ export function ActionBar({ primary, quiet }: Props) {
         disabled={primary.disabled}
       />
       {quiet ? (
-        <Button kind="quiet" title={quiet.title} onPress={quiet.onPress} danger={quiet.danger} />
+        <Button kind="quiet" title={quiet.title} onPress={quiet.onPress} danger={quiet.danger} disabled={quiet.disabled} />
       ) : null}
     </View>
   );

@@ -157,6 +157,15 @@ describe('ActionBar', () => {
     expect(screen.getAllByRole('button')).toHaveLength(1);
   });
 
+  it('quiet is not pressable while disabled', async () => {
+    const quiet = jest.fn();
+    await render(<ActionBar primary={{ title: 'Continue', onPress: jest.fn() }} quiet={{ title: 'Later', onPress: quiet, disabled: true }} />);
+    const button = screen.getByRole('button', { name: 'Later' });
+    expect(button.props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.press(button);
+    expect(quiet).not.toHaveBeenCalled();
+  });
+
   it('primary is disabled while loading', async () => {
     const onPress = jest.fn();
     await render(<ActionBar primary={{ title: 'Continue', onPress, loading: true }} />);

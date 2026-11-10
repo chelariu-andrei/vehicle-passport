@@ -188,7 +188,7 @@ function Form({ jobId, scan, local, batchmates }: FormProps) {
   const submit = () => void handleSubmit(onValid)();
   const doReject = () => {
     setRejecting(false);
-    if (reject.isPending) return;
+    if (reject.isPending || confirm.isPending || leaving) return;
     reject.mutate(undefined, { onSuccess: () => void leave(), onError: changed });
   };
 
@@ -203,7 +203,7 @@ function Form({ jobId, scan, local, batchmates }: FormProps) {
       footer={
         <ActionBar
           primary={{ title: r.confirm, loading: confirm.isPending || leaving, onPress: submit }}
-          quiet={{ title: r.reject, danger: true, onPress: () => setRejecting(true) }}
+          quiet={{ title: r.reject, danger: true, disabled: confirm.isPending || leaving, onPress: () => setRejecting(true) }}
         />
       }
     >
@@ -391,7 +391,7 @@ function Form({ jobId, scan, local, batchmates }: FormProps) {
         title={r.rejectTitle}
         body={r.rejectBody}
         confirmLabel={r.rejectConfirm}
-        dismissLabel={en.common.dismiss}
+        dismissLabel={r.rejectKeep}
         danger
         onConfirm={doReject}
         onCancel={() => setRejecting(false)}

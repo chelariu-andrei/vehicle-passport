@@ -139,6 +139,7 @@ export const en = {
     rejectTitle: 'Reject this claim?',
     rejectBody: "A rejection can't be undone.",
     rejectConfirm: 'Reject claim',
+    rejectKeep: 'Keep the claim',
   },
   fuel: {
     PETROL: 'Petrol',
@@ -250,6 +251,7 @@ export const en = {
       rejectTitle: 'Reject this invoice?',
       rejectBody: 'It leaves your scans and nothing is added to the history.',
       rejectConfirm: 'Reject invoice',
+      rejectKeep: 'Keep this scan',
       changedTitle: 'This invoice has changed',
       warnings: {
         TOTAL_MISMATCH: "The total doesn't match the parts and labor. Check the amounts.",
