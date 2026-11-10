@@ -1,6 +1,6 @@
 import { useIsFocused, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, useWindowDimensions, View } from 'react-native';
 
 import { HistoryList } from '@/features/event';
@@ -35,14 +35,28 @@ import { ClaimsBanner } from './ClaimsBanner';
 import { PendingClaimRow } from './PendingClaimRow';
 
 const STAGE_SHARE = 0.3;
+const DISMISS_FALLBACK_MS = 350;
 
 type MenuItem = { title: string; onPress: () => void; danger?: boolean };
 
 /** The overflow sheet. It closes by tapping outside; every item is a full-width 48 point row. */
 function OverflowMenu({ visible, items, onClose }: { visible: boolean; items: MenuItem[]; onClose: () => void }) {
   const { colors, scheme } = useTheme();
+  // The chosen action waits until this modal has gone: iOS can drop a modal presented while another is dismissing.
+  const pending = useRef<(() => void) | null>(null);
+  const runPending = () => {
+    const action = pending.current;
+    pending.current = null;
+    action?.();
+  };
+  // `onDismiss` fires on iOS only; this timer is the fallback elsewhere. Whichever comes first runs the action once.
+  useEffect(() => {
+    if (visible || !pending.current) return;
+    const timer = setTimeout(runPending, DISMISS_FALLBACK_MS);
+    return () => clearTimeout(timer);
+  }, [visible]);
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={runPending}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.scrim }}>
         <Pressable accessibilityLabel={en.common.dismiss} style={{ flex: 1 }} onPress={onClose} />
         <View
@@ -61,8 +75,8 @@ function OverflowMenu({ visible, items, onClose }: { visible: boolean; items: Me
               accessibilityRole="button"
               accessibilityLabel={item.title}
               onPress={() => {
+                pending.current = item.onPress;
                 onClose();
-                item.onPress();
               }}
               style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: tokens.space['space-3'] }}
             >

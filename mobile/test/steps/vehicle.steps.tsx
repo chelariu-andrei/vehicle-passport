@@ -90,9 +90,9 @@ defineFeature(feature, (test) => {
       await press(en.vehicle.more);
       await press(en.vehicle.release);
     });
-    then('I am warned that access ends, unconfirmed scans are cancelled and passports stay live', () => {
+    then('I am warned that access ends, unconfirmed scans are cancelled and passports stay live', async () => {
       const body = en.vehicle.releaseBody;
-      expect(screen.getByText(body)).toBeTruthy();
+      expect(await screen.findByText(body)).toBeTruthy();
       expect(body).toMatch(/access to this car's history ends/i);
       expect(body).toMatch(/unconfirmed scans are cancelled/i);
       expect(body).toMatch(/passports .*stay live until you revoke them/i);

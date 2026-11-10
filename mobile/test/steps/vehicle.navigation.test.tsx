@@ -51,7 +51,7 @@ test('giving up a car from its detail leaves nothing to go back to', async () =>
   await openApp('/', { seed });
   await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.more }));
   await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.release }));
-  await fireEvent.press(screen.getByRole('button', { name: en.vehicle.releaseConfirm }));
+  await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.releaseConfirm }));
 
   expect(await screen.findByText(en.garage.emptyTitle)).toBeTruthy();
   await waitFor(() => expect(screen).toHavePathname('/'));
