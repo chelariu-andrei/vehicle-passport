@@ -23,10 +23,9 @@ defineFeature(feature, (test) => {
     when('I open Account', async () => {
       await openApp('/account', { as: { id: 'owner', email: 'owner@example.com' }, routes: inertTabs });
     });
-    then('I see my email, the app version and the 3D model credit', async () => {
+    then('I see my email and the app version', async () => {
       expect(await screen.findByText('owner@example.com')).toBeTruthy();
       expect(screen.getByText('9.9.9')).toBeTruthy();
-      expect(screen.getByText(en.account.modelCredit)).toBeTruthy();
     });
   });
 

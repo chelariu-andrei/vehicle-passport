@@ -147,7 +147,7 @@ defineFeature(feature, (test) => {
     });
     then('no WebView is mounted', async () => {
       await waitFor(() => expect(screen.getAllByText(en.garage.noEntries)).toHaveLength(2));
-      expect(screen.getAllByTestId('stage-placeholder')).toHaveLength(2);
+      expect(screen.getAllByTestId('car-silhouette')).toHaveLength(2);
       expect(hostTypes(screen.toJSON())).not.toContain('WebView');
     });
   });

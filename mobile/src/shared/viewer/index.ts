@@ -1,6 +1,6 @@
+export { CarSilhouette } from './CarSilhouette';
 export { CarViewer } from './CarViewer';
-export { CAR_VIEWER_ENABLED, VIEWER_COLOURS } from './config';
-export { StagePlaceholder } from './StagePlaceholder';
+export { CAR_VIEWER_ENABLED } from './config';
 export {
   BODY_TYPES, NEUTRAL_LOOK, PALETTE, appearanceOf, hasLook, lookOf, normalisePlate, paintHex, plateToSend, shade,
 } from './look';

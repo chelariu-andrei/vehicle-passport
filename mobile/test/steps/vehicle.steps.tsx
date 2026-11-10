@@ -193,7 +193,7 @@ defineFeature(feature, (test) => {
     then('I see its name and history', async () => {
       expect(await screen.findByText(CAR)).toBeTruthy();
       expect(screen.getByRole('header', { name: en.vehicle.history })).toBeTruthy();
-      expect(screen.getByTestId('stage-placeholder')).toBeTruthy();
+      expect(screen.getByTestId('car-silhouette')).toBeTruthy();
     });
   });
 

@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import { AsyncList, Button, Screen, Text, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
-import { StagePlaceholder } from '@/shared/viewer';
+import { CarSilhouette, NEUTRAL_LOOK } from '@/shared/viewer';
 import { useRefetchOnFocus } from '@/shared/api';
 
 import { useLocalClaims } from '../api/useLocalClaims';
@@ -47,8 +47,8 @@ export function GarageScreen() {
         renderItem={({ item }) => (item.kind === 'car' ? <VehicleCard vehicle={item.vehicle} /> : <PendingClaimRow claim={item.claim} />)}
         empty={
           <View style={{ gap: tokens.space['space-4'], paddingTop: tokens.space['space-4'] }}>
-            <View style={{ height: 160, borderRadius: tokens.radius['radius-lg'], overflow: 'hidden' }}>
-              <StagePlaceholder />
+            <View style={{ height: 160, alignItems: 'center', justifyContent: 'center' }}>
+              <CarSilhouette look={NEUTRAL_LOOK} width={240} />
             </View>
             <Text variant="title-lg" accessibilityRole="header" style={{ textAlign: 'center' }}>
               {en.garage.emptyTitle}

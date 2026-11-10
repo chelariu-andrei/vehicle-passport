@@ -4,11 +4,11 @@ import { Pressable, View } from 'react-native';
 import { latestOdometer, useTimeline } from '@/features/event';
 import { Card, EvidenceBadge, Skeleton, Text, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
-import { StagePlaceholder } from '@/shared/viewer';
+import { CarSilhouette, lookOf } from '@/shared/viewer';
 
 import type { VehicleResponse } from '../api/useVehicles';
 
-/** One car in the garage. The stage is the static placeholder: a list never runs a live 3D viewer. */
+/** One car in the garage. The stage is the static silhouette: a list never runs a live 3D viewer. */
 export function VehicleCard({ vehicle }: { vehicle: VehicleResponse }) {
   const router = useRouter();
   const timeline = useTimeline(vehicle.vin);
@@ -23,8 +23,8 @@ export function VehicleCard({ vehicle }: { vehicle: VehicleResponse }) {
       onPress={() => router.push(`/vehicles/${vehicle.vin}`)}
     >
       <Card style={{ gap: tokens.space['space-3'] }}>
-        <View style={{ height: 120, borderRadius: tokens.radius['radius-md'], overflow: 'hidden' }}>
-          <StagePlaceholder />
+        <View style={{ height: 120, alignItems: 'center', justifyContent: 'center' }}>
+          <CarSilhouette look={lookOf(vehicle)} width={200} />
         </View>
         <View style={{ gap: tokens.space['space-1'] }}>
           <Text variant="title-lg">{name}</Text>

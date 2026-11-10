@@ -1,6 +1,6 @@
 import { useIsFocused, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, useWindowDimensions, View } from 'react-native';
 
 import { HistoryList } from '@/features/event';
@@ -9,7 +9,7 @@ import { AppBar, Button, ErrorState, Icon, Screen, Skeleton, Text, toast, tokens
 import { en } from '@/shared/i18n/en';
 import { goToGarage } from '@/shared/navigation/goToGarage';
 import { useBack } from '@/shared/navigation/useBack';
-import { CarViewer, VIEWER_COLOURS } from '@/shared/viewer';
+import { CarViewer, NEUTRAL_LOOK } from '@/shared/viewer';
 
 import { useClaims } from '../api/useClaims';
 import { useReleaseVehicle } from '../api/useReleaseVehicle';
@@ -20,6 +20,14 @@ import { ClaimsBanner } from './ClaimsBanner';
 const STAGE_SHARE = 0.4;
 const CHIP = 28;
 const CHIP_HIT = 48;
+
+/** Interim colour chips: replaced by the look customiser (Task 12), which also retires viewerColorStore. */
+const VIEWER_COLOURS = [
+  { name: 'Obsidian', hex: '#0f1a15' },
+  { name: 'Silver', hex: '#d9dedb' },
+  { name: 'Racing green', hex: '#1c6b49' },
+  { name: 'Rosso', hex: '#a3171d' },
+] as const;
 
 /** The paint chosen for this car. Starts at the first colour and switches to the remembered one once it is read. */
 function useViewerColour(vin: string) {
@@ -86,6 +94,7 @@ export function VehicleDetailScreen({ vin }: { vin: string }) {
   const claims = useClaims(vin);
   const release = useReleaseVehicle(vin);
   const [colour, setColour] = useViewerColour(vin);
+  const look = useMemo(() => ({ ...NEUTRAL_LOOK, colorHex: colour }), [colour]);
   const [confirming, setConfirming] = useState(false);
   useRefetchOnFocus(vehicle.refetch);
   useRefetchOnFocus(claims.refetch);
@@ -115,7 +124,7 @@ export function VehicleDetailScreen({ vin }: { vin: string }) {
     <Screen scroll header={<AppBar onBack={back} />}>
       {/* The stage fills the top of the screen but never gates the rest: it shows a still until the 3D is ready. */}
       <View style={{ height: height * STAGE_SHARE, borderRadius: tokens.radius['radius-lg'], overflow: 'hidden' }}>
-        <CarViewer color={colour} active={focused} />
+        <CarViewer look={look} active={focused} />
       </View>
       <ColourChips value={colour} onChange={setColour} />
       <Text variant="caption" color="ink-muted">
