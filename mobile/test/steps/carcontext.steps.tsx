@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { focusManager } from '@tanstack/react-query';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Platform } from 'react-native';
 import { act, fireEvent, screen, waitFor, within } from 'expo-router/testing-library';
 import { defineFeature, loadFeature, setJestCucumberConfiguration } from 'jest-cucumber';
 
@@ -142,6 +142,8 @@ defineFeature(feature, (test) => {
       await titleIs('Volkswagen Golf');
     });
     when('I choose Add a car from the overflow menu', async () => {
+      // Jest's iOS Modal never reports a dismissal; the menu's Android timer path stands in for it.
+      jest.replaceProperty(Platform, 'OS', 'android');
       await press(en.vehicle.more);
       await press(en.cars.add);
     });

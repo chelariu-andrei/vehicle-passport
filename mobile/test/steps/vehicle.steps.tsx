@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { focusManager } from '@tanstack/react-query';
+import { Platform } from 'react-native';
 import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
 import { defineFeature, loadFeature, setJestCucumberConfiguration } from 'jest-cucumber';
 
@@ -17,6 +18,8 @@ const detailUrl = `/vehicles/${SAMPLE_VIN}`;
 const HOME = '/';
 const CAR = 'Volkswagen Golf';
 const FILED = '2025-01-15T10:00:00Z';
+
+afterEach(() => jest.restoreAllMocks());
 
 beforeEach(async () => {
   await AsyncStorage.clear();
@@ -85,6 +88,8 @@ defineFeature(feature, (test) => {
 
   test('Giving up ownership warns first', ({ when, then, and }) => {
     when('I choose Give up ownership', async () => {
+      // Jest's iOS Modal never reports a dismissal; the menu's Android timer path stands in for it.
+      jest.replaceProperty(Platform, 'OS', 'android');
       fake = await openApp(HOME, { seed: withCar });
       expect(await screen.findByText(CAR)).toBeTruthy();
       await press(en.vehicle.more);

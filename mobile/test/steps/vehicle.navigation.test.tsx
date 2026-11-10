@@ -1,11 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
+import { Platform } from 'react-native';
 import { fireEvent, screen, waitFor } from 'expo-router/testing-library';
 
 import { en } from '@/shared/i18n/en';
 
 import { aClaim, aVehicle, SAMPLE_VIN } from '../fake-api';
 import { openApp } from '../harness';
+
+afterEach(() => jest.restoreAllMocks());
 
 beforeEach(async () => {
   await AsyncStorage.clear();
@@ -48,6 +51,8 @@ test('approving from the claims screen leaves no departed-car screen to go back 
 });
 
 test('giving up a car from its detail leaves nothing to go back to', async () => {
+  // Jest's iOS Modal never reports a dismissal; the menu's Android timer path stands in for it.
+  jest.replaceProperty(Platform, 'OS', 'android');
   await openApp('/', { seed });
   await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.more }));
   await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.release }));

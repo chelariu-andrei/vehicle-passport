@@ -1,7 +1,7 @@
 import { useIsFocused, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, useWindowDimensions, View } from 'react-native';
+import { Modal, Platform, Pressable, useWindowDimensions, View } from 'react-native';
 
 import { HistoryList } from '@/features/event';
 import { errorMessage, forgetVehicle, useRefetchOnFocus } from '@/shared/api';
@@ -49,9 +49,14 @@ function OverflowMenu({ visible, items, onClose }: { visible: boolean; items: Me
     pending.current = null;
     action?.();
   };
-  // `onDismiss` fires on iOS only; this timer is the fallback elsewhere. Whichever comes first runs the action once.
+  // iOS reports the end of the dismissal through `onDismiss`, and a timer there could present mid-dismissal, so it
+  // waits for that alone. Elsewhere `onDismiss` never fires, so a short timer stands in. Reopening drops a stale action.
   useEffect(() => {
-    if (visible || !pending.current) return;
+    if (visible) {
+      pending.current = null;
+      return;
+    }
+    if (Platform.OS === 'ios' || !pending.current) return;
     const timer = setTimeout(runPending, DISMISS_FALLBACK_MS);
     return () => clearTimeout(timer);
   }, [visible]);
