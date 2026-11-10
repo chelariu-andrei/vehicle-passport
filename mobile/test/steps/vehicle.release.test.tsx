@@ -25,7 +25,7 @@ test('confirming gives the car up, returns to the garage and does not say the ca
 test('cancelling the warning sends nothing', async () => {
   const fake = await openApp(`/vehicles/${SAMPLE_VIN}`, { seed: (api) => api.state.vehicles.push(aVehicle()) });
   await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.release }));
-  await fireEvent.press(screen.getByRole('button', { name: en.common.cancel }));
+  await fireEvent.press(screen.getByRole('button', { name: en.vehicle.releaseKeep }));
 
   await waitFor(() => expect(screen.queryByText(en.vehicle.releaseBody)).toBeNull());
   expect(fake.callsTo('releaseVehicle')).toHaveLength(0);

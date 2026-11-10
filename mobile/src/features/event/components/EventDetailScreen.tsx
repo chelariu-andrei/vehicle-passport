@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { errorMessage, useRefetchOnFocus } from '@/shared/api';
-import { Button, ConfirmSheet, ErrorState, EvidenceBadge, Screen, Skeleton, Text, toast, tokens } from '@/shared/design';
+import { ActionBar, AppBar, Button, ConfirmSheet, ErrorState, EvidenceBadge, Screen, Skeleton, Text, toast, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { useBack } from '@/shared/navigation/useBack';
 
 import { useDeleteEvent } from '../api/useDeleteEvent';
 import { useEventDocument } from '../api/useEventDocument';
@@ -25,26 +26,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 }
 
 function Detail({ vin, event }: { vin: string; event: EventResponse }) {
-  const router = useRouter();
-  const locked = useIsLocked(event.id);
   const document = useEventDocument(vin, event.id, `invoice-${event.id}`);
-  const remove = useDeleteEvent(vin, event.id);
-  const [confirming, setConfirming] = useState(false);
-
-  const leave = () => (router.canGoBack() ? router.back() : router.replace(`/vehicles/${vin}`));
-  const confirmDelete = () => {
-    if (remove.isPending) return;
-    remove.mutate(undefined, {
-      onSuccess: () => {
-        setConfirming(false);
-        leave();
-      },
-      onError: (error) => {
-        setConfirming(false);
-        toast(errorMessage(error));
-      },
-    });
-  };
 
   const parts = event.details?.parts ?? [];
   return (
@@ -84,23 +66,6 @@ function Detail({ vin, event }: { vin: string; event: EventResponse }) {
           {errorMessage(document.error)}
         </Text>
       ) : null}
-
-      {locked ? null : (
-        <View style={{ gap: tokens.space['space-3'] }}>
-          <Button title={en.event.edit} onPress={() => router.push(`/vehicles/${vin}/events/${event.id}/edit`)} />
-          <Button kind="danger" title={en.event.delete} onPress={() => setConfirming(true)} />
-        </View>
-      )}
-
-      <ConfirmSheet
-        visible={confirming}
-        title={en.event.deleteTitle}
-        body={en.event.deleteBody}
-        confirmLabel={en.event.deleteConfirm}
-        danger
-        onConfirm={confirmDelete}
-        onCancel={() => setConfirming(false)}
-      />
     </>
   );
 }
@@ -110,14 +75,38 @@ export function EventDetailScreen({ vin, eventId }: { vin: string; eventId: stri
   const timeline = useTimeline(vin);
   useRefetchOnFocus(timeline.refetch);
   const event = timeline.data?.find((candidate) => candidate.id === eventId);
-  const back = () => (router.canGoBack() ? router.back() : router.replace(`/vehicles/${vin}`));
+  const locked = useIsLocked(eventId);
+  const remove = useDeleteEvent(vin, eventId);
+  const [confirming, setConfirming] = useState(false);
+  const back = useBack('/');
+
+  const confirmDelete = () => {
+    if (remove.isPending) return;
+    remove.mutate(undefined, {
+      onSuccess: () => {
+        setConfirming(false);
+        back();
+      },
+      onError: (error) => {
+        setConfirming(false);
+        toast(errorMessage(error));
+      },
+    });
+  };
 
   return (
-    <Screen scroll>
-      <Button kind="secondary" title={en.common.back} onPress={back} />
-      <Text variant="title-lg" color="ink-muted" accessibilityRole="header">
-        {en.event.detailTitle}
-      </Text>
+    <Screen
+      scroll
+      header={<AppBar onBack={back} title={en.event.detailTitle} />}
+      footer={
+        event && !locked ? (
+          <ActionBar
+            primary={{ title: en.event.edit, onPress: () => router.push(`/vehicles/${vin}/events/${event.id}/edit`) }}
+            quiet={{ title: en.event.delete, onPress: () => setConfirming(true), danger: true }}
+          />
+        ) : undefined
+      }
+    >
       {event ? (
         <Detail vin={vin} event={event} />
       ) : timeline.data ? (
@@ -130,6 +119,16 @@ export function EventDetailScreen({ vin, eventId }: { vin: string; eventId: stri
           <Skeleton height={20} width="50%" />
         </View>
       )}
+      <ConfirmSheet
+        visible={confirming}
+        title={en.event.deleteTitle}
+        body={en.event.deleteBody}
+        confirmLabel={en.event.deleteConfirm}
+        dismissLabel={en.event.deleteKeep}
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirming(false)}
+      />
     </Screen>
   );
 }

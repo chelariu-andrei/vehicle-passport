@@ -64,11 +64,11 @@ describe('ConfirmSheet', () => {
     const onConfirm = jest.fn();
     const onCancel = jest.fn();
     await render(
-      <ConfirmSheet visible title="Delete?" body="Cannot be undone" confirmLabel="Delete" danger onConfirm={onConfirm} onCancel={onCancel} />,
+      <ConfirmSheet visible title="Delete?" body="Cannot be undone" confirmLabel="Delete" dismissLabel="Keep it" danger onConfirm={onConfirm} onCancel={onCancel} />,
     );
     expect(screen.getByText('Cannot be undone')).toBeTruthy();
     await fireEvent.press(screen.getByText('Delete'));
-    await fireEvent.press(screen.getByText('Cancel'));
+    await fireEvent.press(screen.getByText('Keep it'));
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onCancel).toHaveBeenCalledTimes(1);
   });

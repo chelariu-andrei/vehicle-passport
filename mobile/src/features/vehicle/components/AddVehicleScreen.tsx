@@ -5,8 +5,9 @@ import { Controller, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 
 import { errorMessage, isApiError } from '@/shared/api';
-import { Button, Field, Screen, Text } from '@/shared/design';
+import { ActionBar, AppBar, Button, Field, Screen, Text } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { useBack } from '@/shared/navigation/useBack';
 
 import { useRegisterVehicle } from '../api/useRegisterVehicle';
 import { vehicleFormSchema } from '../model/vehicleForm';
@@ -35,17 +36,20 @@ export function AddVehicleScreen() {
     if (register.isError) register.reset();
   };
 
-  const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  const close = useBack('/');
   const openCar = (carVin: string) => router.replace(`/vehicles/${carVin}`);
 
   if (register.data?.kind === 'claimFiled') {
     return (
-      <Screen scroll>
+      <Screen
+        scroll
+        header={<AppBar onBack={close} />}
+        footer={<ActionBar primary={{ title: en.vehicleForm.done, onPress: close }} />}
+      >
         <Text variant="display-xl" accessibilityRole="header">
           {en.vehicleForm.filedTitle}
         </Text>
         <Text variant="body-lg">{en.vehicleForm.filedBody}</Text>
-        <Button title={en.vehicleForm.done} onPress={close} />
       </Screen>
     );
   }
@@ -75,7 +79,11 @@ export function AddVehicleScreen() {
   const formProblem = failure && !isApiError(failure, 'invalid-vin') ? errorMessage(failure) : null;
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      header={<AppBar onBack={close} />}
+      footer={<ActionBar primary={{ title: en.vehicleForm.submit, loading: register.isPending, onPress: submit }} />}
+    >
       <Text variant="display-xl" accessibilityRole="header">
         {en.vehicleForm.title}
       </Text>
@@ -187,8 +195,6 @@ export function AddVehicleScreen() {
         </Text>
       ) : null}
       {alreadyMine ? <Button kind="secondary" title={en.vehicleForm.viewCar} onPress={() => openCar(getValues('vin'))} /> : null}
-      <Button title={en.vehicleForm.submit} loading={register.isPending} onPress={submit} />
-      <Button kind="secondary" title={en.common.cancel} onPress={close} />
     </Screen>
   );
 }

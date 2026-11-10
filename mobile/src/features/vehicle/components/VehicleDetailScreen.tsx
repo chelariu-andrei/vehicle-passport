@@ -5,9 +5,10 @@ import { Pressable, useWindowDimensions, View } from 'react-native';
 
 import { HistoryList } from '@/features/event';
 import { errorMessage, forgetVehicle, useRefetchOnFocus } from '@/shared/api';
-import { Button, ErrorState, Icon, Screen, Skeleton, Text, toast, tokens, ConfirmSheet, useTheme } from '@/shared/design';
+import { AppBar, Button, ErrorState, Icon, Screen, Skeleton, Text, toast, tokens, ConfirmSheet, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 import { goToGarage } from '@/shared/navigation/goToGarage';
+import { useBack } from '@/shared/navigation/useBack';
 import { CarViewer, VIEWER_COLOURS } from '@/shared/viewer';
 
 import { useClaims } from '../api/useClaims';
@@ -89,7 +90,7 @@ export function VehicleDetailScreen({ vin }: { vin: string }) {
   useRefetchOnFocus(vehicle.refetch);
   useRefetchOnFocus(claims.refetch);
 
-  const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  const back = useBack('/');
   const giveUp = () => {
     if (release.isPending) return;
     release.mutate(undefined, {
@@ -111,8 +112,7 @@ export function VehicleDetailScreen({ vin }: { vin: string }) {
   const facts = car && [String(car.year), en.fuel[car.fuel], ...(car.engine ? [car.engine] : [])].join(' · ');
 
   return (
-    <Screen scroll>
-      <Button kind="secondary" title={en.common.back} onPress={back} />
+    <Screen scroll header={<AppBar onBack={back} />}>
       {/* The stage fills the top of the screen but never gates the rest: it shows a still until the 3D is ready. */}
       <View style={{ height: height * STAGE_SHARE, borderRadius: tokens.radius['radius-lg'], overflow: 'hidden' }}>
         <CarViewer color={colour} active={focused} />
@@ -164,6 +164,7 @@ export function VehicleDetailScreen({ vin }: { vin: string }) {
         title={en.vehicle.releaseTitle}
         body={en.vehicle.releaseBody}
         confirmLabel={en.vehicle.releaseConfirm}
+        dismissLabel={en.vehicle.releaseKeep}
         danger
         onConfirm={giveUp}
         onCancel={() => setConfirming(false)}

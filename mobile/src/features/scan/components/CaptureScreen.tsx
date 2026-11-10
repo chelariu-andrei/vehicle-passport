@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
 
 import { errorMessage } from '@/shared/api';
-import { Button, Screen, Text, tokens } from '@/shared/design';
+import { ActionBar, AppBar, Button, Screen, Text, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { useBack } from '@/shared/navigation/useBack';
 
 import { PhotoProblem, useUploadScans } from '../api/uploadScans';
 import { MAX_PHOTOS } from '../model/preparePhoto';
@@ -15,6 +16,7 @@ type Photo = { uri: string; width: number; height: number };
 
 function PhotoCapture({ vin }: { vin: string }) {
   const router = useRouter();
+  const back = useBack('/scans');
   const upload = useUploadScans();
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
@@ -70,7 +72,15 @@ function PhotoCapture({ vin }: { vin: string }) {
   const message = notice ?? problem;
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      header={<AppBar onBack={back} />}
+      footer={
+        photos.length > 0 ? (
+          <ActionBar primary={{ title: en.scans.upload(photos.length), loading: upload.isPending, onPress: send }} />
+        ) : undefined
+      }
+    >
       <Text variant="title-lg" accessibilityRole="header">
         {en.scans.onePhoto}
       </Text>
@@ -104,7 +114,6 @@ function PhotoCapture({ vin }: { vin: string }) {
           ))}
         </View>
       ) : null}
-      {photos.length > 0 ? <Button title={en.scans.upload(photos.length)} loading={upload.isPending} onPress={send} /> : null}
     </Screen>
   );
 }

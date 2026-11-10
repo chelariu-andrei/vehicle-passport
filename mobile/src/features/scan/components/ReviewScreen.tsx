@@ -9,8 +9,9 @@ import { Image, Pressable, View } from 'react-native';
 import type { z } from 'zod';
 
 import { errorMessage, isApiError, qk } from '@/shared/api';
-import { Button, ConfirmSheet, ErrorState, Icon, Screen, Skeleton, Text, tokens, useTheme } from '@/shared/design';
+import { ActionBar, AppBar, Button, ConfirmSheet, ErrorState, Icon, Screen, Skeleton, Text, tokens, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { useBack } from '@/shared/navigation/useBack';
 
 import { fetchScan, useLocalScan, useScan } from '../api/useScan';
 import { useConfirmScan } from '../api/useConfirmScan';
@@ -145,7 +146,7 @@ function Form({ jobId, scan, local, batchmates }: FormProps) {
   const problem = (name: Highlighted, error: FieldError | undefined) =>
     rhfMessage(error) ?? (refused.includes(name) ? refusedMessage : undefined);
 
-  const close = () => (router.canGoBack() ? router.back() : router.replace('/scans'));
+  const close = useBack('/scans');
   /** In a batch the next invoice still waiting for review opens; otherwise back to the inbox. */
   const leave = async () => {
     setLeaving(true);
@@ -196,7 +197,16 @@ function Form({ jobId, scan, local, batchmates }: FormProps) {
   const rejectError = reject.isError && !isApiError(reject.error, 'scan-state-conflict') ? errorMessage(reject.error) : undefined;
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      header={<AppBar onBack={close} />}
+      footer={
+        <ActionBar
+          primary={{ title: r.confirm, loading: confirm.isPending || leaving, onPress: submit }}
+          quiet={{ title: r.reject, danger: true, onPress: () => setRejecting(true) }}
+        />
+      }
+    >
       <Text variant="display-xl" accessibilityRole="header">
         {r.title}
       </Text>
@@ -376,13 +386,12 @@ function Form({ jobId, scan, local, batchmates }: FormProps) {
           {rejectError}
         </Text>
       ) : null}
-      <Button title={r.confirm} loading={confirm.isPending || leaving} onPress={submit} />
-      <Button kind="danger" title={r.reject} disabled={confirm.isPending || leaving} onPress={() => setRejecting(true)} />
       <ConfirmSheet
         visible={rejecting}
         title={r.rejectTitle}
         body={r.rejectBody}
         confirmLabel={r.rejectConfirm}
+        dismissLabel={en.common.dismiss}
         danger
         onConfirm={doReject}
         onCancel={() => setRejecting(false)}
@@ -393,31 +402,31 @@ function Form({ jobId, scan, local, batchmates }: FormProps) {
 
 /** A job that is not waiting for review (any more): its current status, and the way back. */
 function StatusPanel({ status }: { status: Scan['status'] }) {
-  const router = useRouter();
+  const back = useBack('/scans');
   return (
-    <Screen>
+    <Screen header={<AppBar onBack={back} />}>
       <Text variant="display-xl" accessibilityRole="header">
         {r.title}
       </Text>
       <Text accessibilityRole="alert">{inboxRow(status).label}</Text>
-      <Button title={r.backToScans} onPress={() => (router.canGoBack() ? router.back() : router.replace('/scans'))} />
     </Screen>
   );
 }
 
 function Loaded({ jobId }: { jobId: string }) {
+  const back = useBack('/scans');
   const scan = useScan(jobId);
   const local = useLocalScan(jobId);
   if (scan.isError && !scan.data) {
     return (
-      <Screen>
+      <Screen header={<AppBar onBack={back} />}>
         <ErrorState onRetry={() => void scan.refetch()} />
       </Screen>
     );
   }
   if (!scan.data || local.isPending) {
     return (
-      <Screen>
+      <Screen header={<AppBar onBack={back} />}>
         <Skeleton height={48} />
       </Screen>
     );

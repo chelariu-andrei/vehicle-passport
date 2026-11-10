@@ -44,7 +44,7 @@ test('Share link shares the public URL', async () => {
 test('cancelling the revoke sheet sends nothing', async () => {
   const { fake } = await openActive();
   await press(en.passport.revoke);
-  await press(en.common.cancel);
+  await press(en.passport.revokeKeep);
   await waitFor(() => expect(screen.queryByText(en.passport.revokeTitle)).toBeNull());
   expect(fake.callsTo('revokePassport')).toHaveLength(0);
   expect(screen.getByLabelText(en.passport.qrLabel)).toBeTruthy();

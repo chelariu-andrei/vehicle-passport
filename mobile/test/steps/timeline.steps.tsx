@@ -123,7 +123,7 @@ defineFeature(feature, (test) => {
       expect(await screen.findByText(en.errors.codes['event-from-prior-owner'])).toBeTruthy();
     });
     and('edit and delete are hidden for that event', async () => {
-      await press(en.common.cancel);
+      await press(en.common.back);
       expect(await screen.findByText(en.event.detailTitle)).toBeTruthy();
       expect(screen.queryByRole('button', { name: en.event.edit })).toBeNull();
       expect(screen.queryByRole('button', { name: en.event.delete })).toBeNull();

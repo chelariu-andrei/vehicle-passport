@@ -3,12 +3,14 @@ import { useEffect } from 'react';
 import { Pressable } from 'react-native';
 
 import { useVehicles } from '@/features/vehicle';
-import { Card, EmptyState, ErrorState, Screen, Skeleton, Text } from '@/shared/design';
+import { AppBar, Card, EmptyState, ErrorState, Screen, Skeleton, Text } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { useBack } from '@/shared/navigation/useBack';
 
 /** Which car an invoice is for. One car is chosen without asking; none explains that a car is needed (P19). */
 export function PickVehicle({ onPick }: { onPick(vin: string): void }) {
   const router = useRouter();
+  const back = useBack('/scans');
   const vehicles = useVehicles();
   const cars = vehicles.data;
   const only = cars?.length === 1 ? cars[0].vin : null;
@@ -19,15 +21,21 @@ export function PickVehicle({ onPick }: { onPick(vin: string): void }) {
 
   if (vehicles.isPending || only) {
     return (
-      <Screen>
+      <Screen header={<AppBar onBack={back} />}>
         <Skeleton height={96} />
       </Screen>
     );
   }
-  if (!cars) return <ErrorState onRetry={() => void vehicles.refetch()} />;
+  if (!cars) {
+    return (
+      <Screen header={<AppBar onBack={back} />}>
+        <ErrorState onRetry={() => void vehicles.refetch()} />
+      </Screen>
+    );
+  }
   if (cars.length === 0) {
     return (
-      <Screen>
+      <Screen header={<AppBar onBack={back} />}>
         <EmptyState
           title={en.scans.needCarTitle}
           body={en.scans.needCarBody}
@@ -37,7 +45,7 @@ export function PickVehicle({ onPick }: { onPick(vin: string): void }) {
     );
   }
   return (
-    <Screen scroll>
+    <Screen scroll header={<AppBar onBack={back} />}>
       <Text variant="title-lg" accessibilityRole="header">
         {en.scans.pickCar}
       </Text>

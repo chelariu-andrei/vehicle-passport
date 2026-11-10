@@ -7,7 +7,8 @@ export const en = {
     account: 'Account',
   },
   common: {
-    cancel: 'Cancel',
+    dismiss: 'Dismiss',
+    discard: 'Discard',
     retry: 'Try again',
     loading: 'Loading',
     back: 'Back',
@@ -114,6 +115,7 @@ export const en = {
     edit: 'Edit vehicle',
     release: 'Give up ownership',
     releaseConfirm: 'Give up this car',
+    releaseKeep: 'Keep this car',
     releaseTitle: 'Give up this car?',
     releaseBody:
       "Your access to this car's history ends. Unconfirmed scans are cancelled. Passports you created stay live until you revoke them.",
@@ -133,6 +135,7 @@ export const en = {
     approveBody:
       "The car and its editing rights move to someone else, and any other claims on it are rejected. It leaves your garage.",
     approveConfirm: 'Approve and hand over',
+    approveLater: 'Not now',
     rejectTitle: 'Reject this claim?',
     rejectBody: "A rejection can't be undone.",
     rejectConfirm: 'Reject claim',
@@ -173,6 +176,7 @@ export const en = {
     deleteTitle: 'Delete this entry?',
     deleteBody: 'The entry leaves your history. Existing passports keep this entry.',
     deleteConfirm: 'Delete entry',
+    deleteKeep: 'Keep entry',
     addTitle: 'Add event',
     editTitle: 'Edit event',
     save: 'Save',
@@ -247,7 +251,6 @@ export const en = {
       rejectBody: 'It leaves your scans and nothing is added to the history.',
       rejectConfirm: 'Reject invoice',
       changedTitle: 'This invoice has changed',
-      backToScans: 'Back to scans',
       warnings: {
         TOTAL_MISMATCH: "The total doesn't match the parts and labor. Check the amounts.",
         ODOMETER_INCONSISTENT: "This mileage doesn't fit the car's history. Correct it before confirming.",
@@ -276,6 +279,7 @@ export const en = {
     revokeTitle: 'Revoke this passport?',
     revokeBody: 'Anyone with the link or QR code will no longer see it. This cannot be undone; to share again, create a new passport.',
     revokeConfirm: 'Revoke passport',
+    revokeKeep: 'Keep the link',
     unavailable: 'This passport is no longer in your list.',
     createTitle: 'Create passport',
     freezeTitle: 'This freezes the history',

@@ -122,7 +122,8 @@ defineFeature(feature, (test) => {
     then('I can only take or choose photos', async () => {
       expect(screen.getByRole('button', { name: en.scans.takePhoto })).toBeTruthy();
       expect(screen.getByRole('button', { name: en.scans.choosePhotos })).toBeTruthy();
-      expect(screen.queryAllByRole('button')).toHaveLength(2);
+      // The app bar's back chevron is the only other button.
+      expect(screen.queryAllByRole('button').filter((b) => b.props.accessibilityLabel !== en.common.back)).toHaveLength(2);
       await press(en.scans.choosePhotos);
       await press(en.scans.takePhoto);
       expect(library().mock.calls[0][0]).toMatchObject({ mediaTypes: ['images'] });
