@@ -54,6 +54,6 @@ public class VehiclePanacheRepository implements VehicleRepositoryPort, PanacheR
     }
 
     private static Vehicle toDomain(VehicleEntity e) {
-        return new Vehicle(new Vin(e.vin), e.make, e.model, e.engine, e.year, Fuel.parse(e.fuel));
+        return new Vehicle(new Vin(e.vin), e.make, e.model, e.engine, e.year, Fuel.parse(e.fuel), null, null);
     }
 }

@@ -57,7 +57,7 @@ class VehiclePersistenceIT {
     EntityManager em;
 
     private static Vehicle vehicle(Vin vin) {
-        return new Vehicle(vin, "Dacia", "Duster", "1.5 dCi", 2020, Fuel.DIESEL);
+        return new Vehicle(vin, "Dacia", "Duster", "1.5 dCi", 2020, Fuel.DIESEL, null, null);
     }
 
     private static RegisterVehicleCommand command(UUID user, String vin) {

@@ -47,7 +47,7 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
     @Transactional
     public RegistrationResult register(RegisterVehicleCommand c) {
         Vin vin = Vin.of(c.vin());
-        Vehicle candidate = Vehicle.of(vin, c.make(), c.model(), c.engine(), c.year(), c.fuel(), clock);
+        Vehicle candidate = Vehicle.of(vin, c.make(), c.model(), c.engine(), c.year(), c.fuel(), null, null, clock);
         ownerships.lockVin(vin);
         Optional<OwnershipPeriod> open = ownerships.findOpen(vin);
         if (open.isPresent()) {
@@ -86,7 +86,7 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
         Vin vin = Vin.of(c.vin());
         ownerships.lockVin(vin);
         requireOwner(vin, c.userId());
-        Vehicle vehicle = Vehicle.of(vin, c.make(), c.model(), c.engine(), c.year(), c.fuel(), clock);
+        Vehicle vehicle = Vehicle.of(vin, c.make(), c.model(), c.engine(), c.year(), c.fuel(), null, null, clock);
         vehicles.save(vehicle);
         return view(vehicle);
     }
