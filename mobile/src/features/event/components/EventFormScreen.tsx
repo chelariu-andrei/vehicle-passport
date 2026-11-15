@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Platform, Pressable, View } from 'react-native';
+import { Modal, Platform, Pressable, View } from 'react-native';
 import type { z } from 'zod';
 
 import { errorMessage } from '@/shared/api';
@@ -115,17 +115,34 @@ function DateField({ value, maxDate, onChange, error }: { value: string; maxDate
       >
         <Text variant="body-lg">{value}</Text>
       </Pressable>
-      {open && Platform.OS !== 'android' ? (
-        <DateTimePicker
-          testID="event-date-picker"
-          value={localDate(value)}
-          mode="date"
-          display="inline"
-          maximumDate={localDate(maxDate)}
-          onChange={(event, date) => {
-            if (event.type === 'set' && date) picked(date);
-          }}
-        />
+      {Platform.OS !== 'android' ? (
+        <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+          <Pressable
+            accessibilityLabel={en.common.dismiss}
+            onPress={() => setOpen(false)}
+            style={{ flex: 1, justifyContent: 'center', padding: tokens.space['space-4'], backgroundColor: 'rgba(0,0,0,0.45)' }}
+          >
+            {/* Tapping the card itself must not reach the backdrop. */}
+            <Pressable
+              accessible={false}
+              style={{ padding: tokens.space['space-2'], backgroundColor: colors['surface-raised'], borderRadius: tokens.radius['radius-md'] }}
+            >
+              <DateTimePicker
+                testID="event-date-picker"
+                value={localDate(value)}
+                mode="date"
+                display="inline"
+                maximumDate={localDate(maxDate)}
+                onChange={(event, date) => {
+                  if (event.type === 'set' && date) {
+                    picked(date);
+                    setOpen(false);
+                  }
+                }}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
       ) : null}
       {error ? (
         <Text variant="caption" color="danger" accessibilityRole="alert">

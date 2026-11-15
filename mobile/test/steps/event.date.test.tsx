@@ -46,3 +46,10 @@ test('a date past the limit is pulled back to it, never sent', async () => {
   await waitFor(() => expect(fake.callsTo('addEvent')).toHaveLength(1));
   expect(fake.callsTo('addEvent')[0].body).toMatchObject({ date: maxEventDate(new Date()) });
 });
+
+test('picking a date closes the picker', async () => {
+  await openApp(newEventUrl, { seed });
+  const picker = await openPicker();
+  await fireEvent(picker, 'onChange', { type: 'set', nativeEvent: {} }, new Date(2024, 2, 9, 12));
+  await waitFor(() => expect(screen.queryByTestId('event-date-picker')).toBeNull());
+});

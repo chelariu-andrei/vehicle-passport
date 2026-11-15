@@ -8,6 +8,7 @@ export const en = {
   },
   common: {
     dismiss: 'Dismiss',
+    keyboardDone: 'Done',
     discard: 'Discard',
     retry: 'Try again',
     loading: 'Loading',

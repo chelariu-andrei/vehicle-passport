@@ -16,7 +16,7 @@ export function Screen({ children, scroll = false, header, footer }: Props) {
         <View style={{ flex: 1, paddingTop: insets.top }}>
           {header}
           {scroll ? (
-            <ScrollView testID="screen-scroll" style={{ flex: 1 }} contentContainerStyle={padding} keyboardShouldPersistTaps="handled">
+            <ScrollView testID="screen-scroll" style={{ flex: 1 }} contentContainerStyle={padding} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
               {children}
             </ScrollView>
           ) : (
