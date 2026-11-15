@@ -18,7 +18,7 @@ import com.vehiclepassport.server.scan.application.port.out.ScanJobRepositoryPor
 import com.vehiclepassport.server.scan.domain.exception.IllegalScanTransitionException;
 import com.vehiclepassport.server.scan.domain.exception.ScanJobNotFoundException;
 import com.vehiclepassport.server.shared.error.DomainException;
-import com.vehiclepassport.server.scan.domain.model.ScanFilePolicy;
+import com.vehiclepassport.server.shared.util.UploadPolicy;
 import com.vehiclepassport.server.scan.domain.model.ScanJob;
 import com.vehiclepassport.server.scan.domain.model.ScanStatus;
 import com.vehiclepassport.server.scan.domain.model.ScanWarning;
@@ -72,7 +72,7 @@ public class ScanService implements SubmitScanUseCase, SubmitScanBatchUseCase, G
     @Transactional
     public ScanBatchView submit(UUID userId, String vin, List<UploadedFile> files) {
         OwnedPeriod owned = owners.assertActiveOwner(vin, userId);
-        ScanFilePolicy.checkBatchSize(files.size());
+        UploadPolicy.checkBatchSize(files.size());
         files.forEach(this::check);
         UUID batchId = UUID.randomUUID();
         List<ScanJobView> views = new ArrayList<>();
@@ -157,7 +157,7 @@ public class ScanService implements SubmitScanUseCase, SubmitScanBatchUseCase, G
     }
 
     private void check(UploadedFile file) {
-        ScanFilePolicy.check(file.contentType(), file.size(), head(file));
+        UploadPolicy.check(file.contentType(), file.size(), head(file));
     }
 
     private static byte[] head(UploadedFile file) {

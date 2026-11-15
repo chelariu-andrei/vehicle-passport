@@ -1,13 +1,13 @@
-package com.vehiclepassport.server.scan.domain.model;
+package com.vehiclepassport.server.shared.util;
 
-import com.vehiclepassport.server.scan.domain.exception.BatchTooLargeException;
-import com.vehiclepassport.server.scan.domain.exception.FileTooLargeException;
-import com.vehiclepassport.server.scan.domain.exception.UnsupportedFileException;
+import com.vehiclepassport.server.shared.error.BatchTooLargeException;
+import com.vehiclepassport.server.shared.error.FileTooLargeException;
+import com.vehiclepassport.server.shared.error.UnsupportedFileException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /** Admission rules for uploaded receipts: declared type, size, magic bytes and batch size. */
-public final class ScanFilePolicy {
+public final class UploadPolicy {
 
     public static final long MAX_BYTES = 10_485_760L;
     public static final int MAX_BATCH = 20;
@@ -22,7 +22,7 @@ public final class ScanFilePolicy {
             "image/png", PNG,
             "application/pdf", PDF);
 
-    private ScanFilePolicy() {
+    private UploadPolicy() {
     }
 
     public static void check(String contentType, long size, byte[] head) {
