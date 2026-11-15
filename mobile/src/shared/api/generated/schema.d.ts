@@ -185,11 +185,57 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Original invoice file (only the owner of the period that created the event) */
+        /**
+         * Deprecated alias for the event's first attachment (use `getAttachment`)
+         * @deprecated
+         */
         get: operations["getEventDocument"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vehicles/{vin}/events/{eventId}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        /** Attachments of an event (only the owner of the period that created the event) */
+        get: operations["listAttachments"];
+        put?: never;
+        /** Attach a file (image/jpeg, image/png, application/pdf, up to 10 MB; at most 10 per event) */
+        post: operations["addAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vehicles/{vin}/events/{eventId}/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+                eventId: components["parameters"]["EventId"];
+                attachmentId: components["parameters"]["AttachmentId"];
+            };
+            cookie?: never;
+        };
+        /** The attached file (only the owner of the period that created the event) */
+        get: operations["getAttachment"];
+        put?: never;
+        post?: never;
+        /** Remove an attachment (only the owner of the period that created the event) */
+        delete: operations["deleteAttachment"];
         options?: never;
         head?: never;
         patch?: never;
@@ -568,6 +614,21 @@ export interface components {
             evidence: components["schemas"]["Evidence"];
             source: components["schemas"]["EventSource"];
             documentPresent: boolean;
+            attachmentCount: number;
+        };
+        AttachmentResponse: {
+            /** Format: uuid */
+            id: string;
+            contentType: string;
+            sizeBytes: number;
+            sha256: string;
+            /**
+             * @description SCAN_SOURCE is the invoice a scan was confirmed from; UPLOAD was added by the user.
+             * @enum {string}
+             */
+            kind: "SCAN_SOURCE" | "UPLOAD";
+            /** Format: date-time */
+            createdAt: string;
         };
         TimelinePage: {
             items: components["schemas"]["EventResponse"][];
@@ -686,6 +747,7 @@ export interface components {
         Vin: components["schemas"]["Vin"];
         ClaimId: string;
         EventId: string;
+        AttachmentId: string;
         JobId: string;
         PassportId: string;
         Token: string;
@@ -1207,6 +1269,208 @@ export interface operations {
             };
             /** @description Code `vehicle-not-found` or `event-not-found`. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listAttachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The attachments, oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentResponse"][];
+                };
+            };
+            /** @description Code `document-restricted` (restricted to the owner of the creating period). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Code `vehicle-not-found` or `event-not-found`. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    addAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+                eventId: components["parameters"]["EventId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Attachment stored with kind UPLOAD. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentResponse"];
+                };
+            };
+            /** @description Code `event-from-prior-owner` (event was created in a previous ownership period). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Code `vehicle-not-found` or `event-not-found`. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Code `duplicate-document` (the same file is already attached to an event of this vehicle). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            413: components["responses"]["PayloadTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            /** @description Code `attachment-limit` (the event already has 10 attachments). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+                eventId: components["parameters"]["EventId"];
+                attachmentId: components["parameters"]["AttachmentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                    "image/png": string;
+                    "application/pdf": string;
+                };
+            };
+            /** @description Code `document-restricted` (restricted to the owner of the creating period). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Code `vehicle-not-found`, `event-not-found` or `attachment-not-found`. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    deleteAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+                eventId: components["parameters"]["EventId"];
+                attachmentId: components["parameters"]["AttachmentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code `event-from-prior-owner` (event was created in a previous ownership period). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Code `vehicle-not-found`, `event-not-found` or `attachment-not-found`. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Code `attachment-protected` (the attachment may not be removed). */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
