@@ -9,6 +9,8 @@ info:
     The one exception is 401: authentication is rejected before the API runs, so a missing, invalid or expired bearer token
     answers 401 with an empty body (not problem+json) on every route except `/public/**`.
     Requests on a vehicle the caller does not own answer 404 (no existence leak).
+    Every business route outside `/public/**`, `/me*` and `/support/**` answers 403 with code `consent-required`
+    until the caller has accepted the current terms and privacy policy (see `POST /me/consents`).
 servers:
   - url: /
 security:
@@ -20,6 +22,9 @@ tags:
   - name: scans
   - name: passports
   - name: public
+  - name: account
+  - name: legal
+  - name: support
 
 paths:
   /vehicles:
@@ -33,6 +38,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RegisterVehicleRequest' }
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '201':
           description: Vehicle registered, caller is now the active owner.
           content:
@@ -58,6 +64,7 @@ paths:
       operationId: listMyVehicles
       summary: List vehicles in the caller's garage
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '200':
           description: The caller's vehicles.
           content:
@@ -73,6 +80,7 @@ paths:
       tags: [vehicles]
       operationId: getVehicle
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '200':
           description: The vehicle.
           content:
@@ -93,6 +101,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/UpdateVehicleRequest' }
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '200':
           description: The updated vehicle.
           content:
@@ -117,6 +126,7 @@ paths:
       operationId: releaseVehicle
       summary: Give up ownership (active owner only)
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '204': { description: Released. }
         '404':
           description: Code `vehicle-not-found` (unknown, or not visible to the caller).
@@ -132,6 +142,7 @@ paths:
       operationId: listPendingClaims
       summary: Pending ownership claims on the vehicle (active owner only)
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '200':
           description: Pending claims.
           content:
@@ -153,6 +164,7 @@ paths:
       tags: [claims]
       operationId: approveClaim
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '204': { description: Approved; ownership transferred, other pending claims rejected. }
         '404':
           description: Code `vehicle-not-found` or `claim-not-found`.
@@ -173,6 +185,7 @@ paths:
       tags: [claims]
       operationId: rejectClaim
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '204': { description: Rejected. }
         '404':
           description: Code `vehicle-not-found` or `claim-not-found`.
@@ -193,6 +206,7 @@ paths:
       operationId: withdrawClaim
       summary: Claimant withdraws their own pending claim
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '204': { description: Withdrawn. }
         '404':
           description: Code `claim-not-found`.
@@ -217,6 +231,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/EventRequest' }
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '201':
           description: Event saved with evidence USER_CONFIRMED and source MANUAL.
           content:
@@ -263,7 +278,7 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
         '403':
-          description: Code `event-from-prior-owner` (event was created in a previous ownership period).
+          description: Code `event-from-prior-owner` (event was created in a previous ownership period) or `consent-required`.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -284,7 +299,7 @@ paths:
       responses:
         '204': { description: Deleted. }
         '403':
-          description: Code `event-from-prior-owner` (event was created in a previous ownership period).
+          description: Code `event-from-prior-owner` (event was created in a previous ownership period) or `consent-required`.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -310,7 +325,7 @@ paths:
             image/png: { schema: { type: string, format: binary } }
             application/pdf: { schema: { type: string, format: binary } }
         '403':
-          description: Document restricted to the owner of the creating period. Code `document-restricted`.
+          description: Document restricted to the owner of the creating period (code `document-restricted`), or code `consent-required`.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -338,6 +353,7 @@ paths:
           required: false
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '200':
           description: A page of events.
           content:
@@ -371,6 +387,7 @@ paths:
               properties:
                 file: { type: string, format: binary }
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '202':
           description: Scan job accepted.
           content:
@@ -405,6 +422,7 @@ paths:
                   maxItems: 20
                   items: { type: string, format: binary }
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '202':
           description: Batch accepted, one job per file.
           content:
@@ -430,6 +448,7 @@ paths:
       tags: [scans]
       operationId: getScan
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '200':
           description: Current job state.
           content:
@@ -454,6 +473,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/ConfirmScanRequest' }
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '201':
           description: Event created.
           content:
@@ -487,6 +507,7 @@ paths:
       tags: [scans]
       operationId: rejectScan
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '204': { description: Rejected. }
         '404':
           description: Code `scan-not-found`.
@@ -511,6 +532,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/CreatePassportRequest' }
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '201':
           description: Passport created.
           content:
@@ -532,6 +554,7 @@ paths:
       tags: [passports]
       operationId: listMyPassports
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '200':
           description: The caller's passports.
           content:
@@ -548,6 +571,7 @@ paths:
       operationId: revokePassport
       summary: Revoke the public link (idempotent)
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '204': { description: Revoked. }
         '404':
           description: Code `passport-not-found`.
@@ -562,6 +586,7 @@ paths:
       tags: [passports]
       operationId: getPassportPdf
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '200':
           description: The passport PDF.
           content:
@@ -579,6 +604,7 @@ paths:
       tags: [passports]
       operationId: getPassportQr
       responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
         '200':
           description: QR code image encoding the public URL.
           content:
@@ -627,6 +653,219 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
 
+  /public/legal/documents:
+    get:
+      tags: [legal]
+      operationId: listLegalDocuments
+      summary: Current version of every legal document, in the requested locale
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: One summary per document type. Falls back to `en` when the locale has no text.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegalDocumentsResponse' }
+
+  /public/legal/documents/{type}:
+    parameters:
+      - $ref: '#/components/parameters/LegalDocumentTypePath'
+    get:
+      tags: [legal]
+      operationId: getLegalDocument
+      summary: Current version of one legal document, in the requested locale
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Locale'
+      responses:
+        '200':
+          description: The document. Falls back to `en` when the locale has no text.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegalDocument' }
+        '404':
+          description: Code `legal-document-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /me:
+    get:
+      tags: [account]
+      operationId: getMe
+      summary: The caller's profile, usage stats, pending deletion and consent status
+      responses:
+        '200':
+          description: The caller's account.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeResponse' }
+    patch:
+      tags: [account]
+      operationId: updateProfile
+      summary: Update display name and/or phone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfilePatch' }
+      responses:
+        '200':
+          description: The updated account.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeResponse' }
+        '400':
+          description: Code `validation-failed`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /me/settings:
+    get:
+      tags: [account]
+      operationId: getSettings
+      responses:
+        '200':
+          description: The caller's settings (defaults when never saved).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SettingsDto' }
+    put:
+      tags: [account]
+      operationId: updateSettings
+      summary: Replace the caller's settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SettingsDto' }
+      responses:
+        '200':
+          description: The saved settings.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SettingsDto' }
+        '400':
+          description: Code `validation-failed`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /me/consents:
+    get:
+      tags: [account]
+      operationId: getConsentStatus
+      responses:
+        '200':
+          description: Current consent status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConsentStatus' }
+    post:
+      tags: [account]
+      operationId: recordConsents
+      summary: Accept legal documents and/or set the marketing and analytics choices
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConsentUpdate' }
+      responses:
+        '200':
+          description: The resulting consent status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConsentStatus' }
+        '400':
+          description: Code `validation-failed`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '409':
+          description: Code `consent-version-outdated` (an accepted version is no longer the current one).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /me/consents/history:
+    get:
+      tags: [account]
+      operationId: listConsentHistory
+      responses:
+        '200':
+          description: Consent events, newest first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConsentHistoryResponse' }
+
+  /me/deletion:
+    post:
+      tags: [account]
+      operationId: scheduleDeletion
+      summary: Schedule account deletion after the grace period
+      responses:
+        '201':
+          description: Deletion scheduled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeletionStatus' }
+        '409':
+          description: Code `deletion-already-scheduled`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    delete:
+      tags: [account]
+      operationId: cancelDeletion
+      summary: Cancel a scheduled deletion
+      responses:
+        '204': { description: Deletion cancelled. }
+        '404':
+          description: Code `deletion-not-scheduled`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /me/export:
+    get:
+      tags: [account]
+      operationId: exportMyData
+      summary: Download everything stored about the caller
+      responses:
+        '200':
+          description: The export, as a file download.
+          headers:
+            Content-Disposition:
+              description: '`attachment`, with a filename.'
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountExport' }
+
+  /support/reports:
+    post:
+      tags: [support]
+      operationId: createSupportReport
+      summary: Send a problem report or question to support
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SupportReportRequest' }
+      responses:
+        '201':
+          description: Report received.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SupportReportResponse' }
+        '400':
+          description: Code `validation-failed`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -665,8 +904,26 @@ components:
       in: path
       required: true
       schema: { type: string, minLength: 22 }
+    Locale:
+      name: locale
+      in: query
+      required: false
+      schema: { type: string, enum: [ro, en], default: en }
+      description: Falls back to `en` when the requested locale has no text.
+    LegalDocumentTypePath:
+      name: type
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/LegalDocumentType' }
 
   responses:
+    ConsentRequired:
+      description: >
+        The caller has not accepted the current terms and privacy policy. Code `consent-required`.
+        Accept them through `POST /me/consents`.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
     PayloadTooLarge:
       description: File larger than 10 MB. Code `file-too-large`.
       content:
@@ -986,3 +1243,228 @@ components:
             No owner, creator or ownership-date information.
         hash: { type: string }
         algorithm: { type: string, enum: [SHA-256] }
+
+    LegalDocumentType:
+      type: string
+      enum: [terms, privacy, data-sharing]
+
+    LegalLocale:
+      type: string
+      enum: [ro, en]
+
+    LegalDocumentSummary:
+      type: object
+      required: [type, version, locale, title, effectiveDate]
+      properties:
+        type: { $ref: '#/components/schemas/LegalDocumentType' }
+        version: { type: string }
+        locale: { $ref: '#/components/schemas/LegalLocale' }
+        title: { type: string }
+        effectiveDate: { type: string, format: date }
+
+    LegalDocumentsResponse:
+      type: object
+      required: [documents]
+      properties:
+        documents:
+          type: array
+          items: { $ref: '#/components/schemas/LegalDocumentSummary' }
+
+    LegalDocument:
+      type: object
+      required: [type, version, locale, title, bodyMarkdown, effectiveDate]
+      properties:
+        type: { $ref: '#/components/schemas/LegalDocumentType' }
+        version: { type: string }
+        locale: { $ref: '#/components/schemas/LegalLocale' }
+        title: { type: string }
+        bodyMarkdown: { type: string }
+        effectiveDate: { type: string, format: date }
+
+    DisplayName:
+      type: string
+      minLength: 1
+      maxLength: 80
+      pattern: '^[^\x00-\x1F\x7F]+$'
+      description: Trimmed by the server; 1 to 80 characters, no control characters.
+
+    PhoneNumber:
+      type: string
+      pattern: '^\+[1-9]\d{6,14}$'
+      description: E.164.
+
+    ProfilePatch:
+      type: object
+      description: Partial update. Omitted fields are unchanged; null clears the field.
+      additionalProperties: false
+      properties:
+        displayName:
+          oneOf: [{ $ref: '#/components/schemas/DisplayName' }, { type: 'null' }]
+        phone:
+          oneOf: [{ $ref: '#/components/schemas/PhoneNumber' }, { type: 'null' }]
+
+    AccountStats:
+      type: object
+      required: [vehicles, events, passports]
+      properties:
+        vehicles: { type: integer, minimum: 0 }
+        events: { type: integer, minimum: 0 }
+        passports: { type: integer, minimum: 0 }
+
+    DeletionStatus:
+      type: object
+      required: [scheduledFor]
+      properties:
+        scheduledFor: { type: string, format: date-time, description: When the account will be purged. }
+
+    ConsentVersionState:
+      type: object
+      required: [currentVersion, acceptedVersion]
+      properties:
+        currentVersion: { type: string }
+        acceptedVersion: { type: [string, 'null'] }
+
+    ConsentStatus:
+      type: object
+      required: [required, terms, privacy, marketing, analytics]
+      properties:
+        required: { type: boolean, description: True when the current terms or privacy version is not accepted. }
+        terms: { $ref: '#/components/schemas/ConsentVersionState' }
+        privacy: { $ref: '#/components/schemas/ConsentVersionState' }
+        marketing: { type: boolean }
+        analytics: { type: boolean }
+
+    MeResponse:
+      type: object
+      required: [id, email, emailVerified, displayName, phone, createdAt, stats, deletion, consent]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: [string, 'null'] }
+        emailVerified: { type: boolean }
+        displayName: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        stats: { $ref: '#/components/schemas/AccountStats' }
+        deletion:
+          description: Present while a deletion is scheduled.
+          oneOf: [{ $ref: '#/components/schemas/DeletionStatus' }, { type: 'null' }]
+        consent: { $ref: '#/components/schemas/ConsentStatus' }
+
+    SettingsDto:
+      type: object
+      required: [language, appearance, units, notifications]
+      additionalProperties: false
+      properties:
+        language: { type: string, enum: [system, ro, en] }
+        appearance: { type: string, enum: [system, dark, light] }
+        units:
+          type: object
+          required: [distance, currency]
+          additionalProperties: false
+          properties:
+            distance: { type: string, enum: [km, mi] }
+            currency: { type: string, enum: [RON, EUR, USD] }
+        notifications:
+          type: object
+          required: [documentDeadlines, reminderDays, activityScans, activityPassportViews, activityTransfers, productNews]
+          additionalProperties: false
+          properties:
+            documentDeadlines: { type: boolean }
+            reminderDays:
+              type: array
+              uniqueItems: true
+              maxItems: 3
+              items: { type: integer, enum: [30, 7, 1] }
+            activityScans: { type: boolean }
+            activityPassportViews: { type: boolean }
+            activityTransfers: { type: boolean }
+            productNews: { type: boolean }
+
+    ConsentSource:
+      type: string
+      enum: [sign-up-form, social-sign-up, re-consent, settings]
+
+    ConsentAcceptance:
+      type: object
+      required: [type, version]
+      additionalProperties: false
+      properties:
+        type: { type: string, enum: [terms, privacy] }
+        version: { type: string, minLength: 1, maxLength: 40 }
+
+    ConsentUpdate:
+      type: object
+      required: [source]
+      additionalProperties: false
+      properties:
+        accept:
+          type: array
+          items: { $ref: '#/components/schemas/ConsentAcceptance' }
+        marketing: { type: boolean }
+        analytics: { type: boolean }
+        source: { $ref: '#/components/schemas/ConsentSource' }
+
+    ConsentEvent:
+      type: object
+      required: [type, version, granted, source, at]
+      properties:
+        type: { type: string, enum: [terms, privacy, marketing, analytics] }
+        version: { type: [string, 'null'], description: Null for marketing and analytics. }
+        granted: { type: boolean }
+        source: { $ref: '#/components/schemas/ConsentSource' }
+        at: { type: string, format: date-time }
+
+    ConsentHistoryResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ConsentEvent' }
+
+    AccountExport:
+      type: object
+      description: Everything stored about the caller, delivered as an attachment download (Content-Disposition attachment).
+      required: [exportedAt, profile, settings, consents, vehicles, events, passports]
+      properties:
+        exportedAt: { type: string, format: date-time }
+        profile: { $ref: '#/components/schemas/MeResponse' }
+        settings: { $ref: '#/components/schemas/SettingsDto' }
+        consents:
+          type: array
+          items: { $ref: '#/components/schemas/ConsentEvent' }
+        vehicles:
+          type: array
+          items: { $ref: '#/components/schemas/VehicleResponse' }
+        events:
+          type: array
+          items: { $ref: '#/components/schemas/EventResponse' }
+        passports:
+          type: array
+          items: { $ref: '#/components/schemas/PassportResponse' }
+
+    SupportDiagnostics:
+      type: object
+      required: [appVersion, platform, osVersion, deviceModel]
+      additionalProperties: false
+      properties:
+        appVersion: { type: string, maxLength: 40 }
+        platform: { type: string, maxLength: 40 }
+        osVersion: { type: string, maxLength: 40 }
+        deviceModel: { type: string, maxLength: 100 }
+
+    SupportReportRequest:
+      type: object
+      required: [kind, message, includeDiagnostics]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [problem, question] }
+        message: { type: string, minLength: 10, maxLength: 4000 }
+        includeDiagnostics: { type: boolean }
+        diagnostics: { $ref: '#/components/schemas/SupportDiagnostics' }
+
+    SupportReportResponse:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string, format: uuid }
