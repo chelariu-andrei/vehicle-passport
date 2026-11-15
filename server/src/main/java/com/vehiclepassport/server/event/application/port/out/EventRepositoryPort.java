@@ -24,4 +24,7 @@ public interface EventRepositoryPort {
     List<VehicleEvent> page(String vin, TimelineCursor after, int limit);
 
     List<VehicleEvent> allActive(String vin);
+
+    /** Non-deleted events recorded by the given user. */
+    long countActiveByCreator(UUID userId);
 }

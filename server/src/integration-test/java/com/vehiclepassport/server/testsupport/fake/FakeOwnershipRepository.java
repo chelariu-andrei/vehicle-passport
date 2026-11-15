@@ -41,6 +41,11 @@ public class FakeOwnershipRepository implements OwnershipRepositoryPort, Resetta
     }
 
     @Override
+    public long countOpenByOwner(UUID ownerId) {
+        return findOpenByOwner(ownerId).size();
+    }
+
+    @Override
     public void save(OwnershipPeriod period) {
         store.put(period.id(), period);
     }

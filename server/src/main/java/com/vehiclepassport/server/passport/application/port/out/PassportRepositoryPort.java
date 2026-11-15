@@ -14,4 +14,6 @@ public interface PassportRepositoryPort {
     Optional<Passport> findByToken(String token);
 
     List<Passport> findByCreator(UUID userId);
+
+    long countByCreator(UUID userId);
 }

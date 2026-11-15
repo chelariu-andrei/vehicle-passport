@@ -72,6 +72,11 @@ public class FakeEventRepository implements EventRepositoryPort, Resettable {
     }
 
     @Override
+    public long countActiveByCreator(UUID userId) {
+        return store.stream().filter(e -> e.deletedAt() == null && e.createdBy().equals(userId)).count();
+    }
+
+    @Override
     public void reset() {
         store.clear();
     }

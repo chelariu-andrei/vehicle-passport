@@ -3,6 +3,7 @@ package com.vehiclepassport.server.event.application.service;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.CheckOdometerUseCase;
+import com.vehiclepassport.server.event.application.port.in.CountOwnedByOwnerUseCase;
 import com.vehiclepassport.server.event.application.port.in.DeleteEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.EventDocument;
 import com.vehiclepassport.server.event.application.port.in.GetEventDocumentUseCase;
@@ -42,7 +43,8 @@ import java.util.UUID;
 
 @ApplicationScoped
 public class EventService implements AddEventUseCase, GetTimelineUseCase, UpdateEventUseCase, DeleteEventUseCase,
-        SaveConfirmedEventUseCase, CheckOdometerUseCase, ReadVehicleHistoryUseCase, GetEventDocumentUseCase {
+        SaveConfirmedEventUseCase, CheckOdometerUseCase, ReadVehicleHistoryUseCase, GetEventDocumentUseCase,
+        CountOwnedByOwnerUseCase {
 
     private static final int MIN_LIMIT = 1;
     private static final int MAX_LIMIT = 100;
@@ -59,6 +61,11 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         this.owners = owners;
         this.documents = documents;
         this.clock = clock;
+    }
+
+    @Override
+    public long count(UUID ownerId) {
+        return events.countActiveByCreator(ownerId);
     }
 
     @Override

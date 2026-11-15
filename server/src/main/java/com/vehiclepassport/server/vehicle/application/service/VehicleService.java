@@ -3,6 +3,7 @@ package com.vehiclepassport.server.vehicle.application.service;
 import com.vehiclepassport.server.vehicle.application.port.in.ActiveOwnership;
 import com.vehiclepassport.server.vehicle.application.port.in.AppearanceView;
 import com.vehiclepassport.server.vehicle.application.port.in.AssertActiveOwnerUseCase;
+import com.vehiclepassport.server.vehicle.application.port.in.CountOwnedByOwnerUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.FileOwnershipClaimUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.GetVehicleUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.ListMyVehiclesUseCase;
@@ -36,7 +37,7 @@ import java.util.UUID;
 
 @ApplicationScoped
 public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUseCase, GetVehicleUseCase,
-        UpdateVehicleUseCase, ReleaseVehicleUseCase, AssertActiveOwnerUseCase {
+        UpdateVehicleUseCase, ReleaseVehicleUseCase, AssertActiveOwnerUseCase, CountOwnedByOwnerUseCase {
 
     private final VehicleRepositoryPort vehicles;
     private final OwnershipRepositoryPort ownerships;
@@ -80,6 +81,11 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
     public List<VehicleView> list(UUID userId) {
         List<Vin> vins = ownerships.findOpenByOwner(userId).stream().map(OwnershipPeriod::vin).toList();
         return vehicles.findByVins(vins).stream().map(VehicleService::view).toList();
+    }
+
+    @Override
+    public long count(UUID ownerId) {
+        return ownerships.countOpenByOwner(ownerId);
     }
 
     @Override

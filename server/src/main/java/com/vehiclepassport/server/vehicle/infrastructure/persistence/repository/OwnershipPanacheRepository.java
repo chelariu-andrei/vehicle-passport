@@ -58,6 +58,13 @@ public class OwnershipPanacheRepository implements OwnershipRepositoryPort {
     }
 
     @Override
+    public long countOpenByOwner(UUID ownerId) {
+        return em.createQuery("select count(p) from OwnershipPeriodEntity p where p.ownerId = :owner "
+                        + "and p.ownedTo is null", Long.class)
+                .setParameter("owner", ownerId).getSingleResult();
+    }
+
+    @Override
     public void save(OwnershipPeriod period) {
         OwnershipPeriodEntity entity = em.find(OwnershipPeriodEntity.class, period.id());
         if (entity == null) {

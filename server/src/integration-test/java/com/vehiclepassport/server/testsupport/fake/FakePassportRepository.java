@@ -38,6 +38,11 @@ public class FakePassportRepository implements PassportRepositoryPort, Resettabl
     }
 
     @Override
+    public long countByCreator(UUID userId) {
+        return findByCreator(userId).size();
+    }
+
+    @Override
     public void reset() {
         store.clear();
     }

@@ -62,6 +62,12 @@ public class PassportPanacheRepository implements PassportRepositoryPort {
                 .toList();
     }
 
+    @Override
+    public long countByCreator(UUID userId) {
+        return em.createQuery("select count(p) from PassportEntity p where p.createdBy = :user", Long.class)
+                .setParameter("user", userId).getSingleResult();
+    }
+
     /** Postgres keeps microseconds; truncating keeps values identical in memory and in the table. */
     private static Instant micros(Instant instant) {
         return instant == null ? null : instant.truncatedTo(ChronoUnit.MICROS);

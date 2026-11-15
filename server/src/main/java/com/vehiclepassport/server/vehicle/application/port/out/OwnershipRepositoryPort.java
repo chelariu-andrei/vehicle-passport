@@ -17,6 +17,8 @@ public interface OwnershipRepositoryPort {
 
     List<OwnershipPeriod> findOpenByOwner(UUID ownerId);
 
+    long countOpenByOwner(UUID ownerId);
+
     void save(OwnershipPeriod period);
 
     Optional<OwnershipClaim> findClaim(UUID id);
