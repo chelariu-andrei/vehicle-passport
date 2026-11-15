@@ -308,6 +308,9 @@ public final class ReceiptParser {
         List<String> kept = new ArrayList<>();
         for (String token : WHITESPACE.split(text.trim())) {
             if (!token.isEmpty() && !CURRENCY.matcher(token).matches() && !PERCENT.matcher(token).matches()) {
+                if (!hasRealDigit(token)) {
+                    return Segment.invalid(); // "I 350,00" must not be repaired into 1350.00
+                }
                 kept.add(token);
             }
         }
@@ -322,6 +325,9 @@ public final class ReceiptParser {
         List<String> kept = new ArrayList<>();
         for (String token : WHITESPACE.split(text.trim())) {
             if (!token.isEmpty() && !KM_UNIT.matcher(token).matches()) {
+                if (!hasRealDigit(token)) {
+                    return Segment.invalid();
+                }
                 kept.add(token);
             }
         }
@@ -331,6 +337,11 @@ public final class ReceiptParser {
         return OcrValues.km(String.join(" ", kept)).map(Segment::of).orElse(Segment.invalid());
     }
 
+    /** Digit repair (O/l/I) applies per whitespace token, and only to tokens holding a real digit. */
+    private static boolean hasRealDigit(String token) {
+        return token.chars().anyMatch(c -> c >= '0' && c <= '9');
+    }
+
     // ---- fields -----------------------------------------------------------------------------
 
     private static <T> ExtractedField<T> numeric(Optional<Reading<T>> reading, Set<ScanWarning> warnings) {
@@ -338,6 +349,8 @@ public final class ReceiptParser {
             return new ExtractedField<>(null, 0.0);
         }
         Reading<T> r = reading.get();
+        // A read below 0.50 blanks the field; the search does not fall back to another total label,
+        // because e.g. TOTAL III excludes VAT and is a different quantity from TOTAL GENERAL.
         if (r.score() < MIN_NUMERIC_SCORE) { // raw score, before the fuzzy factor
             warnings.add(ScanWarning.LOW_CONFIDENCE_READ);
             return new ExtractedField<>(null, 0.0);

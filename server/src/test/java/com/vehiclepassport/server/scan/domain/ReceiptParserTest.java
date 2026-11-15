@@ -90,6 +90,20 @@ class ReceiptParserTest {
         var d = parse(l("header", .9, 0, 10), l("15.03.2026", .9, 0, 1500), l("footer", .9, 0, 1980)).result().date();
         assertNull(d.value());
     }
+    @Test void bare_total_never_reads_a_roman_numeral_as_a_digit() {
+        var r = parse(l("TOTAL I 350,00", .9, 0, 100)).result();
+        assertEquals(new BigDecimal("350.00"), r.labor().value());
+        assertNull(r.total().value()); assertEquals(0.0, r.total().confidence());
+    }
+    @Test void unreadable_total_iii_leaves_total_empty() {
+        var r = parse(l("TOTAL I 350,00", .9, 0, 100), l("TOTAL II 1.045,00", .9, 0, 200),
+                      l("TOTAL III = I + II 1.395.00", .9, 0, 300)).result();
+        assertEquals(new BigDecimal("350.00"), r.labor().value());
+        assertNull(r.total().value()); assertEquals(0.0, r.total().confidence());
+    }
+    @Test void total_i_with_integer_value_is_not_a_total() {
+        assertNull(parse(l("TOTAL I 350", .9, 0, 100)).result().total().value());
+    }
     @Test void odometer_with_trailing_unit_in_one_line() {
         assertEquals(123456, parse(l("123.456 km", .9, 0, 100)).result().odometerKm().value());
     }
