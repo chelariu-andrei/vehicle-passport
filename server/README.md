@@ -41,6 +41,20 @@ Test commands:
 
 ## Receipt extraction
 
-Per decision D7, no extraction provider is configured by default: scans are stored and
-can be reviewed and confirmed manually, but no data is extracted automatically until a
-provider is wired in.
+Extraction is off by default (decision D7): scans are stored and can be reviewed and
+confirmed manually, but nothing is extracted automatically.
+
+To read invoices with the PaddleOCR service, set:
+
+- `SCAN_EXTRACTION_PROVIDER`: `none` (default) or `paddle` to enable OCR extraction.
+- `SCAN_OCR_BASE_URL`: where the OCR service listens (default `http://127.0.0.1:8090`).
+- `SCAN_OCR_TIMEOUT`: overall deadline for one OCR call (default 90 s).
+
+Start the OCR container with:
+
+```
+docker compose -f infra/docker-compose.yml up -d --build ocr
+```
+
+Under `paddle`, only images are read. A PDF upload is still accepted, but its job ends
+`FAILED` without calling the OCR service.

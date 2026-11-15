@@ -92,4 +92,12 @@ class PdfRendererAdapterTest {
     void no_events_renders() {
         assertDoesNotThrow(() -> render(doc(List.of())));
     }
+
+    @Test
+    void markup_in_a_service_name_is_rendered_as_literal_text() throws Exception {
+        String hostile = "<b>Auto</b> ${x} (a) Tj";
+        SnapshotEvent e = new SnapshotEvent(UUID.randomUUID(), "SERVICE", LocalDate.of(2024, 1, 1), 1000,
+                new BigDecimal("100.00"), "RON", "ok", hostile, List.of(), null, "NONE", false);
+        assertTrue(render(doc(List.of(e))).text().contains(hostile));
+    }
 }
