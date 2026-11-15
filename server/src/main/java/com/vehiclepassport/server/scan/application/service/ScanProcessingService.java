@@ -5,6 +5,7 @@ import com.vehiclepassport.server.scan.application.port.out.DocumentStoragePort;
 import com.vehiclepassport.server.scan.application.port.out.OdometerCheckPort;
 import com.vehiclepassport.server.scan.application.port.out.ReceiptExtractionPort;
 import com.vehiclepassport.server.scan.domain.exception.ExtractionFailedException;
+import com.vehiclepassport.server.scan.domain.model.ReceiptExtraction;
 import com.vehiclepassport.server.scan.domain.model.ReceiptValidator;
 import com.vehiclepassport.server.scan.domain.model.ScanJob;
 import com.vehiclepassport.server.scan.domain.model.ScanResult;
@@ -14,6 +15,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -58,21 +60,24 @@ public class ScanProcessingService implements ProcessScanJobsUseCase {
     }
 
     private boolean process(ScanJob job) {
-        ScanResult result;
+        ReceiptExtraction outcome;
         try {
-            result = extraction.extract(storage.read(job.documentKey()), job.contentType());
+            outcome = extraction.extract(storage.read(job.documentKey()), job.contentType());
         } catch (ExtractionFailedException e) {
             state.recordFailure(job.id(), e.getMessage());
             return false;
         }
-        state.recordSuccess(job.id(), result, validate(job, result));
+        LinkedHashSet<ScanWarning> warnings = new LinkedHashSet<>(outcome.warnings());
+        warnings.addAll(validate(job, outcome));
+        state.recordSuccess(job.id(), outcome.result(), List.copyOf(warnings));
         return true;
     }
 
-    private List<ScanWarning> validate(ScanJob job, ScanResult result) {
+    private List<ScanWarning> validate(ScanJob job, ReceiptExtraction outcome) {
+        ScanResult result = outcome.result();
         LocalDate date = result.date() == null ? null : result.date().value();
         Integer km = result.odometerKm() == null ? null : result.odometerKm().value();
         boolean consistent = date == null || km == null || odometer.isConsistent(job.vin(), date, km);
-        return ReceiptValidator.validate(result, LocalDate.now(clock), consistent);
+        return ReceiptValidator.validate(result, outcome.vat(), LocalDate.now(clock), consistent);
     }
 }

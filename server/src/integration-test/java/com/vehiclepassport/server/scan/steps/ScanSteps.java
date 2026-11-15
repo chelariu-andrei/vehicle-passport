@@ -15,9 +15,11 @@ import com.vehiclepassport.server.scan.application.port.in.SubmitScanUseCase;
 import com.vehiclepassport.server.scan.application.port.in.UploadedFile;
 import com.vehiclepassport.server.scan.domain.model.ExtractedField;
 import com.vehiclepassport.server.scan.domain.model.ExtractedPart;
+import com.vehiclepassport.server.scan.domain.model.ReceiptExtraction;
 import com.vehiclepassport.server.scan.domain.model.ScanJob;
 import com.vehiclepassport.server.scan.domain.model.ScanResult;
 import com.vehiclepassport.server.scan.domain.model.ScanStatus;
+import com.vehiclepassport.server.scan.domain.model.ScanWarning;
 import com.vehiclepassport.server.shared.config.ScanConfig;
 import com.vehiclepassport.server.testsupport.World;
 import com.vehiclepassport.server.testsupport.fake.FakeReceiptExtraction;
@@ -108,11 +110,24 @@ public class ScanSteps {
     @Given("extraction returned parts {int}, labor {int}, total {int}")
     public void extractionReturned(int parts, int labor, int total) {
         ownAsMe();
-        ScanResult base = FakeReceiptExtraction.defaultResult();
-        extraction.willReturn(new ScanResult(base.serviceName(), base.date(), base.odometerKm(),
-            new ExtractedField<>(List.of(new ExtractedPart("Part", BigDecimal.ONE, BigDecimal.valueOf(parts))), 0.9),
-            new ExtractedField<>(BigDecimal.valueOf(labor), 0.9),
-            new ExtractedField<>(BigDecimal.valueOf(total), 0.9)));
+        extraction.willReturn(receipt(parts, labor, total));
+        submitPhoto();
+        worker.processPending();
+    }
+
+    @Given("extraction returned parts {int}, labor {int}, total {int}, VAT {int}")
+    public void extractionReturnedWithVat(int parts, int labor, int total, int vat) {
+        ownAsMe();
+        extraction.willReturn(new ReceiptExtraction(receipt(parts, labor, total), BigDecimal.valueOf(vat), List.of()));
+        submitPhoto();
+        worker.processPending();
+    }
+
+    @Given("extraction returned the warning {word}")
+    public void extractionReturnedTheWarning(String code) {
+        ownAsMe();
+        extraction.willReturn(new ReceiptExtraction(FakeReceiptExtraction.defaultResult(), null,
+            List.of(ScanWarning.valueOf(code))));
         submitPhoto();
         worker.processPending();
     }
@@ -239,6 +254,16 @@ public class ScanSteps {
         assertTrue(view.warnings().contains("TOTAL_MISMATCH"), view.warnings().toString());
     }
 
+    @Then("the job has no warnings")
+    public void theJobHasNoWarnings() {
+        assertEquals(List.of(), currentJob().warnings());
+    }
+
+    @Then("the job has the warning {word}")
+    public void theJobHasTheWarning(String code) {
+        assertTrue(currentJob().warnings().contains(code), currentJob().warnings().toString());
+    }
+
     @Then("no event exists until I confirm")
     public void noEventExists() {
         assertEquals("EXTRACTED", currentJob().status());
@@ -255,6 +280,14 @@ public class ScanSteps {
             assertFalse(key.contains(".."), key);
         }
         assertEquals("../../x.pdf", world.get(HOSTILE_NAME_KEY));
+    }
+
+    private static ScanResult receipt(int parts, int labor, int total) {
+        ScanResult base = FakeReceiptExtraction.defaultResult();
+        return new ScanResult(base.serviceName(), base.date(), base.odometerKm(),
+            new ExtractedField<>(List.of(new ExtractedPart("Part", BigDecimal.ONE, BigDecimal.valueOf(parts))), 0.9),
+            new ExtractedField<>(BigDecimal.valueOf(labor), 0.9),
+            new ExtractedField<>(BigDecimal.valueOf(total), 0.9));
     }
 
     private void stuckJob(int attempts) {

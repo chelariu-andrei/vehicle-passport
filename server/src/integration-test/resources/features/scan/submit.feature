@@ -3,6 +3,14 @@ Feature: Invoice scanner submission and worker
     Given extraction returned parts 300, labor 100, total 500
     Then the result carries a total-mismatch warning
 
+  Scenario: VAT is excluded from the total check
+    Given extraction returned parts 300, labor 100, total 476, VAT 76
+    Then the job has no warnings
+
+  Scenario: Warnings from extraction reach the job
+    Given extraction returned the warning LOW_CONFIDENCE_READ
+    Then the job has the warning LOW_CONFIDENCE_READ
+
   Scenario: Batch limit
     Given I own vehicle V
     When I submit a batch of 21 files

@@ -14,8 +14,14 @@ public final class ReceiptValidator {
     }
 
     public static List<ScanWarning> validate(ScanResult r, LocalDate today, boolean odometerConsistent) {
+        return validate(r, null, today, odometerConsistent);
+    }
+
+    /** Parts and labor are compared with {@code total - vat} when the VAT amount is known. */
+    public static List<ScanWarning> validate(ScanResult r, BigDecimal vat, LocalDate today,
+            boolean odometerConsistent) {
         List<ScanWarning> warnings = new ArrayList<>();
-        if (totalMismatch(r)) {
+        if (totalMismatch(r, vat)) {
             warnings.add(ScanWarning.TOTAL_MISMATCH);
         }
         if (!odometerConsistent) {
@@ -27,7 +33,7 @@ public final class ReceiptValidator {
         return List.copyOf(warnings);
     }
 
-    private static boolean totalMismatch(ScanResult r) {
+    private static boolean totalMismatch(ScanResult r, BigDecimal vat) {
         List<ExtractedPart> parts = value(r.parts());
         BigDecimal labor = value(r.labor());
         BigDecimal total = value(r.total());
@@ -41,7 +47,8 @@ public final class ReceiptValidator {
             }
             sum = sum.add(part.price());
         }
-        return sum.subtract(total).abs().compareTo(TOLERANCE) > 0;
+        BigDecimal net = vat == null ? total : total.subtract(vat);
+        return sum.subtract(net).abs().compareTo(TOLERANCE) > 0;
     }
 
     private static boolean dateInFuture(ScanResult r, LocalDate today) {

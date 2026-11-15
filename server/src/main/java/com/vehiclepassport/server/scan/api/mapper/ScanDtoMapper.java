@@ -25,7 +25,11 @@ public class ScanDtoMapper {
     private static final Map<String, String> MESSAGES = Map.of(
             "TOTAL_MISMATCH", "The total does not match the parts and labor",
             "ODOMETER_INCONSISTENT", "The odometer reading conflicts with the vehicle history",
-            "DATE_IN_FUTURE", "The date is in the future");
+            "DATE_IN_FUTURE", "The date is in the future",
+            "LOW_CONFIDENCE_READ", "Some values were unclear and were left empty",
+            "TOTALS_INCONSISTENT", "The totals printed on the invoice do not add up",
+            "PART_ROW_SKIPPED", "Some part rows could not be read and were skipped",
+            "PART_LINE_MISMATCH", "The quantity, unit price and value of a part row do not match");
 
     public ConfirmScanCommand toCommand(UUID userId, UUID jobId, ConfirmScanRequest r) {
         List<PartInput> parts = r.parts() == null ? List.of()

@@ -112,4 +112,26 @@ class ReceiptValidatorTest {
 
         assertEquals(List.of(), ReceiptValidator.validate(r, TODAY, true));
     }
+
+    @Test
+    void vat_is_excluded_from_the_total_check() {
+        ScanResult r = receipt(parts("300"), money("100"), money("476"));
+
+        assertEquals(List.of(), ReceiptValidator.validate(r, new BigDecimal("76"), TODAY, true));
+    }
+
+    @Test
+    void wrong_vat_still_warns() {
+        ScanResult r = receipt(parts("300"), money("100"), money("476"));
+
+        assertEquals(List.of(ScanWarning.TOTAL_MISMATCH),
+                ReceiptValidator.validate(r, new BigDecimal("70"), TODAY, true));
+    }
+
+    @Test
+    void no_vat_keeps_the_old_comparison() {
+        ScanResult r = receipt(parts("300"), money("100"), money("476"));
+
+        assertEquals(List.of(ScanWarning.TOTAL_MISMATCH), ReceiptValidator.validate(r, null, TODAY, true));
+    }
 }
