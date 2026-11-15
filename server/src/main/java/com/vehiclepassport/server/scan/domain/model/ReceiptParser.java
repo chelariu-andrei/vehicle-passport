@@ -64,14 +64,17 @@ public final class ReceiptParser {
         if (document == null || today == null) {
             throw new IllegalArgumentException("document and today are required");
         }
-        List<List<Line>> rows = OcrRows.rows(document.lines()).stream()
+        List<List<OcrLine>> ocrRows = OcrRows.rows(document.lines());
+        List<List<Line>> rows = ocrRows.stream()
             .map(row -> row.stream().map(Line::of).toList())
             .toList();
         Set<ScanWarning> warnings = new LinkedHashSet<>();
 
         ExtractedField<BigDecimal> labor = numeric(lastLabelled(rows, LABOR, ReceiptParser::money), warnings);
         ExtractedField<BigDecimal> total = numeric(lastLabelled(rows, TOTAL, ReceiptParser::money), warnings);
-        ExtractedField<List<ExtractedPart>> parts = new ExtractedField<>(null, 0.0);
+        ReceiptPartsTable.Outcome table = ReceiptPartsTable.parse(ocrRows);
+        warnings.addAll(table.warnings());
+        ExtractedField<List<ExtractedPart>> parts = table.parts();
 
         BigDecimal vat = null;
         Optional<Reading<BigDecimal>> vatReading = lastLabelled(rows, VAT, ReceiptParser::money);
