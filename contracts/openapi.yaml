@@ -893,7 +893,7 @@ components:
       type: object
       required: [code, message]
       properties:
-        code: { type: string, examples: [TOTAL_MISMATCH, ODOMETER_INCONSISTENT, DATE_IN_FUTURE] }
+        code: { type: string, examples: [TOTAL_MISMATCH, ODOMETER_INCONSISTENT, DATE_IN_FUTURE, LOW_CONFIDENCE_READ, TOTALS_INCONSISTENT, PART_ROW_SKIPPED, PART_LINE_MISMATCH] }
         message: { type: string }
 
     ScanJobResponse:

@@ -4,6 +4,7 @@ import com.vehiclepassport.server.scan.application.port.out.ReceiptExtractionPor
 import com.vehiclepassport.server.scan.domain.exception.ExtractionFailedException;
 import com.vehiclepassport.server.scan.domain.model.ExtractedField;
 import com.vehiclepassport.server.scan.domain.model.ExtractedPart;
+import com.vehiclepassport.server.scan.domain.model.ReceiptExtraction;
 import com.vehiclepassport.server.scan.domain.model.ScanResult;
 import com.vehiclepassport.server.testsupport.Resettable;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -16,7 +17,8 @@ import java.util.List;
 @ApplicationScoped
 public class FakeReceiptExtraction implements ReceiptExtractionPort, Resettable {
 
-    private ScanResult result = defaultResult();
+    private ReceiptExtraction result = ReceiptExtraction.of(defaultResult());
+    private ReceiptExtractionPort delegate;
     private int failuresLeft;
     private int calls;
 
@@ -33,7 +35,15 @@ public class FakeReceiptExtraction implements ReceiptExtractionPort, Resettable 
     }
 
     public void willReturn(ScanResult next) {
+        willReturn(ReceiptExtraction.of(next));
+    }
+
+    public void willReturn(ReceiptExtraction next) {
         this.result = next;
+    }
+
+    public void willDelegateTo(ReceiptExtractionPort next) {
+        this.delegate = next;
     }
 
     public void willFail(int times) {
@@ -45,18 +55,19 @@ public class FakeReceiptExtraction implements ReceiptExtractionPort, Resettable 
     }
 
     @Override
-    public ScanResult extract(byte[] content, String contentType) {
+    public ReceiptExtraction extract(byte[] content, String contentType) {
         calls++;
         if (failuresLeft > 0) {
             failuresLeft--;
             throw new ExtractionFailedException("provider unavailable");
         }
-        return result;
+        return delegate != null ? delegate.extract(content, contentType) : result;
     }
 
     @Override
     public void reset() {
-        result = defaultResult();
+        result = ReceiptExtraction.of(defaultResult());
+        delegate = null;
         failuresLeft = 0;
         calls = 0;
     }

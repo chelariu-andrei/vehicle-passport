@@ -1,10 +1,10 @@
 package com.vehiclepassport.server.scan.application.port.out;
 
 import com.vehiclepassport.server.scan.domain.exception.ExtractionFailedException;
-import com.vehiclepassport.server.scan.domain.model.ScanResult;
+import com.vehiclepassport.server.scan.domain.model.ReceiptExtraction;
 
 public interface ReceiptExtractionPort {
 
     /** @throws ExtractionFailedException when the provider cannot produce a result */
-    ScanResult extract(byte[] content, String contentType);
+    ReceiptExtraction extract(byte[] content, String contentType);
 }

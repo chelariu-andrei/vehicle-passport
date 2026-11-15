@@ -36,6 +36,8 @@ class VehicleResourceIT {
     static final String OTHER = "00000000-0000-0000-0000-0000000000b2";
     static final String CLAIMANT = "00000000-0000-0000-0000-0000000000c3";
     static final String LISTER = "00000000-0000-0000-0000-0000000000d4";
+    // own owner, so the look test never adds a third car to the list_returns_only_mine owner
+    static final String LOOK_LISTER = "00000000-0000-0000-0000-0000000000d5";
 
     @Inject
     RegisterVehicleUseCase registering;
@@ -366,10 +368,10 @@ class VehicleResourceIT {
 
     @Test
     @TestSecurity(user = "l8")
-    @OidcSecurity(claims = @Claim(key = "sub", value = LISTER))
+    @OidcSecurity(claims = @Claim(key = "sub", value = LOOK_LISTER))
     void list_returns_plate_and_appearance() {
         String vin = TestVins.random();
-        registerAs(LISTER, vin);
+        registerAs(LOOK_LISTER, vin);
         patch(vin, LOOK, 200);
         given().when().get("/vehicles")
                 .then().statusCode(200)

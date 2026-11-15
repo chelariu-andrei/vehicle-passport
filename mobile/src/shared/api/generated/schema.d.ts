@@ -596,6 +596,10 @@ export interface components {
              * @example TOTAL_MISMATCH
              * @example ODOMETER_INCONSISTENT
              * @example DATE_IN_FUTURE
+             * @example LOW_CONFIDENCE_READ
+             * @example TOTALS_INCONSISTENT
+             * @example PART_ROW_SKIPPED
+             * @example PART_LINE_MISMATCH
              */
             code: string;
             message: string;

@@ -134,4 +134,9 @@ class ArchitectureTest {
                     .should().beAnnotatedWith(TRANSACTIONAL))
             .and(noMethods().that().areAnnotatedWith(TRANSACTIONAL)
                     .should().beDeclaredInClassesThat().resideOutsideOfPackage("..application.service.."));
+
+    @ArchTest
+    static final ArchRule extraction_adapters_live_in_client = classes()
+            .that().implement(BASE + ".scan.application.port.out.ReceiptExtractionPort")
+            .should().resideInAPackage("..scan.infrastructure.client..");
 }
