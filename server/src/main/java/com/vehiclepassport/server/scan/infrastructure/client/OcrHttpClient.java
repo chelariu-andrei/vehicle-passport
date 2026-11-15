@@ -18,6 +18,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Posts an image to the OCR service. Every runtime failure is an {@link ExtractionFailedException} with a constant message. */
 public class OcrHttpClient {
@@ -27,6 +32,14 @@ public class OcrHttpClient {
 
     // Private mapper: the app-wide one rejects unknown properties, the OCR response may grow fields.
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    // HttpRequest.timeout() ends when the headers arrive for a streamed body, so a watchdog enforces the
+    // one overall deadline by closing the stream, which unblocks a stalled read.
+    private static final ScheduledExecutorService WATCHDOG = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "ocr-deadline");
+        t.setDaemon(true);
+        return t;
+    });
 
     private final URI endpoint;
     private final Duration timeout;
@@ -53,6 +66,8 @@ public class OcrHttpClient {
 
     public OcrDocument recognize(byte[] content, String contentType) {
         byte[] body;
+        long deadline = System.nanoTime() + timeout.toNanos();
+        AtomicBoolean expired = new AtomicBoolean();
         try {
             String boundary = "----receipt" + UUID.randomUUID().toString().replace("-", "");
             String filename = "image/png".equalsIgnoreCase(contentType) ? "receipt.png" : "receipt.jpg";
@@ -62,11 +77,27 @@ public class OcrHttpClient {
                 .POST(HttpRequest.BodyPublishers.ofByteArray(multipart(boundary, filename, contentType, content)))
                 .build();
             HttpResponse<InputStream> response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            ScheduledFuture<?> watchdog = null;
             try (InputStream in = response.body()) {
+                watchdog = WATCHDOG.schedule(() -> {
+                    expired.set(true);
+                    try {
+                        in.close();
+                    } catch (IOException ignored) {
+                        // closing only has to unblock the reader
+                    }
+                }, Math.max(1L, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
                 if (response.statusCode() != 200) {
                     throw new ExtractionFailedException("OCR service returned an error");
                 }
                 body = in.readNBytes(MAX_RESPONSE_BYTES + 1);
+            } finally {
+                if (watchdog != null) {
+                    watchdog.cancel(false);
+                }
+            }
+            if (expired.get()) {
+                throw new ExtractionFailedException("OCR service timed out");
             }
         } catch (ExtractionFailedException e) {
             throw e;
@@ -76,7 +107,8 @@ public class OcrHttpClient {
         } catch (HttpTimeoutException e) {
             throw new ExtractionFailedException("OCR service timed out");
         } catch (IOException | RuntimeException e) {
-            throw new ExtractionFailedException("OCR service unreachable");
+            throw new ExtractionFailedException(
+                expired.get() ? "OCR service timed out" : "OCR service unreachable");
         }
         if (body.length > MAX_RESPONSE_BYTES) {
             throw new ExtractionFailedException("OCR response too large");

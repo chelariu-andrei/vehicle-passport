@@ -111,6 +111,16 @@ class PaddleOcrExtractionAdapterTest {
         assertTrue(Duration.ofNanos(System.nanoTime() - start).compareTo(Duration.ofSeconds(4)) < 0);
     }
 
+    @Test void a_body_that_stalls_after_the_headers_times_out() {
+        stub.stallAfterHeaders(Duration.ofSeconds(4));
+        stub.respond(200, "{\"width\":10,\"height\":10,\"lines\":[{\"text\":\"TOTAL GENERAL 10,00\",\"score\":0.9,\"box\":[0,0,9,9]}]}");
+        var quick = new PaddleOcrExtractionAdapter(new OcrHttpClient(stub.uri(), Duration.ofSeconds(1)));
+        long start = System.nanoTime();
+        var e = assertThrows(ExtractionFailedException.class, () -> quick.extract(PNG, "image/png"));
+        assertEquals("OCR service timed out", e.getMessage());
+        assertTrue(Duration.ofNanos(System.nanoTime() - start).compareTo(Duration.ofSeconds(3)) < 0);
+    }
+
     @Test void a_response_over_the_size_cap_fails() {
         stub.respond(200, " ".repeat(16 * 1024 * 1024 + 1));
         assertEquals("OCR response too large", fails().getMessage());

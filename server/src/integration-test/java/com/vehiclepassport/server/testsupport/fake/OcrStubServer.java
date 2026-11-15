@@ -20,6 +20,7 @@ public final class OcrStubServer implements AutoCloseable {
     private volatile int status = 200;
     private volatile String json = "{}";
     private volatile Duration delay = Duration.ZERO;
+    private volatile Duration stall = Duration.ZERO;
     private volatile String lastBody = "";
 
     private OcrStubServer(HttpServer server) {
@@ -43,6 +44,22 @@ public final class OcrStubServer implements AutoCloseable {
                         }
                     }
                     byte[] out = stub.json.getBytes(StandardCharsets.UTF_8);
+                    Duration pause = stub.stall;
+                    if (!pause.isZero()) {
+                        // headers and the first half of the body go out, then the server stalls
+                        exchange.getResponseHeaders().add("Content-Type", "application/json");
+                        exchange.sendResponseHeaders(stub.status, 0);
+                        exchange.getResponseBody().write(out, 0, out.length / 2);
+                        exchange.getResponseBody().flush();
+                        try {
+                            Thread.sleep(pause.toMillis());
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                        exchange.getResponseBody().write(out, out.length / 2, out.length - out.length / 2);
+                        return;
+                    }
                     exchange.getResponseHeaders().add("Content-Type", "application/json");
                     exchange.sendResponseHeaders(stub.status, out.length);
                     exchange.getResponseBody().write(out);
@@ -65,6 +82,11 @@ public final class OcrStubServer implements AutoCloseable {
 
     public void delay(Duration delay) {
         this.delay = delay;
+    }
+
+    /** After the response headers and half the body, the server stalls this long (released by close()). */
+    public void stallAfterHeaders(Duration stall) {
+        this.stall = stall;
     }
 
     public String lastBody() {
