@@ -15,4 +15,24 @@ public interface ScanConfig {
 
     @WithDefault("10")
     int workerBatchSize();
+
+    Extraction extraction();
+
+    Ocr ocr();
+
+    interface Extraction {
+
+        /** {@code paddle} selects the OCR adapter, anything else the no-provider one. */
+        @WithDefault("none")
+        String provider();
+    }
+
+    interface Ocr {
+
+        @WithDefault("http://127.0.0.1:8090")
+        String baseUrl();
+
+        @WithDefault("PT90S")
+        Duration timeout();
+    }
 }
