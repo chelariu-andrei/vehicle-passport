@@ -3,9 +3,14 @@ Feature: Passport
     Given a passport whose status is EXPIRED
     Then it is shown as expired, without a QR code
 
+  Scenario: Passports follow the active car
+    Given I own two cars and each has a passport
+    Then I see one passport
+
   Scenario: A passport for a sold car stays manageable
-    Given my passport's VIN is no longer in my garage
-    Then it is listed under its VIN and I can revoke it
+    Given a passport for a VIN that is not in my garage
+    Then I see it under "Cars you no longer own", whichever car is active
+    And I can revoke it
 
   Scenario: The freeze is explained before creating
     When I open Create passport

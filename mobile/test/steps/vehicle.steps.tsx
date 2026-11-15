@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { focusManager } from '@tanstack/react-query';
+import { Platform } from 'react-native';
 import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
 import { defineFeature, loadFeature, setJestCucumberConfiguration } from 'jest-cucumber';
 
@@ -7,14 +8,18 @@ import { en } from '@/shared/i18n/en';
 
 import type { FakeApi } from '../fake-api';
 import { aClaim, aVehicle, SAMPLE_VIN } from '../fake-api';
-import { openApp, registerVin } from '../harness';
+import { openApp } from '../harness';
 
 setJestCucumberConfiguration({ errors: true });
 const feature = loadFeature('../../features/vehicle.feature', { loadRelativePath: true });
 
 const detailUrl = `/vehicles/${SAMPLE_VIN}`;
+/** The Car tab is the car's screen; `/vehicles/{vin}` only links to it. */
+const HOME = '/';
 const CAR = 'Volkswagen Golf';
 const FILED = '2025-01-15T10:00:00Z';
+
+afterEach(() => jest.restoreAllMocks());
 
 beforeEach(async () => {
   await AsyncStorage.clear();
@@ -42,8 +47,8 @@ defineFeature(feature, (test) => {
   let fake: FakeApi;
 
   test('A car that left the account', ({ given, when, then }) => {
-    given('a vehicle is open', async () => {
-      fake = await openApp(detailUrl, { seed: withCar });
+    given('the car is open', async () => {
+      fake = await openApp(HOME, { seed: withCar });
       expect(await screen.findByText(CAR)).toBeTruthy();
     });
     when(/^the API answers 404 "(.*)"$/, async (code: string) => {
@@ -53,36 +58,6 @@ defineFeature(feature, (test) => {
     then('I return to the garage and am told the car is no longer there', async () => {
       expect(await screen.findByText(en.vehicle.gone)).toBeTruthy();
       await waitFor(() => expect(screen).toHavePathname('/'));
-    });
-  });
-
-  test('A newly registered car opens', ({ when, then }) => {
-    when('I register a VIN and the API answers 201', async () => {
-      fake = await openApp('/');
-      expect(await screen.findByText(en.garage.emptyTitle)).toBeTruthy();
-      await registerVin(SAMPLE_VIN);
-    });
-    then('the new vehicle is open', async () => {
-      await waitFor(() => expect(screen).toHavePathname(detailUrl));
-      expect(await screen.findByText(CAR)).toBeTruthy();
-      expect(fake.callsTo('registerVehicle')).toHaveLength(1);
-    });
-  });
-
-  test('A car I already own is one tap away', ({ when, then }) => {
-    let code = '';
-    when(/^I register a VIN and the API answers 409 "(.*)"$/, async (answer: string) => {
-      code = answer;
-      // The car is already in the garage, so the fake answers 409 "already-owner" by itself.
-      fake = await openApp('/', { seed: withCar });
-      expect(await screen.findByRole('button', { name: CAR })).toBeTruthy();
-      await registerVin(SAMPLE_VIN);
-    });
-    then('I can open that vehicle from the message', async () => {
-      expect(await screen.findByText(en.errors.codes[code as 'already-owner'])).toBeTruthy();
-      await press(en.vehicleForm.viewCar);
-      await waitFor(() => expect(screen).toHavePathname(detailUrl));
-      expect(await screen.findByText(en.vehicle.illustrative)).toBeTruthy();
     });
   });
 
@@ -113,13 +88,16 @@ defineFeature(feature, (test) => {
 
   test('Giving up ownership warns first', ({ when, then, and }) => {
     when('I choose Give up ownership', async () => {
-      fake = await openApp(detailUrl, { seed: withCar });
+      // Jest's iOS Modal never reports a dismissal; the menu's Android timer path stands in for it.
+      jest.replaceProperty(Platform, 'OS', 'android');
+      fake = await openApp(HOME, { seed: withCar });
       expect(await screen.findByText(CAR)).toBeTruthy();
+      await press(en.vehicle.more);
       await press(en.vehicle.release);
     });
-    then('I am warned that access ends, unconfirmed scans are cancelled and passports stay live', () => {
+    then('I am warned that access ends, unconfirmed scans are cancelled and passports stay live', async () => {
       const body = en.vehicle.releaseBody;
-      expect(screen.getByText(body)).toBeTruthy();
+      expect(await screen.findByText(body)).toBeTruthy();
       expect(body).toMatch(/access to this car's history ends/i);
       expect(body).toMatch(/unconfirmed scans are cancelled/i);
       expect(body).toMatch(/passports .*stay live until you revoke them/i);
@@ -132,7 +110,7 @@ defineFeature(feature, (test) => {
   test('Pending claims are announced', ({ given, when, then }) => {
     given('a vehicle has a pending claim', () => undefined);
     when('I open it', async () => {
-      fake = await openApp(detailUrl, { seed: withCarAndClaim });
+      fake = await openApp(HOME, { seed: withCarAndClaim });
     });
     then('I see the claims banner', async () => {
       expect(await screen.findByText(en.vehicle.claimsBanner(1))).toBeTruthy();
@@ -143,7 +121,7 @@ defineFeature(feature, (test) => {
   test('Approving moves the car away', ({ given, when, then }) => {
     given('a vehicle has a pending claim', () => undefined);
     when('I approve it and confirm', async () => {
-      fake = await openApp(detailUrl, { seed: withCarAndClaim });
+      fake = await openApp(HOME, { seed: withCarAndClaim });
       await fireEvent.press(await screen.findByRole('button', { name: en.vehicle.reviewClaims }));
       await fireEvent.press(await screen.findByRole('button', { name: en.claims.approve }));
       await press(en.claims.approveConfirm);
@@ -188,28 +166,12 @@ defineFeature(feature, (test) => {
   test('The stage never blocks the screen', ({ given, when, then }) => {
     given('the 3D stage has not loaded', () => undefined);
     when('I open a vehicle', async () => {
-      fake = await openApp(detailUrl, { seed: withCar });
+      fake = await openApp(HOME, { seed: withCar });
     });
     then('I see its name and history', async () => {
       expect(await screen.findByText(CAR)).toBeTruthy();
       expect(screen.getByRole('header', { name: en.vehicle.history })).toBeTruthy();
-      expect(screen.getByTestId('stage-placeholder')).toBeTruthy();
-    });
-  });
-
-  test('Colour is remembered', ({ when, then }) => {
-    when(/^I choose "(.*)" and reopen the vehicle$/, async (colour: string) => {
-      fake = await openApp('/', { seed: withCar });
-      await fireEvent.press(await screen.findByRole('button', { name: CAR }));
-      await fireEvent.press(await screen.findByRole('radio', { name: colour }));
-      await waitFor(() => expect(screen.getByRole('radio', { name: colour })).toBeSelected());
-      await press(en.common.back);
-      await waitFor(() => expect(screen).toHavePathname('/'));
-      await fireEvent.press(await screen.findByRole('button', { name: CAR }));
-    });
-    then(/^"(.*)" is selected$/, async (colour: string) => {
-      await waitFor(() => expect(screen.getByRole('radio', { name: colour })).toBeSelected());
-      expect(screen.getByRole('radio', { name: 'Obsidian' })).not.toBeSelected();
+      expect(screen.getByTestId('car-silhouette')).toBeTruthy();
     });
   });
 });

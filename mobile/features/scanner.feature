@@ -57,10 +57,17 @@ Feature: Scanner
     When I open capture
     Then I see "One photo per invoice"
 
-  Scenario: One car skips the car picker
-    Given I have one car
+  Scenario: The inbox shows the active car's scans
+    Given I own two cars and each has a scan in flight
+    Then I see one row
+    When I switch car
+    Then I see the other car's row
+
+  Scenario: Scanning uses the active car
+    Given I own two cars and the second is active
     When I start a scan
-    Then I go straight to capture
+    Then I am not asked which car
+    And the upload goes to the second car's VIN
 
   Scenario: Camera access refused
     Given camera permission is denied

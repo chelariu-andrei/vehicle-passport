@@ -699,6 +699,32 @@ components:
       type: string
       enum: [PETROL, DIESEL, HYBRID, ELECTRIC, LPG, OTHER]
 
+    BodyType: { type: string, enum: [HATCHBACK, SEDAN, ESTATE, SUV, COUPE, MPV, PICKUP] }
+    PaintColor: { type: string, enum: [WHITE, BLACK, SILVER, GREY, BLUE, RED, GREEN, BEIGE, BROWN, YELLOW, ORANGE, GOLD] }
+    PaintFinish: { type: string, enum: [GLOSS, METALLIC, SATIN, MATTE] }
+    WheelStyle: { type: string, enum: [FIVE_SPOKE, MULTI_SPOKE, AERO] }
+    RimColor: { type: string, enum: [SILVER, BLACK, BODY] }
+    GlassTint: { type: string, enum: [LIGHT, DARK] }
+    Plate:
+      type: string
+      minLength: 1
+      maxLength: 10
+      pattern: '^[A-Z0-9](?:[A-Z0-9 -]{0,8}[A-Z0-9])?$'
+      description: Number plate as the owner typed it, normalised. Owner-only; never part of a passport; cleared on transfer.
+    VehicleAppearance:
+      type: object
+      description: How the illustrative model is drawn. Visual only. Transfers with the car.
+      additionalProperties: false
+      properties:
+        bodyType: { $ref: '#/components/schemas/BodyType' }
+        color: { $ref: '#/components/schemas/PaintColor' }
+        colorHex: { type: string, pattern: '^#[0-9a-f]{6}$', description: "The owner's own shade. `color` then holds the nearest named colour." }
+        finish: { $ref: '#/components/schemas/PaintFinish' }
+        wheels: { $ref: '#/components/schemas/WheelStyle' }
+        rimColor: { $ref: '#/components/schemas/RimColor' }
+        glassTint: { $ref: '#/components/schemas/GlassTint' }
+        contrastRoof: { type: boolean }
+
     EventType:
       type: string
       enum: [SERVICE, REPAIR, TIRES, ITP]
@@ -740,6 +766,10 @@ components:
           minimum: 1886
           description: Maximum is the current year + 1, enforced by the server.
         fuel: { $ref: '#/components/schemas/FuelType' }
+        plate:
+          description: Null clears the plate.
+          oneOf: [{ $ref: '#/components/schemas/Plate' }, { type: 'null' }]
+        appearance: { $ref: '#/components/schemas/VehicleAppearance' }
 
     VehicleResponse:
       type: object
@@ -751,6 +781,10 @@ components:
         engine: { type: [string, 'null'] }
         year: { type: integer }
         fuel: { $ref: '#/components/schemas/FuelType' }
+        plate:
+          oneOf: [{ $ref: '#/components/schemas/Plate' }, { type: 'null' }]
+        appearance:
+          oneOf: [{ $ref: '#/components/schemas/VehicleAppearance' }, { type: 'null' }]
 
     ClaimFiledResponse:
       type: object

@@ -74,9 +74,6 @@ export function AccountScreen() {
       <AppearancePicker />
       <Button kind="secondary" title={en.account.signOut} loading={signOut.isPending} onPress={() => signOut.mutate()} />
       <Detail label={en.account.version} value={Constants.expoConfig?.version ?? ''} />
-      <Text variant="caption" color="ink-muted">
-        {en.account.modelCredit}
-      </Text>
     </Screen>
   );
 }

@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
+import { View } from 'react-native';
 
-import { useVehicles } from '@/features/vehicle';
-import { AsyncList, Button, EmptyState, Screen, Text } from '@/shared/design';
+import { CarSwitcher, useActiveCar, useVehicles } from '@/features/vehicle';
+import { AsyncList, Button, EmptyState, Screen, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 
 import { useScanJobs } from '../api/useScanJobs';
@@ -10,7 +11,10 @@ import { InboxRow } from './InboxRow';
 export function InboxScreen() {
   const router = useRouter();
   const vehicles = useVehicles();
-  const { rows, dismiss, retry, isRetrying, query } = useScanJobs();
+  const active = useActiveCar();
+  const car = active.car;
+  const { rows: allRows, dismiss, retry, isRetrying, query } = useScanJobs();
+  const rows = car ? allRows.filter((row) => row.vin === car.vin) : [];
   const startScan = () => router.push('/scans/new');
   const nameOf = (vin: string) => {
     const car = vehicles.data?.find((v) => v.vin === vin);
@@ -18,13 +22,24 @@ export function InboxScreen() {
   };
 
   return (
-    <Screen>
-      <Text variant="display-xl" accessibilityRole="header">
-        {en.scans.title}
-      </Text>
+    <Screen
+      header={
+        <View style={{ minHeight: 56, justifyContent: 'center', paddingHorizontal: tokens.space['space-4'] }}>
+          <CarSwitcher fallbackTitle={en.scans.title} />
+        </View>
+      }
+    >
       {rows.length > 0 ? <Button title={en.scans.scanInvoice} onPress={startScan} /> : null}
       <AsyncList
-        query={query}
+        query={{
+          isPending: query.isPending || active.status === 'loading',
+          isError: query.isError || active.status === 'error',
+          isRefetching: query.isRefetching,
+          refetch: () => {
+            void query.refetch();
+            active.refetch();
+          },
+        }}
         data={rows}
         keyExtractor={(row) => row.id}
         renderItem={({ item }) => (

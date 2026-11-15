@@ -1,8 +1,13 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { AccessibilityInfo, Text as RNText } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AsyncList, Button, ConfirmSheet, EvidenceBadge, Field, toast, ToastHost } from '.';
+import { en } from '@/shared/i18n/en';
+
+import { ActionBar, AppBar, AsyncList, Button, ConfirmSheet, EvidenceBadge, Field, Ground, Screen, ThemeProvider, toast, ToastHost } from '.';
+
+const METRICS = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, left: 0, right: 0, bottom: 34 } };
 
 describe('EvidenceBadge', () => {
   it.each([
@@ -59,11 +64,11 @@ describe('ConfirmSheet', () => {
     const onConfirm = jest.fn();
     const onCancel = jest.fn();
     await render(
-      <ConfirmSheet visible title="Delete?" body="Cannot be undone" confirmLabel="Delete" danger onConfirm={onConfirm} onCancel={onCancel} />,
+      <ConfirmSheet visible title="Delete?" body="Cannot be undone" confirmLabel="Delete" dismissLabel="Keep it" danger onConfirm={onConfirm} onCancel={onCancel} />,
     );
     expect(screen.getByText('Cannot be undone')).toBeTruthy();
     await fireEvent.press(screen.getByText('Delete'));
-    await fireEvent.press(screen.getByText('Cancel'));
+    await fireEvent.press(screen.getByText('Keep it'));
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
@@ -119,5 +124,101 @@ describe('toast', () => {
     });
     expect(screen.queryByText('Saved')).toBeNull();
     jest.useRealTimers();
+  });
+});
+
+describe('AppBar', () => {
+  it('shows Back only when it can go back', async () => {
+    const onBack = jest.fn();
+    const { unmount } = await render(<AppBar onBack={onBack} title="Garage" />);
+    await fireEvent.press(screen.getByRole('button', { name: en.common.back }));
+    expect(onBack).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Garage')).toBeTruthy();
+    await unmount();
+    await render(<AppBar title="Garage" />);
+    expect(screen.queryByRole('button', { name: en.common.back })).toBeNull();
+  });
+});
+
+describe('ActionBar', () => {
+  it('renders one primary and an optional quiet action', async () => {
+    const primary = jest.fn();
+    const quiet = jest.fn();
+    await render(<ActionBar primary={{ title: 'Continue', onPress: primary }} quiet={{ title: 'Later', onPress: quiet }} />);
+    expect(screen.getAllByRole('button')).toHaveLength(2);
+    await fireEvent.press(screen.getByText('Continue'));
+    await fireEvent.press(screen.getByText('Later'));
+    expect(primary).toHaveBeenCalledTimes(1);
+    expect(quiet).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders only the primary action without a quiet one', async () => {
+    await render(<ActionBar primary={{ title: 'Continue', onPress: jest.fn() }} />);
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('quiet is not pressable while disabled', async () => {
+    const quiet = jest.fn();
+    await render(<ActionBar primary={{ title: 'Continue', onPress: jest.fn() }} quiet={{ title: 'Later', onPress: quiet, disabled: true }} />);
+    const button = screen.getByRole('button', { name: 'Later' });
+    expect(button.props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.press(button);
+    expect(quiet).not.toHaveBeenCalled();
+  });
+
+  it('primary is disabled while loading', async () => {
+    const onPress = jest.fn();
+    await render(<ActionBar primary={{ title: 'Continue', onPress, loading: true }} />);
+    const button = screen.getByRole('button', { name: 'Continue' });
+    expect(button.props.accessibilityState).toMatchObject({ busy: true, disabled: true });
+    await fireEvent.press(button);
+    expect(onPress).not.toHaveBeenCalled();
+  });
+});
+
+describe('Screen', () => {
+  it('renders its footer outside the scroll area', async () => {
+    await render(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <Screen scroll header={<RNText>head</RNText>} footer={<RNText>foot</RNText>}>
+          <RNText>body</RNText>
+        </Screen>
+      </SafeAreaProvider>,
+    );
+    const scroll = screen.getByTestId('screen-scroll');
+    expect(within(scroll).getByText('body')).toBeTruthy();
+    expect(within(scroll).queryByText('foot')).toBeNull();
+    expect(within(scroll).queryByText('head')).toBeNull();
+    expect(screen.getByText('foot')).toBeTruthy();
+  });
+});
+
+describe('Ground', () => {
+  beforeEach(() => AsyncStorage.clear());
+
+  it('draws grain in the dark theme', async () => {
+    await AsyncStorage.setItem('appearance', 'dark');
+    await render(
+      <ThemeProvider>
+        <Ground>
+          <RNText>x</RNText>
+        </Ground>
+      </ThemeProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId('ground-grain')).toBeTruthy());
+  });
+
+  it('draws no grain in the light theme', async () => {
+    await AsyncStorage.setItem('appearance', 'light');
+    await render(
+      <ThemeProvider>
+        <Ground>
+          <RNText>x</RNText>
+        </Ground>
+      </ThemeProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId('ground-grain')).toBeNull());
+    await act(async () => {});
+    expect(screen.queryByTestId('ground-grain')).toBeNull();
   });
 });

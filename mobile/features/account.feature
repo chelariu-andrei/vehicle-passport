@@ -1,7 +1,7 @@
 Feature: Account
   Scenario: Account details
     When I open Account
-    Then I see my email, the app version and the 3D model credit
+    Then I see my email and the app version
 
   Scenario: Appearance is remembered
     When I choose "Daylight" and restart the app

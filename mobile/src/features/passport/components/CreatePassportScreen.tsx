@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { errorMessage } from '@/shared/api';
-import { Button, Card, Icon, Screen, Text, tokens, useTheme } from '@/shared/design';
+import { ActionBar, AppBar, Card, Icon, Screen, Text, tokens, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { useBack } from '@/shared/navigation/useBack';
 
 import { useCreatePassport } from '../api/useCreatePassport';
 import { expiryFrom } from '../model/display';
@@ -23,14 +24,18 @@ export function CreatePassportScreen({ vin }: { vin: string }) {
   const create = useCreatePassport(vin);
   const [choice, setChoice] = useState<ExpiryChoice>(30);
 
-  const close = () => (router.canGoBack() ? router.back() : router.replace(`/vehicles/${vin}`));
+  const close = useBack('/passports');
   const submit = () => {
     if (create.isPending) return;
     create.mutate(expiryFrom(choice, new Date()), { onSuccess: (passport) => router.replace(`/passports/${passport.id}`) });
   };
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      header={<AppBar onBack={close} />}
+      footer={<ActionBar primary={{ title: en.passport.createSubmit, loading: create.isPending, onPress: submit }} />}
+    >
       <Text variant="display-xl" accessibilityRole="header">
         {en.passport.createTitle}
       </Text>
@@ -82,8 +87,6 @@ export function CreatePassportScreen({ vin }: { vin: string }) {
           {errorMessage(create.error)}
         </Text>
       ) : null}
-      <Button title={en.passport.createSubmit} loading={create.isPending} onPress={submit} />
-      <Button kind="secondary" title={en.common.cancel} onPress={close} />
     </Screen>
   );
 }

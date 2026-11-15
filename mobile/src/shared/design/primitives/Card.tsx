@@ -13,6 +13,9 @@ export function Card({ children, style }: Props) {
       style={[
         {
           backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.line,
+          borderTopColor: colors['edge-light'],
           borderRadius: tokens.radius['radius-lg'],
           padding: tokens.space['space-4'],
           boxShadow: tokens.shadow[scheme]['shadow-card'],

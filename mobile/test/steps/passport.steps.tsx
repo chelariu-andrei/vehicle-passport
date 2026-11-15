@@ -14,6 +14,7 @@ setJestCucumberConfiguration({ errors: true });
 const feature = loadFeature('../../features/passport.feature', { loadRelativePath: true });
 
 const SOLD_VIN = 'WBAZZZ1JZXW000002';
+const DUSTER_VIN = 'UU1HSDDN5K0000002';
 const press = (name: string) => fireEvent.press(screen.getByRole('button', { name }));
 const detailUrl = (id: string) => `/passports/${id}`;
 
@@ -49,8 +50,25 @@ defineFeature(feature, (test) => {
     });
   });
 
-  test("A passport for a sold car stays manageable", ({ given, then }) => {
-    given("my passport's VIN is no longer in my garage", async () => {
+  test('Passports follow the active car', ({ given, then }) => {
+    given('I own two cars and each has a passport', async () => {
+      fake = await openApp('/passports', {
+        seed: (api) => {
+          api.state.vehicles.push(aVehicle(), aVehicle({ vin: DUSTER_VIN, make: 'Dacia', model: 'Duster', year: 2020, fuel: 'PETROL', engine: null }));
+          api.state.passports.push(aPassport({ vin: SAMPLE_VIN }), aPassport({ vin: DUSTER_VIN }));
+        },
+      });
+    });
+    then('I see one passport', async () => {
+      expect(await screen.findByRole('button', { name: `Volkswagen Golf, ${SAMPLE_VIN}, ${en.passport.status.ACTIVE}` })).toBeTruthy();
+      expect(screen.getAllByText(en.passport.frozen)).toHaveLength(1);
+      expect(screen.queryByRole('button', { name: new RegExp(DUSTER_VIN) })).toBeNull();
+      expect(screen.queryByText(en.passport.formerCars)).toBeNull();
+    });
+  });
+
+  test('A passport for a sold car stays manageable', ({ given, then, and }) => {
+    given('a passport for a VIN that is not in my garage', async () => {
       passport = aPassport({ vin: SOLD_VIN });
       fake = await openApp('/passports', {
         seed: (api) => {
@@ -59,8 +77,13 @@ defineFeature(feature, (test) => {
         },
       });
     });
-    then('it is listed under its VIN and I can revoke it', async () => {
-      await fireEvent.press(await screen.findByRole('button', { name: new RegExp(SOLD_VIN) }));
+    then(/^I see it under "(.*)", whichever car is active$/, async (heading: string) => {
+      expect(heading).toBe(en.passport.formerCars);
+      expect(await screen.findByText(heading)).toBeTruthy();
+      expect(screen.getByRole('button', { name: new RegExp(SOLD_VIN) })).toBeTruthy();
+    });
+    and('I can revoke it', async () => {
+      await fireEvent.press(screen.getByRole('button', { name: new RegExp(SOLD_VIN) }));
       await press(en.passport.revoke);
       await press(en.passport.revokeConfirm);
       await waitFor(() => expect(fake.state.passports[0].status).toBe('REVOKED'));

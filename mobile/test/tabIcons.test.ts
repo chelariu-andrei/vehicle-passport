@@ -7,3 +7,9 @@ test('the tab bar uses no shield or verified icon', () => {
   expect(layout).not.toMatch(/shield/i);
   expect(layout).not.toMatch(/verified_user/);
 });
+
+test('the first tab is the Car tab', () => {
+  const layout = readFileSync(join(__dirname, '../app/(tabs)/_layout.tsx'), 'utf8');
+  expect(layout).toMatch(/en\.tabs\.car\b/);
+  expect(layout).not.toMatch(/en\.tabs\.garage/);
+});

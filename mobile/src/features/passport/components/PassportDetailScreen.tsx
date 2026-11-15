@@ -1,13 +1,13 @@
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { Share, View } from 'react-native';
 
 import { useVehicles } from '@/features/vehicle';
 import { errorMessage, useRefetchOnFocus } from '@/shared/api';
-import { Button, Card, ConfirmSheet, EmptyState, ErrorState, Screen, Skeleton, Text, toast, tokens } from '@/shared/design';
+import { ActionBar, AppBar, Button, Card, ConfirmSheet, EmptyState, ErrorState, Screen, Skeleton, Text, toast, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { useBack } from '@/shared/navigation/useBack';
 
 import { usePassportQr, useSavePassportPdf } from '../api/usePassportFiles';
 import { usePassports } from '../api/usePassports';
@@ -52,13 +52,12 @@ function Qr({ passport }: { passport: PassportResponse }) {
 }
 
 function Detail({ passport, header }: { passport: PassportResponse; header: string }) {
-  const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const revoke = useRevokePassport(passport.id);
   const pdf = useSavePassportPdf(passport.id, passport.vin);
   const active = passport.status === 'ACTIVE';
 
-  const back = () => (router.canGoBack() ? router.back() : router.replace('/passports'));
+  const back = useBack('/passports');
   const doRevoke = () => {
     if (revoke.isPending) return;
     revoke.mutate(undefined, {
@@ -68,8 +67,18 @@ function Detail({ passport, header }: { passport: PassportResponse; header: stri
   };
 
   return (
-    <Screen scroll>
-      <Button kind="secondary" title={en.common.back} onPress={back} />
+    <Screen
+      scroll
+      header={<AppBar onBack={back} />}
+      footer={
+        active ? (
+          <ActionBar
+            primary={{ title: en.passport.shareLink, onPress: () => void Share.share({ message: passport.publicUrl }) }}
+            quiet={{ title: en.passport.revoke, onPress: () => setConfirming(true), danger: true }}
+          />
+        ) : undefined
+      }
+    >
       <Card style={{ gap: tokens.space['space-3'], alignItems: 'center' }}>
         <Text variant="caption" color="ink-muted">
           {en.passport.frozen}
@@ -99,7 +108,6 @@ function Detail({ passport, header }: { passport: PassportResponse; header: stri
 
       {active ? (
         <View style={{ gap: tokens.space['space-3'] }}>
-          <Button title={en.passport.shareLink} onPress={() => void Share.share({ message: passport.publicUrl })} />
           <Button
             kind="secondary"
             title={en.passport.savePdf}
@@ -107,7 +115,6 @@ function Detail({ passport, header }: { passport: PassportResponse; header: stri
             onPress={() => pdf.mutate(undefined, { onError: (error) => toast(errorMessage(error)) })}
           />
           <Button kind="secondary" title={en.passport.buyerView} onPress={() => void WebBrowser.openBrowserAsync(passport.publicUrl)} />
-          <Button kind="danger" title={en.passport.revoke} onPress={() => setConfirming(true)} />
         </View>
       ) : null}
 
@@ -116,6 +123,7 @@ function Detail({ passport, header }: { passport: PassportResponse; header: stri
         title={en.passport.revokeTitle}
         body={en.passport.revokeBody}
         confirmLabel={en.passport.revokeConfirm}
+        dismissLabel={en.passport.revokeKeep}
         danger
         onConfirm={doRevoke}
         onCancel={() => setConfirming(false)}
@@ -126,7 +134,7 @@ function Detail({ passport, header }: { passport: PassportResponse; header: stri
 
 /** Reads from the list: there is no get-by-id (integration 3.5). */
 export function PassportDetailScreen({ id }: { id: string }) {
-  const router = useRouter();
+  const back = useBack('/passports');
   const passports = usePassports();
   const vehicles = useVehicles();
   useRefetchOnFocus(passports.refetch);
@@ -134,7 +142,7 @@ export function PassportDetailScreen({ id }: { id: string }) {
 
   if (passport) return <Detail passport={passport} header={passportHeader(passport, vehicles.data ?? [])} />;
   return (
-    <Screen>
+    <Screen header={<AppBar onBack={back} />}>
       {passports.isError ? (
         <ErrorState onRetry={() => void passports.refetch()} />
       ) : passports.isPending ? (
@@ -143,11 +151,7 @@ export function PassportDetailScreen({ id }: { id: string }) {
           <Skeleton height={220} />
         </View>
       ) : (
-        <EmptyState
-          icon="doc"
-          title={en.passport.unavailable}
-          action={{ title: en.common.back, onPress: () => (router.canGoBack() ? router.back() : router.replace('/passports')) }}
-        />
+        <EmptyState icon="doc" title={en.passport.unavailable} />
       )}
     </Screen>
   );

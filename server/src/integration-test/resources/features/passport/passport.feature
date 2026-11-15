@@ -75,3 +75,10 @@ Feature: Passport
     Given I own vehicle V for passports
     When I create two passports for V
     Then their public URLs differ
+
+  Scenario: The plate and the look never reach a passport
+    Given I own vehicle V for passports
+    And V has plate "B 123 ABC" and a black roof
+    When I create a passport for V
+    And anyone opens the public link
+    Then the snapshot and the PDF mention neither the plate nor the look

@@ -2,13 +2,15 @@
 export const tokens = {
   "color": {
     "dark": {
-      "bg": "#060a08",
-      "surface": "#0d1511",
-      "surface-raised": "#15211b",
-      "line": "#26352d",
-      "line-strong": "#5c7568",
-      "ink": "#edf4f0",
-      "ink-muted": "#9db0a6",
+      "bg": "#050706",
+      "bg-lift": "#0c110f",
+      "surface": "#0e1311",
+      "surface-raised": "#171d1a",
+      "line": "#232b27",
+      "line-strong": "#62746b",
+      "edge-light": "#ffffff14",
+      "ink": "#eef3f0",
+      "ink-muted": "#9aaba2",
       "brand": "#22e58f",
       "on-brand": "#03150c",
       "brand-deep": "#0b3d2b",
@@ -20,14 +22,17 @@ export const tokens = {
       "evidence-verified": "#e9d28f",
       "warning": "#f2b84b",
       "danger": "#ff7a6b",
-      "scrim": "#000000b3"
+      "scrim": "#000000b3",
+      "ground-shade": "#000000"
     },
     "light": {
-      "bg": "#f3f6f4",
+      "bg": "#f2f5f3",
+      "bg-lift": "#fcfdfc",
       "surface": "#ffffff",
       "surface-raised": "#e8eeea",
       "line": "#cfdad3",
       "line-strong": "#6b8277",
+      "edge-light": "#ffffffe6",
       "ink": "#08120d",
       "ink-muted": "#43574c",
       "brand": "#0a7f4d",
@@ -41,7 +46,8 @@ export const tokens = {
       "evidence-verified": "#7a5c0a",
       "warning": "#8a5a00",
       "danger": "#b3261e",
-      "scrim": "#08120d80"
+      "scrim": "#08120d80",
+      "ground-shade": "#dfe6e2"
     }
   },
   "type": {
@@ -135,12 +141,12 @@ export const tokens = {
   },
   "shadow": {
     "dark": {
-      "shadow-card": "0 10px 28px 0 #00000073",
-      "shadow-lift": "0 18px 48px -8px #000000a6"
+      "shadow-card": "0 1px 0 0 #00000066, 0 12px 32px -6px #000000b3",
+      "shadow-lift": "0 2px 0 0 #00000080, 0 28px 64px -12px #000000d9"
     },
     "light": {
-      "shadow-card": "0 8px 24px 0 #08120d1f",
-      "shadow-lift": "0 18px 40px -10px #08120d33"
+      "shadow-card": "0 1px 0 0 #08120d0a, 0 10px 28px -8px #08120d24",
+      "shadow-lift": "0 2px 0 0 #08120d0f, 0 24px 48px -14px #08120d3d"
     }
   }
 } as const;

@@ -1,6 +1,7 @@
 package com.vehiclepassport.server.vehicle;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -8,6 +9,7 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import com.vehiclepassport.server.testsupport.smoke.PersistenceProfile;
@@ -23,6 +25,8 @@ import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @QuarkusTest
 @TestProfile(PersistenceProfile.class)
@@ -238,5 +242,138 @@ class VehicleResourceIT {
         given().when().post("/vehicles/" + vin + "/claims/" + filed.claimId() + "/reject").then().statusCode(204);
         given().when().post("/vehicles/" + vin + "/claims/" + filed.claimId() + "/reject")
                 .then().statusCode(409).body("code", equalTo("claim-not-pending"));
+    }
+
+    private static final String LOOK = "{\"plate\":\"B 123 ABC\",\"appearance\":"
+            + "{\"bodyType\":\"SUV\",\"color\":\"BLUE\",\"finish\":\"MATTE\"}}";
+
+    private static void patch(String vin, String body, int status) {
+        given().contentType(ContentType.JSON).body(body).when().patch("/vehicles/" + vin).then().statusCode(status);
+    }
+
+    @Test
+    @TestSecurity(user = "l1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void post_returns_null_plate_and_appearance() {
+        given().contentType(ContentType.JSON).body(body(TestVins.random()))
+                .when().post("/vehicles")
+                .then().statusCode(201)
+                .body("containsKey('plate')", equalTo(true))
+                .body("plate", nullValue())
+                .body("containsKey('appearance')", equalTo(true))
+                .body("appearance", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "l2")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void patch_sets_plate_and_appearance_and_get_returns_them() {
+        String vin = TestVins.random();
+        registerAs(ME, vin);
+        given().contentType(ContentType.JSON).body(LOOK)
+                .when().patch("/vehicles/" + vin)
+                .then().statusCode(200)
+                .body("plate", equalTo("B 123 ABC"))
+                .body("appearance.bodyType", equalTo("SUV"));
+        given().when().get("/vehicles/" + vin)
+                .then().statusCode(200)
+                .body("plate", equalTo("B 123 ABC"))
+                .body("appearance.bodyType", equalTo("SUV"))
+                .body("appearance.color", equalTo("BLUE"))
+                .body("appearance.finish", equalTo("MATTE"))
+                .body("appearance.containsKey('wheels')", equalTo(false))
+                .body("appearance.size()", equalTo(3));
+    }
+
+    @Test
+    @TestSecurity(user = "l3")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void patch_null_plate_clears_it() {
+        String vin = TestVins.random();
+        registerAs(ME, vin);
+        patch(vin, LOOK, 200);
+        patch(vin, "{\"plate\":null}", 200);
+        given().when().get("/vehicles/" + vin)
+                .then().statusCode(200)
+                .body("plate", nullValue())
+                .body("appearance.bodyType", equalTo("SUV"));
+    }
+
+    @Test
+    @TestSecurity(user = "l4")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void patch_other_field_keeps_plate_and_look() {
+        String vin = TestVins.random();
+        registerAs(ME, vin);
+        patch(vin, LOOK, 200);
+        patch(vin, "{\"model\":\"Passat\"}", 200);
+        given().when().get("/vehicles/" + vin)
+                .then().statusCode(200)
+                .body("model", equalTo("Passat"))
+                .body("plate", equalTo("B 123 ABC"))
+                .body("appearance.bodyType", equalTo("SUV"));
+    }
+
+    @Test
+    @TestSecurity(user = "l5")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void patch_appearance_only_keeps_plate_and_replaces_look() {
+        String vin = TestVins.random();
+        registerAs(ME, vin);
+        patch(vin, LOOK, 200);
+        patch(vin, "{\"appearance\":{\"color\":\"RED\"}}", 200);
+        given().when().get("/vehicles/" + vin)
+                .then().statusCode(200)
+                .body("plate", equalTo("B 123 ABC"))
+                .body("appearance.color", equalTo("RED"))
+                .body("appearance.size()", equalTo(1));
+    }
+
+    @Test
+    @TestSecurity(user = "l6")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void patch_plate_only_is_not_empty() {
+        String vin = TestVins.random();
+        registerAs(ME, vin);
+        patch(vin, "{\"plate\":null}", 200);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "{\"plate\":\"b 123\"}",
+        "{\"plate\":\"ABCDEFGHIJK\"}",
+        "{\"plate\":\"\"}",
+        "{\"appearance\":{\"bodyType\":\"BUGGY\"}}",
+        "{\"appearance\":{\"colorHex\":\"red\"}}",
+        "{\"appearance\":{\"extra\":1}}",
+        "{\"appearance\":null}",
+        "{\"appearance\":{\"contrastRoof\":\"yes\"}}"
+    })
+    @TestSecurity(user = "l7")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void patch_invalid_look_400(String body) {
+        String vin = TestVins.random();
+        registerAs(ME, vin);
+        String response = given().contentType(ContentType.JSON).body(body)
+                .when().patch("/vehicles/" + vin)
+                .then().statusCode(400)
+                .contentType(startsWith("application/problem+json"))
+                .body("code", anyOf(equalTo("validation-failed"), equalTo("invalid-vehicle")))
+                .extract().asString();
+        assertFalse(response.contains("b 123"), response);
+        assertFalse(response.contains("ABCDEFGHIJK"), response);
+    }
+
+    @Test
+    @TestSecurity(user = "l8")
+    @OidcSecurity(claims = @Claim(key = "sub", value = LISTER))
+    void list_returns_plate_and_appearance() {
+        String vin = TestVins.random();
+        registerAs(LISTER, vin);
+        patch(vin, LOOK, 200);
+        given().when().get("/vehicles")
+                .then().statusCode(200)
+                .body("find { it.vin == '" + vin + "' }.plate", equalTo("B 123 ABC"))
+                .body("find { it.vin == '" + vin + "' }.appearance.bodyType", equalTo("SUV"));
     }
 }

@@ -27,3 +27,15 @@ Hosted Supabase must keep email confirmation off. The app has no email-confirmat
 - Set the three `EXPO_PUBLIC_*` values as EAS environment variables.
 - Internal builds need an HTTPS API, because release builds refuse cleartext traffic.
 - iOS builds run in the EAS cloud, because development is on Windows.
+
+## The 3D car
+
+The car is built in code: no model file, no network. `viewer/car-kit.js` and `viewer/stage.js` mirror the design system's `CarViewer` and are copied from it, not edited here. `npm run build:viewer` bundles them with `viewer/main.js` into `assets/viewer/viewer.html` (generated, never edited by hand); run it after changing anything in `viewer/`.
+
+The viewer needs a WebView, so the web build shows the flat silhouette instead.
+
+The dev screen `/dev/viewer` cycles the seven body types and four finishes and shows the frame rate. Each body type must hold 30 fps on a mid-range phone; if one does not, lower the pixel-ratio cap in `viewer/stage.js` to 1.5 and rebuild. If it still misses, set `CAR_VIEWER_ENABLED = false` in `src/shared/viewer/config.ts` to ship silhouettes everywhere (the owner's call).
+
+## Release notes for the car look
+
+The app sends `plate` and `appearance` on `PATCH /vehicles/{vin}` and reads them from `VehicleResponse`. The backend must ship both before the feature is released; until then the app treats a missing field as none. The plate is owner-only and never part of a passport.

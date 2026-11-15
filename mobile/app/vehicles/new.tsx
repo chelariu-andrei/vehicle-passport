@@ -1,3 +1,5 @@
-import { AddVehicleScreen } from '@/features/vehicle';
+import { Redirect } from 'expo-router';
 
-export default AddVehicleScreen;
+export default function NewVehicleRoute() {
+  return <Redirect href="/onboarding" />;
+}

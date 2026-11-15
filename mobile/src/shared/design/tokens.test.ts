@@ -7,8 +7,11 @@ describe('generated tokens', () => {
   });
 
   it('keeps per-theme colours', () => {
-    expect(tokens.color.light.bg).toBe('#f3f6f4');
-    expect(tokens.color.dark.bg).toBe('#060a08');
+    expect(tokens.color.light.bg).toBe('#f2f5f3');
+    expect(tokens.color.dark.bg).toBe('#050706');
+    expect(tokens.color.dark['bg-lift']).toBe('#0c110f');
+    expect(tokens.color.dark['edge-light']).toBe('#ffffff14');
+    expect(tokens.color.light['ground-shade']).toBe('#dfe6e2');
   });
 
   it('uses the same value in both themes for a plain string', () => {
@@ -34,6 +37,6 @@ describe('generated tokens', () => {
   });
 
   it('keeps shadows as boxShadow strings per theme', () => {
-    expect(tokens.shadow.light['shadow-card']).toBe('0 8px 24px 0 #08120d1f');
+    expect(tokens.shadow.light['shadow-card']).toBe('0 1px 0 0 #08120d0a, 0 10px 28px -8px #08120d24');
   });
 });

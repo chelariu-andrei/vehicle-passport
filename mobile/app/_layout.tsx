@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { autoJourney } from '@/features/vehicle';
 import { createAppQueryClient, forgetVehicle } from '@/shared/api';
 import { onSessionEnd, startSession, useSession } from '@/shared/auth/session';
 import { fontAssets, OfflineBanner, ThemeProvider, toast, ToastHost, useTheme } from '@/shared/design';
@@ -23,7 +24,7 @@ function Shell() {
     <View style={{ flex: 1 }}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-        <Stack.Screen name="vehicles/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="onboarding/index" />
         <Stack.Screen name="scans/new" options={{ presentation: 'modal' }} />
         <Stack.Screen name="vehicles/[vin]/edit" options={{ presentation: 'modal' }} />
         <Stack.Screen name="vehicles/[vin]/passports/new" options={{ presentation: 'modal' }} />
@@ -64,6 +65,8 @@ export default function RootLayout() {
       onSessionEnd(() => {
         void queryClient.cancelQueries();
         queryClient.clear();
+        // The next account on this phone is offered the journey afresh.
+        autoJourney.reset();
       }),
     [queryClient],
   );

@@ -453,6 +453,32 @@ export interface components {
         /** @enum {string} */
         FuelType: "PETROL" | "DIESEL" | "HYBRID" | "ELECTRIC" | "LPG" | "OTHER";
         /** @enum {string} */
+        BodyType: "HATCHBACK" | "SEDAN" | "ESTATE" | "SUV" | "COUPE" | "MPV" | "PICKUP";
+        /** @enum {string} */
+        PaintColor: "WHITE" | "BLACK" | "SILVER" | "GREY" | "BLUE" | "RED" | "GREEN" | "BEIGE" | "BROWN" | "YELLOW" | "ORANGE" | "GOLD";
+        /** @enum {string} */
+        PaintFinish: "GLOSS" | "METALLIC" | "SATIN" | "MATTE";
+        /** @enum {string} */
+        WheelStyle: "FIVE_SPOKE" | "MULTI_SPOKE" | "AERO";
+        /** @enum {string} */
+        RimColor: "SILVER" | "BLACK" | "BODY";
+        /** @enum {string} */
+        GlassTint: "LIGHT" | "DARK";
+        /** @description Number plate as the owner typed it, normalised. Owner-only; never part of a passport; cleared on transfer. */
+        Plate: string;
+        /** @description How the illustrative model is drawn. Visual only. Transfers with the car. */
+        VehicleAppearance: {
+            bodyType?: components["schemas"]["BodyType"];
+            color?: components["schemas"]["PaintColor"];
+            /** @description The owner's own shade. `color` then holds the nearest named colour. */
+            colorHex?: string;
+            finish?: components["schemas"]["PaintFinish"];
+            wheels?: components["schemas"]["WheelStyle"];
+            rimColor?: components["schemas"]["RimColor"];
+            glassTint?: components["schemas"]["GlassTint"];
+            contrastRoof?: boolean;
+        };
+        /** @enum {string} */
         EventType: "SERVICE" | "REPAIR" | "TIRES" | "ITP";
         /** @enum {string} */
         Evidence: "ESTIMATED" | "USER_CONFIRMED" | "DOCUMENTED" | "VERIFIED";
@@ -475,6 +501,9 @@ export interface components {
             /** @description Maximum is the current year + 1, enforced by the server. */
             year?: number;
             fuel?: components["schemas"]["FuelType"];
+            /** @description Null clears the plate. */
+            plate?: components["schemas"]["Plate"] | null;
+            appearance?: components["schemas"]["VehicleAppearance"];
         };
         VehicleResponse: {
             vin: components["schemas"]["Vin"];
@@ -483,6 +512,8 @@ export interface components {
             engine?: string | null;
             year: number;
             fuel: components["schemas"]["FuelType"];
+            plate?: components["schemas"]["Plate"] | null;
+            appearance?: components["schemas"]["VehicleAppearance"] | null;
         };
         ClaimFiledResponse: {
             /** Format: uuid */

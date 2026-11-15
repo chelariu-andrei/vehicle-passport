@@ -12,7 +12,12 @@ import { fakeAuth } from '../fakes/auth';
 import { anAsset, deletedFiles, manipulator, picked, putFile } from '../fakes/photos';
 import type { FakeApi } from '../fake-api';
 import { aScanJob, aVehicle, SAMPLE_VIN } from '../fake-api';
+
 import { openApp } from '../harness';
+
+const DUSTER_VIN = 'UU1HSDDN5K0000002';
+const twoCars = (api: FakeApi) =>
+  void api.state.vehicles.push(aVehicle(), aVehicle({ vin: DUSTER_VIN, make: 'Dacia', model: 'Duster', year: 2020, fuel: 'PETROL', engine: null }));
 
 setJestCucumberConfiguration({ errors: true });
 jest.setTimeout(20000);
@@ -122,7 +127,8 @@ defineFeature(feature, (test) => {
     then('I can only take or choose photos', async () => {
       expect(screen.getByRole('button', { name: en.scans.takePhoto })).toBeTruthy();
       expect(screen.getByRole('button', { name: en.scans.choosePhotos })).toBeTruthy();
-      expect(screen.queryAllByRole('button')).toHaveLength(2);
+      // The app bar's back chevron is the only other button.
+      expect(screen.queryAllByRole('button').filter((b) => b.props.accessibilityLabel !== en.common.back)).toHaveLength(2);
       await press(en.scans.choosePhotos);
       await press(en.scans.takePhoto);
       expect(library().mock.calls[0][0]).toMatchObject({ mediaTypes: ['images'] });
@@ -270,7 +276,7 @@ defineFeature(feature, (test) => {
     then('I am told to add a car first and offered Add vehicle', async () => {
       expect(await screen.findByText(en.scans.needCarTitle)).toBeTruthy();
       await press(en.garage.addVehicle);
-      await waitFor(() => expect(screen).toHavePathname('/vehicles/new'));
+      await waitFor(() => expect(screen).toHavePathname('/onboarding'));
     });
   });
 
@@ -283,17 +289,59 @@ defineFeature(feature, (test) => {
     });
   });
 
-  test('One car skips the car picker', ({ given, when, then }) => {
-    given('I have one car', async () => {
-      fake = await openApp('/scans', { seed: withCar });
+  test("The inbox shows the active car's scans", ({ given, then, when }) => {
+    given('I own two cars and each has a scan in flight', async () => {
+      const golfJob = aScanJob({ status: 'PROCESSING' });
+      const dusterJob = aScanJob({ status: 'PROCESSING' });
+      for (const [job, vin] of [[golfJob, SAMPLE_VIN], [dusterJob, DUSTER_VIN]] as const) {
+        putFile(`document/${job.id}.jpg`);
+        await scanJobStore.add(me(), [
+          { jobId: job.id, vin, localUri: `document/${job.id}.jpg`, submittedAt: '2025-01-15T10:00:00Z', batchId: null },
+        ]);
+      }
+      fake = await openApp('/scans', {
+        seed: (api) => {
+          twoCars(api);
+          api.state.scans[golfJob.id] = golfJob;
+          api.state.scans[dusterJob.id] = dusterJob;
+        },
+      });
+    });
+    then('I see one row', async () => {
+      expect(await screen.findByText(en.scans.status.reading)).toBeTruthy();
+      expect(screen.getAllByText(en.scans.status.reading)).toHaveLength(1);
+      // The car's name is in the title and on the row.
+      expect(screen.getAllByText('Volkswagen Golf')).toHaveLength(2);
+      expect(screen.queryByText('Dacia Duster')).toBeNull();
+    });
+    when('I switch car', async () => {
+      await fireEvent.press(await screen.findByRole('button', { name: new RegExp(`${en.cars.switch}$`) }));
+      await fireEvent.press(await screen.findByRole('button', { name: new RegExp(`^Dacia Duster, ${DUSTER_VIN}$`) }));
+    });
+    then("I see the other car's row", async () => {
+      await waitFor(() => expect(screen.getAllByText('Dacia Duster')).toHaveLength(2));
+      expect(screen.getAllByText(en.scans.status.reading)).toHaveLength(1);
+      expect(screen.queryByText('Volkswagen Golf')).toBeNull();
+    });
+  });
+
+  test('Scanning uses the active car', ({ given, when, then, and }) => {
+    given('I own two cars and the second is active', async () => {
+      await AsyncStorage.setItem(`activeCar:${me()}`, DUSTER_VIN);
+      fake = await openApp('/scans', { seed: twoCars });
       expect(await screen.findByText(en.scans.emptyTitle)).toBeTruthy();
     });
     when('I start a scan', async () => {
       await press(en.scans.scanInvoice);
     });
-    then('I go straight to capture', async () => {
+    then('I am not asked which car', async () => {
       expect(await screen.findByText(en.scans.onePhoto)).toBeTruthy();
-      expect(screen.queryByText(en.scans.pickCar)).toBeNull();
+      expect(screen.queryByRole('button', { name: /Volkswagen Golf/ })).toBeNull();
+    });
+    and("the upload goes to the second car's VIN", async () => {
+      await takeAndUpload(anAsset());
+      await waitFor(() => expect(fake.callsTo('submitScan')).toHaveLength(1));
+      expect(fake.callsTo('submitScan')[0].path).toContain(`/vehicles/${DUSTER_VIN}/scans`);
     });
   });
 
