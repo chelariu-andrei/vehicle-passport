@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
+import { useRefetchOnFocus } from '@/shared/api';
 import { Icon, Skeleton, Text, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 
@@ -12,7 +13,9 @@ import { CarListSheet, plateOrVin } from './CarListSheet';
  * more cars it is a button that opens the car list; with one it is plain text; with none it reads `fallbackTitle`.
  */
 export function CarSwitcher({ fallbackTitle }: { fallbackTitle: string }) {
-  const { status, car, cars } = useActiveCar();
+  const { status, car, cars, refetch } = useActiveCar();
+  // All three tabs carry this title, so each reloads the garage on focus: a car that left the account is dropped everywhere.
+  useRefetchOnFocus(refetch);
   const [open, setOpen] = useState(false);
 
   if (status === 'loading') {

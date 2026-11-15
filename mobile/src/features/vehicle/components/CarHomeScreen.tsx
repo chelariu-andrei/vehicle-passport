@@ -235,7 +235,6 @@ export function CarHomeScreen() {
   const vehicles = useVehicles();
   const claims = useLocalClaims(vehicles.data?.map((v) => v.vin));
   const focused = useIsFocused();
-  useRefetchOnFocus(active.refetch);
 
   // An empty garage with nothing on its way opens the add-a-car journey, unless "Later" was chosen this launch.
   const claimsLoaded = claims.data !== undefined;

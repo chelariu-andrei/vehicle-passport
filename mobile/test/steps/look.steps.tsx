@@ -174,7 +174,12 @@ defineFeature(feature, (test) => {
     then('the field shows at most 10 characters, upper case, with single spaces', async () => {
       const field = screen.getByLabelText(en.look.plate);
       expect(field.props.value).toBe('B-12ABC DE');
-      expect(field.props.maxLength).toBe(10);
+      // A paste whose raw length passes 10 but whose cleaned text fits keeps every character.
+      await fireEvent.changeText(field, '🚗b  123  abc');
+      expect(screen.getByLabelText(en.look.plate).props.value).toBe('B 123 ABC');
+      await fireEvent.changeText(field, 'b-12🙂abc  def ghi');
+      // No native cut: a paste is cleaned first, then cut, so no valid character is lost to emoji or double spaces.
+      expect(field.props.maxLength).toBeUndefined();
       // What the stage draws is the same cleaned text.
       await waitFor(() => expect(posted().some((m) => JSON.stringify(m).includes('"plate":"B-12ABC DE"'))).toBe(true));
       expect(posted().some((m) => JSON.stringify(m).includes('🙂'))).toBe(false);

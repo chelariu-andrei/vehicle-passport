@@ -12,7 +12,7 @@ export function PlatePanel({ look, onChange }: PanelProps) {
       value={look.plate}
       autoCapitalize="characters"
       autoCorrect={false}
-      maxLength={10}
+      // No `maxLength`: the field would cut the raw paste before it is cleaned. `normalisePlate` cuts to 10.
       onChangeText={(text) => onChange({ ...look, plate: normalisePlate(text) })}
     />
   );
