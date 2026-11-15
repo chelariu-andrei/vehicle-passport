@@ -1,6 +1,6 @@
 import { Asset } from 'expo-asset';
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type Ref } from 'react';
-import { AccessibilityInfo, AppState, View, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, AppState, Platform, View, useWindowDimensions } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import { useTheme } from '@/shared/design';
@@ -53,8 +53,8 @@ function Silhouette({ look }: { look: Look }) {
 }
 
 export function CarViewer(props: Props) {
-  // The disabled branch mounts nothing, so the hooks below never run for it.
-  if (!CAR_VIEWER_ENABLED) return <Silhouette look={props.look} />;
+  // The disabled branch mounts nothing, so the hooks below never run for it. The web has no WebView: it keeps the silhouette.
+  if (!CAR_VIEWER_ENABLED || Platform.OS === 'web') return <Silhouette look={props.look} />;
   return <Viewer {...props} />;
 }
 

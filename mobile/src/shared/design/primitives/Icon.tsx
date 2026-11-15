@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { useTheme } from '../theme';
@@ -66,6 +67,12 @@ const SHAPES = {
   plate: [{ x: 3, y: 7.5, width: 18, height: 9, rx: 2 }, { d: 'M7 7.5v9M10.5 12h7' }],
 } satisfies Record<string, Shape[]>;
 
+// The web would pass the native-only props to the DOM element, so it gets the ARIA one.
+const HIDDEN_FROM_READERS =
+  Platform.OS === 'web'
+    ? ({ 'aria-hidden': true } as const)
+    : ({ accessibilityElementsHidden: true, importantForAccessibility: 'no-hide-descendants' } as const);
+
 export type IconName = keyof typeof SHAPES;
 export const iconNames = Object.keys(SHAPES) as IconName[];
 
@@ -85,8 +92,7 @@ export function Icon({ name, size = 24, color = 'ink' }: Props) {
       strokeWidth={1.75}
       strokeLinecap="round"
       strokeLinejoin="round"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      {...HIDDEN_FROM_READERS}
     >
       {(SHAPES[name] as Shape[]).map((shape, index) => {
         if ('d' in shape) return <Path key={index} d={shape.d} strokeWidth={shape.strokeWidth} />;
