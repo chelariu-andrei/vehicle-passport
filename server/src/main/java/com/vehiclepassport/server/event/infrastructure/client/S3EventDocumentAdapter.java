@@ -6,11 +6,15 @@ import com.vehiclepassport.server.event.domain.exception.EventNotFoundException;
 import com.vehiclepassport.server.shared.config.StorageConfig;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.nio.file.Path;
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @ApplicationScoped
 public class S3EventDocumentAdapter implements DocumentStoragePort {
@@ -33,5 +37,16 @@ public class S3EventDocumentAdapter implements DocumentStoragePort {
         } catch (NoSuchKeyException e) {
             throw new EventNotFoundException("The document of this event is no longer available");
         }
+    }
+
+    @Override
+    public void put(String key, Path file, String contentType) {
+        s3.putObject(PutObjectRequest.builder().bucket(config.bucket()).key(key).contentType(contentType).build(),
+                RequestBody.fromFile(file));
+    }
+
+    @Override
+    public void delete(String key) {
+        s3.deleteObject(DeleteObjectRequest.builder().bucket(config.bucket()).key(key).build());
     }
 }

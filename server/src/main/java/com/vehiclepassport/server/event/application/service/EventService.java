@@ -23,6 +23,7 @@ import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
 import com.vehiclepassport.server.event.application.port.in.PartView;
 import com.vehiclepassport.server.event.application.port.in.TimelinePage;
 import com.vehiclepassport.server.event.application.port.out.ActiveOwnerPort;
+import com.vehiclepassport.server.event.application.port.out.AttachmentRepositoryPort;
 import com.vehiclepassport.server.event.application.port.out.OwnedPeriod;
 import com.vehiclepassport.server.event.application.port.out.DocumentStoragePort;
 import com.vehiclepassport.server.event.application.port.out.EventRepositoryPort;
@@ -36,6 +37,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -50,14 +52,16 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
     private final EventRepositoryPort events;
     private final ActiveOwnerPort owners;
     private final DocumentStoragePort documents;
+    private final AttachmentRepositoryPort attachments;
     private final Clock clock;
 
     @Inject
     public EventService(EventRepositoryPort events, ActiveOwnerPort owners, DocumentStoragePort documents,
-            Clock clock) {
+            AttachmentRepositoryPort attachments, Clock clock) {
         this.events = events;
         this.owners = owners;
         this.documents = documents;
+        this.attachments = attachments;
         this.clock = clock;
     }
 
@@ -108,7 +112,10 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
     @Transactional
     public void delete(UUID userId, String vin, UUID eventId) {
         VehicleEvent current = loadOwned(vin, userId, eventId);
-        events.save(current.deleted(clock.instant()));
+        Instant now = clock.instant();
+        events.save(current.deleted(now));
+        // The attachments go with the event, which frees their hashes for re-upload elsewhere.
+        attachments.softDeleteAllFor(current.id(), now);
     }
 
     @Override

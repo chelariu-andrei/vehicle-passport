@@ -5,6 +5,7 @@ import com.vehiclepassport.server.shared.error.FileTooLargeException;
 import com.vehiclepassport.server.shared.error.UnsupportedFileException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Optional;
 
 /** Admission rules for uploaded receipts: declared type, size, magic bytes and batch size. */
 public final class UploadPolicy {
@@ -36,6 +37,12 @@ public final class UploadPolicy {
         if (!startsWith(head, signature)) {
             throw new UnsupportedFileException("content does not match declared type " + contentType);
         }
+    }
+
+    /** The accepted content type whose magic bytes start head, if any. */
+    public static Optional<String> sniff(byte[] head) {
+        return SIGNATURES.entrySet().stream().filter(e -> startsWith(head, e.getValue()))
+                .map(Map.Entry::getKey).findFirst();
     }
 
     public static void checkBatchSize(int n) {
