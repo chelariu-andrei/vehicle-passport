@@ -163,10 +163,12 @@ public final class ReceiptPartsTable {
      * Every other token must hold a real digit, so a roman numeral or a word never becomes part
      * of the number (same rule as the single-value fields).
      */
+    private static final Pattern UNIT = Pattern.compile("(?i)(?:buc|bucati|bucăți|pcs)\\.?");
+
     private static Segment money(List<OcrLine> cells) {
         List<String> kept = new ArrayList<>();
         for (String token : WHITESPACE.split(joined(cells).trim())) {
-            if (!token.isEmpty() && !CURRENCY.matcher(token).matches()) {
+            if (!token.isEmpty() && !CURRENCY.matcher(token).matches() && !UNIT.matcher(token).matches()) {
                 if (token.chars().noneMatch(c -> c >= '0' && c <= '9')) {
                     return Segment.INVALID;
                 }

@@ -137,11 +137,23 @@ public class OcrHttpClient {
         List<Number> b = line.box();
         double score = Double.isNaN(line.score()) ? 0.0 : Math.max(0.0, Math.min(1.0, line.score()));
         return new OcrLine(line.text(), score,
-            new OcrBox(b.get(0).intValue(), b.get(1).intValue(), b.get(2).intValue(), b.get(3).intValue()));
+            box(b));
+    }
+
+    /** Floats are widened outward, and a reversed pair is swapped, so one odd box cannot fail the whole page. */
+    private static OcrBox box(List<Number> b) {
+        double x0 = b.get(0).doubleValue(), y0 = b.get(1).doubleValue();
+        double x1 = b.get(2).doubleValue(), y1 = b.get(3).doubleValue();
+        if (!Double.isFinite(x0 + y0 + x1 + y1)) {
+            throw new IllegalArgumentException("bad line");
+        }
+        return new OcrBox((int) Math.floor(Math.min(x0, x1)), (int) Math.floor(Math.min(y0, y1)),
+            (int) Math.ceil(Math.max(x0, x1)), (int) Math.ceil(Math.max(y0, y1)));
     }
 
     private static byte[] multipart(String boundary, String filename, String contentType, byte[] content) {
-        String type = contentType == null || contentType.isBlank() ? "application/octet-stream" : contentType;
+        String type = contentType == null || !contentType.matches("[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+")
+            ? "application/octet-stream" : contentType;
         var out = new ByteArrayOutputStream(content.length + 256);
         String head = "--" + boundary + "\r\n"
             + "Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n"

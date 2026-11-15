@@ -116,6 +116,11 @@ class ReceiptPartsTableTest {
         assertEquals(0, new BigDecimal("2").compareTo(o.parts().value().get(0).qty()));
         assertEquals(List.of(), o.warnings());
     }
+    @Test void a_unit_word_in_the_quantity_cell_is_ignored() {
+        var o = parseWithQty("2 buc", "22,50", "45,00");
+        assertEquals(0, new BigDecimal("2").compareTo(o.parts().value().get(0).qty()));
+        assertEquals(List.of(), o.warnings());
+    }
     @Test void a_roman_numeral_or_word_never_becomes_a_value() {
         var o = parse(header(), List.of(l("Ulei", .9, 200, 450), l("I 350,00", .9, 1100, 450)));
         assertEquals(List.of(), o.parts().value());

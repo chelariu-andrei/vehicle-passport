@@ -78,7 +78,10 @@ public final class ReceiptParser {
 
         BigDecimal vat = null;
         Optional<Reading<BigDecimal>> vatReading = lastLabelled(rows, VAT, ReceiptParser::money);
-        if (vatReading.isPresent()) {
+        // TOTAL III is the pre-VAT sum: when it supplied the total, VAT must not be subtracted again.
+        boolean totalExcludesVat = lastLabelled(rows, List.of("total general"), ReceiptParser::money).isEmpty()
+            && lastLabelled(rows, TOTAL_III, ReceiptParser::money).isPresent();
+        if (vatReading.isPresent() && !totalExcludesVat) {
             if (vatReading.get().score() < MIN_NUMERIC_SCORE) {
                 warnings.add(ScanWarning.LOW_CONFIDENCE_READ);
             } else {

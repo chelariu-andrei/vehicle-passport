@@ -102,6 +102,11 @@ class PaddleOcrExtractionAdapterTest {
         assertEquals(1.0, adapter.extract(PNG, "image/png").result().total().confidence(), 1e-9);
     }
 
+    @Test void fractional_and_reversed_boxes_are_normalised_not_fatal() {
+        stub.respond(200, "{\"width\":9,\"height\":9,\"lines\":[{\"text\":\"TOTAL GENERAL 10,00\",\"score\":0.9,\"box\":[10.9,5.2,10.2,5.9]}]}");
+        assertEquals(new BigDecimal("10.00"), adapter.extract(PNG, "image/png").result().total().value());
+    }
+
     @Test void a_slow_service_times_out() {
         stub.delay(Duration.ofSeconds(4));
         stub.respond(200, "{\"width\":10,\"height\":10,\"lines\":[{\"text\":\"TOTAL GENERAL 10,00\",\"score\":0.9,\"box\":[0,0,9,9]}]}");
