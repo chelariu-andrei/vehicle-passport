@@ -17,4 +17,3 @@ export { changedFields } from './model/changedFields';
 export { claimStore } from './model/claimStore';
 export type { LocalClaim } from './model/claimStore';
 export { EMPTY_DRAFT, journeyDraftStore } from './model/journeyDraft';
-export { viewerColorStore } from './model/viewerColorStore';

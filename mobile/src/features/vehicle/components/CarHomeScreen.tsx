@@ -26,10 +26,12 @@ import { CarSilhouette, CarViewer, NEUTRAL_LOOK, hasLook, lookOf } from '@/share
 import { useActiveCar } from '../api/useActiveCar';
 import { useClaims } from '../api/useClaims';
 import { useLocalClaims } from '../api/useLocalClaims';
+import { useSaveColour } from '../api/useSaveColour';
 import { useReleaseVehicle } from '../api/useReleaseVehicle';
 import { useVehicle, useVehicles } from '../api/useVehicles';
 import type { VehicleResponse } from '../api/useVehicles';
 import { autoJourney } from '../model/autoJourney';
+import { migrateColour } from '../model/migrateColour';
 import { CarFacts } from './CarFacts';
 import { CarSwitcher } from './CarSwitcher';
 import { ClaimsBanner } from './ClaimsBanner';
@@ -126,6 +128,7 @@ function ActiveCar({ car, onlyCar }: { car: VehicleResponse; onlyCar: boolean })
   const vehicle = useVehicle(car.vin);
   const claims = useClaims(car.vin);
   const release = useReleaseVehicle(car.vin);
+  const saveColour = useSaveColour(car.vin);
   const [menu, setMenu] = useState(false);
   const [confirming, setConfirming] = useState(false);
   useRefetchOnFocus(vehicle.refetch);
@@ -134,6 +137,13 @@ function ActiveCar({ car, onlyCar }: { car: VehicleResponse; onlyCar: boolean })
   const shown = vehicle.data ?? car;
   const vin = shown.vin;
   const pending = claims.data?.length ?? 0;
+
+  // A colour chosen before the look lived on the server moves there once.
+  const looked = hasLook(shown);
+  const { mutateAsync: sendColour } = saveColour;
+  useEffect(() => {
+    void migrateColour(vin, looked, sendColour);
+  }, [vin, looked, sendColour]);
 
   const giveUp = () => {
     if (release.isPending) return;
