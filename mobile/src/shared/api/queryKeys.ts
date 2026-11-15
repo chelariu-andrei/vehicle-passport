@@ -5,4 +5,6 @@ export const qk = {
   claims: (vin: string) => ['claims', vin] as const,
   scan: (jobId: string) => ['scan', jobId] as const,
   passports: ['passports'] as const,
+  activeCar: (userId: string) => ['activeCar', userId] as const,
+  journeyDraft: (userId: string) => ['journeyDraft', userId] as const,
 };

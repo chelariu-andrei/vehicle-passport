@@ -1,5 +1,5 @@
 import { anEvent } from '../../../../test/fake-api';
-import { eventMeta, eventTitle, groupByYear } from './display';
+import { dayAndMonth, eventMeta, eventTitle, groupByYear } from './display';
 
 test('the title is the service name, else the label of the type', () => {
   expect(eventTitle(anEvent({ details: { serviceName: 'Oil change' } }))).toBe('Oil change');
@@ -21,4 +21,9 @@ test('groupByYear keeps the newest-first order of events and of years', () => {
     { year: 2024, events: [b, c] },
   ]);
   expect(groupByYear([])).toEqual([]);
+});
+
+test('dayAndMonth splits an ISO date into day and short month', () => {
+  expect(dayAndMonth('2024-03-10')).toEqual({ day: '10', month: 'Mar' });
+  expect(dayAndMonth('2026-12-02')).toEqual({ day: '2', month: 'Dec' });
 });

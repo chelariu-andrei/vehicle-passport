@@ -14,7 +14,7 @@ export default function TabsLayout() {
       indicatorColor={colors['surface-raised']}
     >
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>{en.tabs.garage}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{en.tabs.car}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="car.fill" md="directions_car" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="scans">

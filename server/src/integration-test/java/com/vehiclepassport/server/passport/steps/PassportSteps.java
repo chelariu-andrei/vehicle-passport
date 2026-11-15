@@ -36,6 +36,11 @@ import com.vehiclepassport.server.testsupport.fake.TestClock;
 import com.vehiclepassport.server.vehicle.application.port.in.RegisterVehicleUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.RegisterVehicleUseCase.RegisterVehicleCommand;
 import com.vehiclepassport.server.vehicle.application.port.in.ReleaseVehicleUseCase;
+import com.vehiclepassport.server.vehicle.application.port.in.AppearanceView;
+import com.vehiclepassport.server.vehicle.application.port.in.GetVehicleUseCase;
+import com.vehiclepassport.server.vehicle.application.port.in.UpdateVehicleUseCase;
+import com.vehiclepassport.server.vehicle.application.port.in.UpdateVehicleUseCase.UpdateVehicleCommand;
+import com.vehiclepassport.server.vehicle.application.port.in.VehicleView;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -67,6 +72,7 @@ public class PassportSteps {
     private static final String REVOKED = "passport.revoked";
     private static final String EXPIRED = "passport.expired";
     private static final String OPENED = "passport.opened";
+    private static final String PLATE = "passport.plate";
 
     @Inject
     World world;
@@ -94,6 +100,12 @@ public class PassportSteps {
 
     @Inject
     AddEventUseCase addEvent;
+
+    @Inject
+    GetVehicleUseCase vehicles;
+
+    @Inject
+    UpdateVehicleUseCase updateVehicle;
 
     @Inject
     DeleteEventUseCase deleteEvent;
@@ -191,6 +203,14 @@ public class PassportSteps {
         createAs(alice, CREATED, null);
         release.release(VIN, alice);
         registerAs(world.me());
+    }
+
+    @Given("V has plate {string} and a black roof")
+    public void vHasPlateAndABlackRoof(String plate) {
+        VehicleView v = vehicles.get(VIN, world.me());
+        updateVehicle.update(new UpdateVehicleCommand(world.me(), VIN, v.make(), v.model(), v.engine(), v.year(),
+                v.fuel(), true, plate, new AppearanceView("SUV", "BLUE", null, null, null, null, null, true)));
+        world.put(PLATE, plate);
     }
 
     // ---- When --------------------------------------------------------------------------------------------
@@ -357,6 +377,20 @@ public class PassportSteps {
         List<PassportView> mine = list.list(world.me());
         assertEquals(1, mine.size());
         assertEquals("REVOKED", mine.get(0).status());
+    }
+
+    @Then("the snapshot and the PDF mention neither the plate nor the look")
+    public void theSnapshotAndPdfMentionNeitherPlateNorLook() {
+        assertNoError();
+        PublicPassportView view = world.get(PUBLIC);
+        String plate = world.get(PLATE);
+        String pdfText = new String(pdf.publicPdf(tokenOf(created())), StandardCharsets.UTF_8);
+        for (String text : List.of(view.snapshotJson(), pdfText)) {
+            assertFalse(text.contains(plate), "passport shows the plate");
+            for (String word : List.of("plate", "appearance", "bodyType", "contrastRoof", "SUV")) {
+                assertFalse(text.contains(word), "passport mentions " + word);
+            }
+        }
     }
 
     @Then("the snapshot is served")

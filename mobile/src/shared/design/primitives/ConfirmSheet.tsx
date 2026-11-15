@@ -11,17 +11,24 @@ type Props = {
   title: string;
   body: string;
   confirmLabel: string;
+  /** What declining reads as, in the caller's words (never a generic label). */
+  dismissLabel: string;
   danger?: boolean;
   onConfirm: () => void;
+  /** The quiet button. */
   onCancel: () => void;
+  /** Tapping outside or the system Back. Defaults to `onCancel`; a caller whose quiet button destroys something sets it to merely close. */
+  onClose?: () => void;
+  /** iOS reports here once the sheet has fully gone; a caller that goes somewhere next waits for it. */
+  onDismiss?: () => void;
 };
 
-export function ConfirmSheet({ visible, title, body, confirmLabel, danger = false, onConfirm, onCancel }: Props) {
+export function ConfirmSheet({ visible, title, body, confirmLabel, dismissLabel, danger = false, onConfirm, onCancel, onClose = onCancel, onDismiss }: Props) {
   const { colors, scheme } = useTheme();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={onDismiss}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: colors.scrim }}>
-        <Pressable accessibilityLabel={en.common.cancel} style={{ flex: 1 }} onPress={onCancel} />
+        <Pressable accessibilityLabel={en.common.dismiss} style={{ flex: 1 }} onPress={onClose} />
         <View
           accessibilityViewIsModal
           style={{
@@ -40,7 +47,7 @@ export function ConfirmSheet({ visible, title, body, confirmLabel, danger = fals
             {body}
           </Text>
           <Button kind={danger ? 'danger' : 'primary'} title={confirmLabel} onPress={onConfirm} />
-          <Button kind="secondary" title={en.common.cancel} onPress={onCancel} />
+          <Button kind="quiet" title={dismissLabel} onPress={onCancel} />
         </View>
       </View>
     </Modal>

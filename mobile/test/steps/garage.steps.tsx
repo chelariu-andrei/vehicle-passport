@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { focusManager, onlineManager } from '@tanstack/react-query';
-import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
+import { act, fireEvent, screen, waitFor, within } from 'expo-router/testing-library';
 import { defineFeature, loadFeature, setJestCucumberConfiguration } from 'jest-cucumber';
 
 import { claimStore } from '@/features/vehicle';
@@ -27,14 +27,6 @@ afterEach(() => {
 const me = () => fakeAuth.userId!;
 const press = (name: string) => fireEvent.press(screen.getByRole('button', { name }));
 
-/** Every host element type in a rendered tree. */
-function hostTypes(node: unknown): string[] {
-  if (Array.isArray(node)) return node.flatMap(hostTypes);
-  if (typeof node !== 'object' || node === null) return [];
-  const { type, children } = node as { type: string; children: unknown };
-  return [type, ...hostTypes(children)];
-}
-
 /** The app comes back to the foreground: stale queries refetch. */
 async function returnToApp() {
   await act(async () => {
@@ -43,15 +35,27 @@ async function returnToApp() {
   });
 }
 
+/** Claims sit in the car list, which opens from the title when there are two cars or more. */
+async function openCarList() {
+  await fireEvent.press(await screen.findByRole('button', { name: new RegExp(`${en.cars.switch}$`) }));
+  expect(await screen.findByText(en.cars.title)).toBeTruthy();
+}
+async function closeCarList() {
+  await fireEvent.press(screen.getByLabelText(en.common.dismiss, { includeHiddenElements: true }));
+  await waitFor(() => expect(screen.queryByText(en.cars.title)).toBeNull());
+}
+
 async function openGarageWithClaim(claimId = aClaim().claimId) {
   const fake = await openApp('/', {
     seed: (seeded) => {
+      seeded.state.vehicles.push(aVehicle(), aVehicle({ vin: 'WVWZZZ1JZXW000003', model: 'Polo' }));
       seeded.state.claims[OTHER_VIN] = [{ claimId, filedAt: '2025-01-15T10:00:00Z' }];
     },
   });
   await claimStore.upsert(me(), { claimId, vin: OTHER_VIN, filedAt: '2025-01-15T10:00:00Z' });
-  // The garage may already have read the (empty) store; a pull to refresh is how the user would see the row.
+  // The car list may already have read the (empty) store; coming back to the app is how the user would see the row.
   await returnToApp();
+  await openCarList();
   expect(await screen.findByText(en.garage.waiting)).toBeTruthy();
   return { fake, claimId };
 }
@@ -60,35 +64,16 @@ defineFeature(feature, (test) => {
   let fake: FakeApi;
   let claimId = '';
 
-  test('A VIN with an active owner files a claim', ({ when, then, and }) => {
-    when('I register a VIN and the API answers 202', async () => {
-      fake = await openApp('/', { seed: (seeded) => seeded.state.otherOwnerVins.add(OTHER_VIN) });
-      expect(await screen.findByText(en.garage.emptyTitle)).toBeTruthy();
-      await registerVin(OTHER_VIN);
-      expect(await screen.findByText(en.vehicleForm.filedBody)).toBeTruthy();
-      await press(en.vehicleForm.done);
-    });
-    then('no vehicle is added to my garage', async () => {
-      expect(fake.state.vehicles).toHaveLength(0);
-      expect(await screen.findByText(en.garage.waiting)).toBeTruthy();
-      expect(screen.queryByText(en.garage.noEntries)).toBeNull();
-    });
-    and('I see a pending claim row for that VIN', () => {
-      expect(screen.getByText(OTHER_VIN)).toBeTruthy();
-      expect(screen.getByRole('button', { name: en.garage.withdraw })).toBeTruthy();
-    });
-  });
-
   test('An approved claim resolves itself', ({ given, when, then }) => {
     given('I have a pending claim row for a VIN', async () => {
       ({ fake } = await openGarageWithClaim());
     });
     when('my garage list contains that VIN', async () => {
-      fake.state.vehicles.push(aVehicle({ vin: OTHER_VIN }));
+      fake.state.vehicles.push(aVehicle({ vin: OTHER_VIN, model: 'Passat' }));
       await returnToApp();
     });
-    then('the claim row is gone and the vehicle is shown', async () => {
-      expect(await screen.findByText('Volkswagen Golf')).toBeTruthy();
+    then('the claim row is gone and the vehicle is in the car list', async () => {
+      expect(await screen.findByRole('button', { name: `Volkswagen Passat, ${OTHER_VIN}` })).toBeTruthy();
       await waitFor(() => expect(screen.queryByText(en.garage.waiting)).toBeNull());
       expect(await claimStore.list(me())).toEqual([]);
     });
@@ -106,13 +91,15 @@ defineFeature(feature, (test) => {
         },
       });
     });
-    when('I open the garage', async () => {
+    when('I open the app', async () => {
       expect(await screen.findByText(SAMPLE_VIN)).toBeTruthy();
     });
-    then(/^its card shows "(.*)" with evidence "(.*)"$/, async (odometer: string, evidence: string) => {
+    then(/^the home screen shows "(.*)" with evidence "(.*)"$/, async (odometer: string, evidence: string) => {
       expect(await screen.findByText(odometer)).toBeTruthy();
-      expect(screen.getByLabelText(en.evidence.a11y(evidence))).toBeTruthy();
-      expect(screen.queryByLabelText(en.evidence.a11y('confirmed'))).toBeNull();
+      // The facts row, not the history rows below it.
+      const facts = within(screen.getByTestId('car-facts'));
+      expect(facts.getByLabelText(en.evidence.a11y(evidence))).toBeTruthy();
+      expect(facts.queryByLabelText(en.evidence.a11y('confirmed'))).toBeNull();
     });
   });
 
@@ -120,35 +107,8 @@ defineFeature(feature, (test) => {
     given('a car with no entries', async () => {
       fake = await openApp('/', { seed: (seeded) => seeded.state.vehicles.push(aVehicle()) });
     });
-    then(/^its card shows "(.*)"$/, async (text: string) => {
+    then(/^the home screen shows "(.*)"$/, async (text: string) => {
       expect(await screen.findByText(text)).toBeTruthy();
-    });
-  });
-
-  test('Empty garage', ({ given, then }) => {
-    given('I have no cars', async () => {
-      fake = await openApp('/');
-    });
-    then(/^I see "(.*)"$/, async (text: string) => {
-      expect(await screen.findByText(text)).toBeTruthy();
-      expect(screen.getByRole('button', { name: en.garage.addVehicle })).toBeTruthy();
-    });
-  });
-
-  test('The garage never runs a live 3D stage', ({ given, when, then }) => {
-    given('I have two cars', async () => {
-      fake = await openApp('/', {
-        seed: (seeded) => seeded.state.vehicles.push(aVehicle(), aVehicle({ vin: OTHER_VIN, model: 'Polo' })),
-      });
-    });
-    when('I open the garage', async () => {
-      expect(await screen.findByText(SAMPLE_VIN)).toBeTruthy();
-      expect(await screen.findByText(OTHER_VIN)).toBeTruthy();
-    });
-    then('no WebView is mounted', async () => {
-      await waitFor(() => expect(screen.getAllByText(en.garage.noEntries)).toHaveLength(2));
-      expect(screen.getAllByTestId('stage-placeholder')).toHaveLength(2);
-      expect(hostTypes(screen.toJSON())).not.toContain('WebView');
     });
   });
 
@@ -158,14 +118,16 @@ defineFeature(feature, (test) => {
       ({ fake } = await openGarageWithClaim(claimId));
     });
     when('I register that VIN and the API answers 202 with the same claim id', async () => {
+      await closeCarList();
       fake.state.otherOwnerVins.add(OTHER_VIN);
       // The fake issues claim ids with randomUUID; this makes it answer with the one already filed.
       jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(claimId as ReturnType<typeof crypto.randomUUID>);
       await registerVin(OTHER_VIN);
       expect(await screen.findByText(en.vehicleForm.filedBody)).toBeTruthy();
-      await press(en.vehicleForm.done);
+      await press(en.journey.done);
     });
     then('I see one pending claim row', async () => {
+      await openCarList();
       await waitFor(() => expect(screen.getAllByText(en.garage.waiting)).toHaveLength(1));
       expect(await claimStore.list(me())).toHaveLength(1);
     });
@@ -188,25 +150,6 @@ defineFeature(feature, (test) => {
       expect(fake.callsTo('withdrawClaim')).toHaveLength(1);
       if (answer === '204') expect(screen.queryByText(en.errors.codes['claim-not-pending'])).toBeNull();
       else expect(await screen.findByText('That claim was already decided.')).toBeTruthy();
-    });
-  });
-
-  test('Already mine', ({ when, then }) => {
-    when(/^I register a VIN and the API answers 409 "(.*)"$/, async (code: string) => {
-      fake = await openApp('/');
-      expect(await screen.findByText(en.garage.emptyTitle)).toBeTruthy();
-      fake.failNext('registerVehicle', 409, code);
-      await registerVin(SAMPLE_VIN);
-    });
-    then(/^I am told "(.*)"$/, async (message: string) => {
-      expect(await screen.findByText(message)).toBeTruthy();
-      expect(fake.callsTo('registerVehicle')[0].body).toEqual({
-        vin: SAMPLE_VIN,
-        make: 'Volkswagen',
-        model: 'Golf',
-        year: 2015,
-        fuel: 'DIESEL',
-      });
     });
   });
 

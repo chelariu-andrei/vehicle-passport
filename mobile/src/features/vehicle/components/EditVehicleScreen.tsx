@@ -1,12 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
 
 import { errorMessage } from '@/shared/api';
-import { Button, ErrorState, Field, Screen, Skeleton, Text } from '@/shared/design';
+import { ActionBar, AppBar, ErrorState, Field, Screen, Skeleton, Text } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { useBack } from '@/shared/navigation/useBack';
 
 import { useUpdateVehicle } from '../api/useUpdateVehicle';
 import { useVehicle } from '../api/useVehicles';
@@ -20,7 +20,6 @@ type FormInput = z.input<ReturnType<typeof vehicleFormSchema>>;
 type FieldName = 'make' | 'model' | 'year' | 'fuel';
 
 function EditForm({ vehicle }: { vehicle: VehicleResponse }) {
-  const router = useRouter();
   const update = useUpdateVehicle(vehicle.vin);
   const schema = useMemo(() => vehicleFormSchema(new Date()), []);
   const {
@@ -47,7 +46,7 @@ function EditForm({ vehicle }: { vehicle: VehicleResponse }) {
   const parsed = schema.safeParse(useWatch({ control }));
   const unchanged = parsed.success && Object.keys(changedFields(vehicle, parsed.data)).length === 0;
 
-  const close = () => (router.canGoBack() ? router.back() : router.replace(`/vehicles/${vehicle.vin}`));
+  const close = useBack('/');
   const submit = handleSubmit((values) => {
     const changes = changedFields(vehicle, values);
     if (Object.keys(changes).length === 0) return;
@@ -59,7 +58,11 @@ function EditForm({ vehicle }: { vehicle: VehicleResponse }) {
     errors[field] === undefined ? undefined : field === 'year' ? en.vehicleForm.invalidYear(maxYear) : en.vehicleForm.required;
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      header={<AppBar onBack={close} />}
+      footer={<ActionBar primary={{ title: en.vehicle.save, disabled: unchanged, loading: update.isPending, onPress: submit }} />}
+    >
       <Text variant="display-xl" accessibilityRole="header">
         {en.vehicle.editTitle}
       </Text>
@@ -151,8 +154,6 @@ function EditForm({ vehicle }: { vehicle: VehicleResponse }) {
           {errorMessage(update.error)}
         </Text>
       ) : null}
-      <Button title={en.vehicle.save} disabled={unchanged} loading={update.isPending} onPress={submit} />
-      <Button kind="secondary" title={en.common.cancel} onPress={close} />
     </Screen>
   );
 }
@@ -171,9 +172,10 @@ function ReadOnlyVin({ vin }: { vin: string }) {
 
 export function EditVehicleScreen({ vin }: { vin: string }) {
   const vehicle = useVehicle(vin);
+  const back = useBack('/');
   if (vehicle.data) return <EditForm vehicle={vehicle.data} />;
   return (
-    <Screen>
+    <Screen header={<AppBar onBack={back} />}>
       {vehicle.isError ? (
         <ErrorState onRetry={() => void vehicle.refetch()} />
       ) : (

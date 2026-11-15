@@ -1,7 +1,12 @@
 import { act, render, screen } from '@testing-library/react-native';
 import { AccessibilityInfo, AppState, type AppStateStatus } from 'react-native';
 
+import { tokens } from '@/shared/design';
+
 import { CarViewer } from './CarViewer';
+import { NEUTRAL_LOOK, type Look } from './look';
+
+const RED: Look = { ...NEUTRAL_LOOK, bodyType: 'SUV', color: 'RED', colorHex: null };
 
 let mockEnabled = true;
 let mockProps: { onMessage: (event: { nativeEvent: { data: string } }) => void } | null = null;
@@ -11,7 +16,6 @@ jest.mock('./config', () => ({
   get CAR_VIEWER_ENABLED() {
     return mockEnabled;
   },
-  VIEWER_COLOURS: [],
 }));
 
 jest.mock('expo-asset', () => ({
@@ -60,45 +64,52 @@ beforeEach(() => {
 
 afterEach(() => jest.restoreAllMocks());
 
-async function mountReady(props: { color?: string; active?: boolean } = {}) {
-  const view = await render(<CarViewer color={props.color ?? '#0f1a15'} active={props.active ?? true} />);
+async function mountReady(props: { look?: Look; active?: boolean } = {}) {
+  const view = await render(<CarViewer look={props.look ?? NEUTRAL_LOOK} active={props.active ?? true} />);
   await screen.findByTestId('car-webview');
   await fromViewer({ type: 'ready' });
   return view;
 }
 
-test('shows the placeholder until ready, then hides it', async () => {
-  await render(<CarViewer color="#0f1a15" active />);
+test('shows the silhouette until the viewer is ready', async () => {
+  await render(<CarViewer look={NEUTRAL_LOOK} active />);
   await screen.findByTestId('car-webview');
-  expect(screen.getByTestId('stage-placeholder')).toBeTruthy();
+  expect(screen.getByTestId('car-silhouette')).toBeTruthy();
   await fromViewer({ type: 'ready' });
-  expect(screen.queryByTestId('stage-placeholder')).toBeNull();
+  expect(screen.queryByTestId('car-silhouette')).toBeNull();
 });
 
-test('keeps the placeholder on error', async () => {
-  await render(<CarViewer color="#0f1a15" active />);
-  await screen.findByTestId('car-webview');
-  await fromViewer({ type: 'error' });
-  expect(screen.getByTestId('stage-placeholder')).toBeTruthy();
-});
-
-test('puts the placeholder back if an error follows ready', async () => {
+test('falls back to the silhouette on error and stays there', async () => {
   await mountReady();
   await fromViewer({ type: 'error' });
-  expect(screen.getByTestId('stage-placeholder')).toBeTruthy();
+  expect(screen.getByTestId('car-silhouette')).toBeTruthy();
+  expect(screen.queryByTestId('car-webview')).toBeNull();
 });
 
-test('sends setColor when the colour changes', async () => {
+test('sends the look once ready, and again when it changes', async () => {
   const view = await mountReady();
-  await view.rerender(<CarViewer color="#a3171d" active />);
-  expect(sent()).toContainEqual({ type: 'setColor', hex: '#a3171d' });
+  expect(sent()).toContainEqual({ type: 'setLook', look: NEUTRAL_LOOK });
+  await view.rerender(<CarViewer look={RED} active />);
+  expect(sent()).toContainEqual({ type: 'setLook', look: RED });
+});
+
+test('sends turnTo when the view prop changes', async () => {
+  const view = await mountReady();
+  await view.rerender(<CarViewer look={NEUTRAL_LOOK} view="rear" active />);
+  expect(sent()).toContainEqual({ type: 'turnTo', view: 'rear' });
+});
+
+test('sends the theme colours once ready', async () => {
+  await mountReady();
+  const { dark } = tokens.color;
+  expect(sent()).toContainEqual({ type: 'setColors', floor: dark.bg, tick: dark['ink-muted'], mark: dark.brand });
 });
 
 test('sends pause when active becomes false, resume when true', async () => {
   const view = await mountReady();
-  await view.rerender(<CarViewer color="#0f1a15" active={false} />);
+  await view.rerender(<CarViewer look={NEUTRAL_LOOK} active={false} />);
   expect(sent().at(-1)).toEqual({ type: 'pause' });
-  await view.rerender(<CarViewer color="#0f1a15" active />);
+  await view.rerender(<CarViewer look={NEUTRAL_LOOK} active />);
   expect(sent().at(-1)).toEqual({ type: 'resume' });
 });
 
@@ -125,15 +136,15 @@ test('sends setReduceMotion true when the OS asks for reduced motion', async () 
 
 test('reports fps to the caller', async () => {
   const onFps = jest.fn();
-  await render(<CarViewer color="#0f1a15" active onFps={onFps} />);
+  await render(<CarViewer look={NEUTRAL_LOOK} active onFps={onFps} />);
   await screen.findByTestId('car-webview');
   await fromViewer({ type: 'fps', value: 58 });
   expect(onFps).toHaveBeenCalledWith(58);
 });
 
-test('renders only the placeholder when CAR_VIEWER_ENABLED is false', async () => {
+test('renders only the silhouette when CAR_VIEWER_ENABLED is false', async () => {
   mockEnabled = false;
-  await render(<CarViewer color="#0f1a15" active />);
-  expect(screen.getByTestId('stage-placeholder')).toBeTruthy();
+  await render(<CarViewer look={NEUTRAL_LOOK} active />);
+  expect(screen.getByTestId('car-silhouette')).toBeTruthy();
   expect(screen.queryByTestId('car-webview')).toBeNull();
 });

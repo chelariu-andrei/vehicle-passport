@@ -11,9 +11,11 @@ type Props = Omit<TextInputProps, 'style' | 'accessibilityLabel'> & {
   label: string;
   error?: string;
   helper?: string;
+  /** Set in the VIN face, for identifiers. */
+  mono?: boolean;
 };
 
-export function Field({ label, error, helper, ...input }: Props) {
+export function Field({ label, error, helper, mono = false, ...input }: Props) {
   const { colors } = useTheme();
   return (
     <View style={{ gap: tokens.space['space-1'] }}>
@@ -27,8 +29,9 @@ export function Field({ label, error, helper, ...input }: Props) {
           paddingHorizontal: tokens.space['space-4'],
           backgroundColor: colors['surface-raised'],
           color: colors.ink,
-          fontFamily: fontFamilyFor('body-lg'),
-          fontSize: tokens.type['body-lg'].fontSize,
+          fontFamily: fontFamilyFor(mono ? 'vin' : 'body-lg'),
+          fontSize: tokens.type[mono ? 'vin' : 'body-lg'].fontSize,
+          letterSpacing: mono ? tokens.type.vin.letterSpacing : undefined,
           borderRadius: tokens.radius['radius-md'],
           borderWidth: 1,
           borderColor: error ? colors.danger : colors['line-strong'],

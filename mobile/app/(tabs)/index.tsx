@@ -1,3 +1,3 @@
-import { GarageScreen } from '@/features/vehicle';
+import { CarHomeScreen } from '@/features/vehicle';
 
-export default GarageScreen;
+export default CarHomeScreen;

@@ -12,8 +12,6 @@ import { openApp } from '../harness';
 
 jest.setTimeout(15000);
 
-const OTHER_VIN = 'WBAZZZ1JZXW000002';
-
 beforeEach(async () => {
   await AsyncStorage.clear();
 });
@@ -70,14 +68,4 @@ test('a failed job whose photo is gone offers only Enter by hand', async () => {
   await openApp('/scans', { seed });
   expect(await screen.findByRole('button', { name: en.scans.enterByHand })).toBeTruthy();
   expect(screen.queryByRole('button', { name: en.scans.retry })).toBeNull();
-});
-
-test('with several cars the car is chosen first', async () => {
-  await openApp('/scans/new', {
-    seed: (api) => api.state.vehicles.push(aVehicle(), aVehicle({ vin: OTHER_VIN, model: 'Polo' })),
-  });
-  expect(await screen.findByText(en.scans.pickCar)).toBeTruthy();
-  expect(screen.queryByText(en.scans.onePhoto)).toBeNull();
-  await fireEvent.press(screen.getByRole('button', { name: 'Volkswagen Polo' }));
-  expect(await screen.findByText(en.scans.onePhoto)).toBeTruthy();
 });

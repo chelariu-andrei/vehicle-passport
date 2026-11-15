@@ -1,10 +1,13 @@
 import { Asset } from 'expo-asset';
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type Ref } from 'react';
-import { AccessibilityInfo, AppState, View } from 'react-native';
+import { AccessibilityInfo, AppState, Platform, View, useWindowDimensions } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
+import { useTheme } from '@/shared/design';
+
+import { CarSilhouette } from './CarSilhouette';
 import { CAR_VIEWER_ENABLED } from './config';
-import { StagePlaceholder } from './StagePlaceholder';
+import type { Look } from './look';
 
 type WebViewHandle = { postMessage: (message: string) => void };
 // The package types WebView as a plain function component, so its ref is not in the props.
@@ -13,7 +16,9 @@ const RefWebView = WebView as unknown as (props: ComponentProps<typeof WebView> 
 const viewerModule = require('../../../assets/viewer/viewer.html') as number;
 
 type Props = {
-  color: string;
+  look: Look;
+  /** Which side the car turns to; the stage eases there (or cuts, under Reduce Motion). */
+  view?: 'front' | 'side' | 'rear' | 'top';
   /** False while the screen is not the one being looked at (tab or stack focus). */
   active: boolean;
   onFps?: (fps: number) => void;
@@ -30,13 +35,31 @@ function parse(data: string): FromViewer | null {
   }
 }
 
+const SILHOUETTE_SHARE = 0.7;
+
+/** The silhouette centred in its stage, at 70% of the stage width. */
+function Silhouette({ look }: { look: Look }) {
+  const window = useWindowDimensions();
+  const [width, setWidth] = useState(window.width);
+  return (
+    <View
+      pointerEvents="none"
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+    >
+      <CarSilhouette look={look} width={width * SILHOUETTE_SHARE} />
+    </View>
+  );
+}
+
 export function CarViewer(props: Props) {
-  // The disabled branch mounts nothing, so the hooks below never run for it.
-  if (!CAR_VIEWER_ENABLED) return <StagePlaceholder />;
+  // The disabled branch mounts nothing, so the hooks below never run for it. The web has no WebView: it keeps the silhouette.
+  if (!CAR_VIEWER_ENABLED || Platform.OS === 'web') return <Silhouette look={props.look} />;
   return <Viewer {...props} />;
 }
 
-function Viewer({ color, active, onFps }: Props) {
+function Viewer({ look, view, active, onFps }: Props) {
+  const { colors } = useTheme();
   const webView = useRef<WebViewHandle>(null);
   const [uri, setUri] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -84,8 +107,14 @@ function Viewer({ color, active, onFps }: Props) {
 
   // Each effect also runs when `ready` flips, which pushes the current state to a freshly loaded page.
   useEffect(() => {
-    if (ready) send({ type: 'setColor', hex: color });
-  }, [ready, color, send]);
+    if (ready) send({ type: 'setLook', look });
+  }, [ready, look, send]);
+  useEffect(() => {
+    if (ready && view) send({ type: 'turnTo', view });
+  }, [ready, view, send]);
+  useEffect(() => {
+    if (ready) send({ type: 'setColors', floor: colors.bg, tick: colors['ink-muted'], mark: colors.brand });
+  }, [ready, colors, send]);
   useEffect(() => {
     if (ready) send({ type: 'setReduceMotion', value: reduceMotion });
   }, [ready, reduceMotion, send]);
@@ -107,7 +136,7 @@ function Viewer({ color, active, onFps }: Props) {
     }
   };
 
-  const showPlaceholder = !ready || failed;
+  const showSilhouette = !ready || failed;
   return (
     <View style={{ flex: 1 }}>
       {uri && !failed ? (
@@ -131,9 +160,9 @@ function Viewer({ color, active, onFps }: Props) {
           importantForAccessibility="no-hide-descendants"
         />
       ) : null}
-      {showPlaceholder ? (
+      {showSilhouette ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}>
-          <StagePlaceholder />
+          <Silhouette look={look} />
         </View>
       ) : null}
     </View>

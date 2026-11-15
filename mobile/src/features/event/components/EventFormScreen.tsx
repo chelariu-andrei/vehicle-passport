@@ -1,14 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
-import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Platform, Pressable, View } from 'react-native';
 import type { z } from 'zod';
 
 import { errorMessage } from '@/shared/api';
-import { Button, ErrorState, Field, Icon, Screen, Skeleton, Text, tokens, useTheme } from '@/shared/design';
+import { ActionBar, AppBar, ErrorState, Field, Icon, Screen, Skeleton, Text, tokens, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { useBack } from '@/shared/navigation/useBack';
 
 import { useAddEvent } from '../api/useAddEvent';
 import { useTimeline } from '../api/useTimeline';
@@ -148,7 +148,6 @@ function ReadOnly({ label, value }: { label: string; value: string }) {
 }
 
 function Form({ vin, original }: { vin: string; original: EventResponse | null }) {
-  const router = useRouter();
   const add = useAddEvent(vin);
   const update = useUpdateEvent(vin, original?.id ?? '');
   const save = original ? update : add;
@@ -177,14 +176,18 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
     if (save.isError) save.reset();
   };
 
-  const close = () => (router.canGoBack() ? router.back() : router.replace(`/vehicles/${vin}`));
+  const close = useBack('/');
   const submit = handleSubmit((values) => {
     save.mutate(toEventRequest(original, values), { onSuccess: close });
   });
   const problem = (field: FieldName): string | undefined => (errors[field] === undefined ? undefined : PROBLEMS[field]);
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      header={<AppBar onBack={close} />}
+      footer={<ActionBar primary={{ title: en.event.save, loading: save.isPending, onPress: submit }} />}
+    >
       <Text variant="display-xl" accessibilityRole="header">
         {original ? en.event.editTitle : en.event.addTitle}
       </Text>
@@ -306,20 +309,19 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
           {errorMessage(save.error)}
         </Text>
       ) : null}
-      <Button title={en.event.save} loading={save.isPending} onPress={submit} />
-      <Button kind="secondary" title={en.common.cancel} onPress={close} />
     </Screen>
   );
 }
 
 /** Adds an event, or with `eventId` edits one. The original comes from the timeline already loaded for the car. */
 export function EventFormScreen({ vin, eventId }: { vin: string; eventId?: string }) {
+  const back = useBack('/');
   const timeline = useTimeline(vin);
   if (eventId === undefined) return <Form vin={vin} original={null} />;
   const original = timeline.data?.find((event) => event.id === eventId);
   if (original) return <Form vin={vin} original={original} />;
   return (
-    <Screen>
+    <Screen header={<AppBar onBack={back} />}>
       {timeline.data ? (
         <Text accessibilityRole="alert">{en.errors.codes['event-not-found']}</Text>
       ) : timeline.isError ? (

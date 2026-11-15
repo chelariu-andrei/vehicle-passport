@@ -1,12 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
 import { errorMessage, forgetVehicle, useRefetchOnFocus } from '@/shared/api';
-import { AsyncList, Button, Card, ConfirmSheet, Screen, Text, toast, tokens } from '@/shared/design';
+import { AppBar, AsyncList, Button, Card, ConfirmSheet, Screen, Text, toast, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 import { goToGarage } from '@/shared/navigation/goToGarage';
+import { useBack } from '@/shared/navigation/useBack';
 
 import { useApproveClaim, useClaims, useRejectClaim } from '../api/useClaims';
 import type { PendingClaim } from '../api/useClaims';
@@ -17,7 +17,6 @@ const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 export function ClaimsScreen({ vin }: { vin: string }) {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const claims = useClaims(vin);
   const approve = useApproveClaim(vin);
@@ -25,7 +24,7 @@ export function ClaimsScreen({ vin }: { vin: string }) {
   const [deciding, setDeciding] = useState<Decision | null>(null);
   useRefetchOnFocus(claims.refetch);
 
-  const back = () => (router.canGoBack() ? router.back() : router.replace(`/vehicles/${vin}`));
+  const back = useBack('/');
   const busy = approve.isPending || reject.isPending;
 
   const confirm = () => {
@@ -52,7 +51,7 @@ export function ClaimsScreen({ vin }: { vin: string }) {
 
   const approving = deciding?.kind === 'approve';
   return (
-    <Screen>
+    <Screen header={<AppBar onBack={back} />}>
       <Text variant="display-xl" accessibilityRole="header">
         {en.claims.title}
       </Text>
@@ -75,12 +74,12 @@ export function ClaimsScreen({ vin }: { vin: string }) {
           </Text>
         }
       />
-      <Button kind="secondary" title={en.common.back} onPress={back} />
       <ConfirmSheet
         visible={deciding !== null}
         title={approving ? en.claims.approveTitle : en.claims.rejectTitle}
         body={approving ? en.claims.approveBody : en.claims.rejectBody}
         confirmLabel={approving ? en.claims.approveConfirm : en.claims.rejectConfirm}
+        dismissLabel={approving ? en.claims.approveLater : en.claims.rejectKeep}
         danger
         onConfirm={confirm}
         onCancel={() => setDeciding(null)}

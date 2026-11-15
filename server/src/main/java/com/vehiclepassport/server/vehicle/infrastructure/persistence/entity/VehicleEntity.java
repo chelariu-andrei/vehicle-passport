@@ -27,4 +27,31 @@ public class VehicleEntity {
 
     @Column(name = "fuel", nullable = false)
     public String fuel;
+
+    @Column(name = "plate", length = 10)
+    public String plate;
+
+    @Column(name = "body_type")
+    public String bodyType;
+
+    @Column(name = "paint_color")
+    public String paintColor;
+
+    @Column(name = "paint_hex", length = 7)
+    public String paintHex;
+
+    @Column(name = "paint_finish")
+    public String paintFinish;
+
+    @Column(name = "wheel_style")
+    public String wheelStyle;
+
+    @Column(name = "rim_color")
+    public String rimColor;
+
+    @Column(name = "glass_tint")
+    public String glassTint;
+
+    @Column(name = "contrast_roof")
+    public Boolean contrastRoof;
 }

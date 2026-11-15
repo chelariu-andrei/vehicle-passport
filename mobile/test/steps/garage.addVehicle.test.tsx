@@ -4,15 +4,15 @@ import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
 import { en } from '@/shared/i18n/en';
 
 import { SAMPLE_VIN } from '../fake-api';
-import { openApp } from '../harness';
+import { openApp, openJourney, typeVinAndContinue } from '../harness';
 
 beforeEach(async () => {
   await AsyncStorage.clear();
 });
 
 async function fillForm(vin: string) {
-  await fireEvent.press(screen.getByRole('button', { name: en.garage.addVehicle }));
-  await fireEvent.changeText(await screen.findByLabelText(en.vehicleForm.vin), vin);
+  await openJourney();
+  await typeVinAndContinue(vin);
   await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.make), 'Volkswagen');
   await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.model), 'Golf');
   await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.year), '2015');
@@ -50,17 +50,17 @@ test('editing a field while the registration is in flight neither re-enables Sub
   await fillForm(SAMPLE_VIN);
   const held = holdRegistration();
   try {
-    await fireEvent.press(screen.getByRole('button', { name: en.vehicleForm.submit }));
-    await waitFor(() => expect(screen.getByRole('button', { name: en.vehicleForm.submit })).toBeDisabled());
+    await fireEvent.press(screen.getByRole('button', { name: en.journey.submit }));
+    await waitFor(() => expect(screen.getByRole('button', { name: en.journey.submit })).toBeDisabled());
 
     await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.engine), '2.0 TDI');
-    expect(screen.getByRole('button', { name: en.vehicleForm.submit })).toBeDisabled();
-    await fireEvent.press(screen.getByRole('button', { name: en.vehicleForm.submit }));
+    expect(screen.getByRole('button', { name: en.journey.submit })).toBeDisabled();
+    await fireEvent.press(screen.getByRole('button', { name: en.journey.submit }));
     expect(held.sent.count).toBe(1);
 
     await held.release();
-    // The car page is a later task; the 201 path is what leaves the sheet.
-    await waitFor(() => expect(screen).not.toHavePathname('/vehicles/new'));
+    // A saved car moves the journey on to step 3.
+    expect(await screen.findByLabelText(en.journey.progress(3))).toBeTruthy();
     expect(fake.state.vehicles).toHaveLength(1);
     expect(fake.callsTo('registerVehicle')).toHaveLength(1);
   } finally {
@@ -72,8 +72,8 @@ test('editing a field after a failed submit clears the server error', async () =
   const fake = await openApp('/');
   expect(await screen.findByText(en.garage.emptyTitle)).toBeTruthy();
   fake.failNext('registerVehicle', 409, 'already-owner');
-  await fillForm(SAMPLE_VIN);
-  await fireEvent.press(screen.getByRole('button', { name: en.vehicleForm.submit }));
+  await fillForm(SAMPLE_VIN.toLowerCase());
+  await fireEvent.press(screen.getByRole('button', { name: en.journey.submit }));
   expect(await screen.findByText(en.errors.codes['already-owner'])).toBeTruthy();
 
   await fireEvent.changeText(screen.getByLabelText(en.vehicleForm.make), 'Audi');

@@ -44,7 +44,7 @@ test('Share link shares the public URL', async () => {
 test('cancelling the revoke sheet sends nothing', async () => {
   const { fake } = await openActive();
   await press(en.passport.revoke);
-  await press(en.common.cancel);
+  await press(en.passport.revokeKeep);
   await waitFor(() => expect(screen.queryByText(en.passport.revokeTitle)).toBeNull());
   expect(fake.callsTo('revokePassport')).toHaveLength(0);
   expect(screen.getByLabelText(en.passport.qrLabel)).toBeTruthy();
@@ -79,7 +79,8 @@ test('the list shows the car, the status and the frozen label', async () => {
       api.state.passports.push(aPassport({ vin: SAMPLE_VIN }));
     },
   });
-  expect(await screen.findByText('Volkswagen Golf')).toBeTruthy();
+  // The car is the title and the card's heading; the card's label names its car and VIN.
+  expect(await screen.findByRole('button', { name: `Volkswagen Golf, ${SAMPLE_VIN}, ${en.passport.status.ACTIVE}` })).toBeTruthy();
   expect(screen.getByText(en.passport.status.ACTIVE)).toBeTruthy();
   expect(screen.getByText(en.passport.frozen)).toBeTruthy();
 });

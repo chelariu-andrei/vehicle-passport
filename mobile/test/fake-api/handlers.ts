@@ -104,7 +104,7 @@ const registerVehicle: Handler = (c) => {
     (c.state.claims[b.vin] ??= []).push(claim);
     return ok(claim, 202);
   }
-  const vehicle: VehicleResponse = { vin: b.vin, make: b.make, model: b.model, engine: b.engine ?? null, year: b.year, fuel: b.fuel };
+  const vehicle: VehicleResponse = { vin: b.vin, make: b.make, model: b.model, engine: b.engine ?? null, year: b.year, fuel: b.fuel, plate: null, appearance: null };
   c.state.vehicles.push(vehicle);
   return ok(vehicle, 201);
 };
