@@ -59,7 +59,8 @@ test('editing a field while the registration is in flight neither re-enables Sub
     expect(held.sent.count).toBe(1);
 
     await held.release();
-    await waitFor(() => expect(screen).not.toHavePathname('/onboarding'));
+    // A saved car moves the journey on to step 3.
+    expect(await screen.findByLabelText(en.journey.progress(3))).toBeTruthy();
     expect(fake.state.vehicles).toHaveLength(1);
     expect(fake.callsTo('registerVehicle')).toHaveLength(1);
   } finally {

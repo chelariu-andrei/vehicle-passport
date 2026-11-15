@@ -21,7 +21,7 @@ import {
 } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 import { goToGarage } from '@/shared/navigation/goToGarage';
-import { CarSilhouette, CarViewer, NEUTRAL_LOOK, lookOf } from '@/shared/viewer';
+import { CarSilhouette, CarViewer, NEUTRAL_LOOK, hasLook, lookOf } from '@/shared/viewer';
 
 import { useActiveCar } from '../api/useActiveCar';
 import { useClaims } from '../api/useClaims';
@@ -33,6 +33,7 @@ import { autoJourney } from '../model/autoJourney';
 import { CarFacts } from './CarFacts';
 import { CarSwitcher } from './CarSwitcher';
 import { ClaimsBanner } from './ClaimsBanner';
+import { MakeItYoursRow } from './look/MakeItYoursRow';
 import { PendingClaimRow } from './PendingClaimRow';
 
 const STAGE_SHARE = 0.3;
@@ -184,6 +185,8 @@ function ActiveCar({ car, onlyCar }: { car: VehicleResponse; onlyCar: boolean })
       <Text variant="caption" color="ink-muted" style={{ textAlign: 'center' }}>
         {en.vehicle.illustrative}
       </Text>
+
+      {hasLook(shown) ? null : <MakeItYoursRow vin={vin} />}
 
       <CarFacts car={shown} />
 

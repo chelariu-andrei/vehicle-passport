@@ -10,6 +10,7 @@ export { CarHomeScreen } from './components/CarHomeScreen';
 export { CarListSheet } from './components/CarListSheet';
 export { CarSwitcher } from './components/CarSwitcher';
 export { OnboardingRoute } from './components/journey/OnboardingRoute';
+export { LookScreen } from './components/look/LookScreen';
 export { OpenCarRoute } from './components/OpenCarRoute';
 export { autoJourney } from './model/autoJourney';
 export { changedFields } from './model/changedFields';

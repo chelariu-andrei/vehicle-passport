@@ -13,6 +13,12 @@ import { aVehicle } from '../fake-api';
 import { openApp, openJourney, submitDetails, typeVinAndContinue } from '../harness';
 
 setJestCucumberConfiguration({ errors: true });
+
+/** Steps 3 and 4 of the journey are covered by look.feature; here the car is simply left to the Car tab. */
+async function skipLook() {
+  await fireEvent.press(await screen.findByRole('button', { name: en.look.skip }));
+  await fireEvent.press(await screen.findByRole('button', { name: en.journey.later }));
+}
 const feature = loadFeature('../../features/onboarding.feature', { loadRelativePath: true });
 
 /* The Car tab's stage is a WebView; Jest has no native one. */
@@ -194,6 +200,7 @@ defineFeature(feature, (test) => {
       await openFromOneCar();
       await typeVinAndContinue(BMW_VIN);
       await submitDetails({ make: 'BMW', model: '3 Series' });
+      await skipLook();
     });
     then('the BMW is the active car', async () => {
       expect(await screen.findByText('BMW 3 Series')).toBeTruthy();
@@ -318,6 +325,7 @@ defineFeature(feature, (test) => {
       await openFromOneCar();
       await typeVinAndContinue(BMW_VIN);
       await submitDetails({ make: 'BMW', model: '3 Series' });
+      await skipLook();
       expect(await screen.findByText('BMW 3 Series')).toBeTruthy();
       // Time for a debounced write that must never happen to show itself.
       await act(async () => jest.advanceTimersByTime(400));

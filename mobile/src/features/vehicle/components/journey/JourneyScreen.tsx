@@ -9,6 +9,8 @@ import { useSession } from '@/shared/auth/session';
 import { ActionBar, AppBar, Button, Screen, Text, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 import { useBack } from '@/shared/navigation/useBack';
+import { NEUTRAL_LOOK } from '@/shared/viewer';
+import type { Look } from '@/shared/viewer';
 
 import { useActiveCar } from '../../api/useActiveCar';
 import { useJourneyDraft } from '../../api/useJourneyDraft';
@@ -21,6 +23,8 @@ import type { VehicleFormValues } from '../../model/vehicleForm';
 import { isVin, makeFromVin } from '../../model/vin';
 import { ClaimFiled } from './ClaimFiled';
 import { DraftSheet } from './DraftSheet';
+import { JourneyDone } from './JourneyDone';
+import { JourneyLook } from './JourneyLook';
 import type { JourneyFormInput } from './form';
 import { StepDetails } from './StepDetails';
 import { StepProgress } from './StepProgress';
@@ -96,6 +100,7 @@ function Journey({ auto, initial, draft }: { auto: boolean; initial: JourneyDraf
   const [step, setStep] = useState<Step>(initial.step === 'details' && isVin(initial.vin) ? 'details' : 'vin');
   const [asking, setAsking] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [created, setCreated] = useState<{ vin: string; name: string; look: Look } | null>(null);
   const values = useWatch({ control });
   const vin = values.vin ?? '';
 
@@ -206,8 +211,8 @@ function Journey({ auto, initial, draft }: { auto: boolean; initial: JourneyDraf
           draft.clear();
           if (result.kind === 'created') {
             select(result.vehicle.vin);
-            // The look step arrives with the next task; until then a new car goes straight to the Car tab.
-            leave();
+            setCreated({ vin: result.vehicle.vin, name: `${result.vehicle.make} ${result.vehicle.model}`, look: NEUTRAL_LOOK });
+            setStep('look');
           } else {
             setStep('claim');
           }
@@ -230,6 +235,11 @@ function Journey({ auto, initial, draft }: { auto: boolean; initial: JourneyDraf
     select(getValues('vin'));
     leave();
   };
+
+  if (step === 'look' && created) {
+    return <JourneyLook vin={created.vin} onDone={(look) => { setCreated({ ...created, look }); setStep('done'); }} />;
+  }
+  if (step === 'done' && created) return <JourneyDone vin={created.vin} name={created.name} look={created.look} />;
 
   const header =
     step === 'details' ? (
@@ -279,7 +289,6 @@ function Journey({ auto, initial, draft }: { auto: boolean; initial: JourneyDraf
           </>
         ) : null}
         {step === 'claim' ? <ClaimFiled /> : null}
-        {/* `look` and `done` are the next task's screens. */}
       </StepTransition>
       <DraftSheet visible={asking} onKeep={keepDraft} onDiscard={discardDraft} onClose={() => setAsking(false)} />
     </Screen>
