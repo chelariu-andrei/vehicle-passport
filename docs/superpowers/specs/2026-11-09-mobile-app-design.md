@@ -1,5 +1,7 @@
 # Mobile app design — vehicle-passport (v1)
 
+> Sections 6, 7, 9 and 12.1 are superseded by `2026-11-10-onboarding-design.md` (onboarding, the active car, the car look).
+
 Date: 2026-11-09 · Scope: `mobile/` and a small buyer web page in `web/` · Status: draft for approval
 Companions: `2026-11-09-mobile-api-integration.md` (endpoint behaviour), `PRODUCT.md` (product context),
 design system artifact https://claude.ai/artifact/4744YKEHgeUzJgtoCZ3J3Y

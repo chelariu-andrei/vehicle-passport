@@ -213,7 +213,9 @@ export const en = {
   viewer: {
     devTitle: '3D viewer check',
     fps: (value: number | null) => (value === null ? 'FPS: waiting' : `FPS: ${value}`),
-    colourButton: (name: string) => `Colour: ${name}`,
+    current: (body: string, finish: string) => `${body}, ${finish}`,
+    nextBody: 'Next body type',
+    nextFinish: 'Next finish',
   },
   event: {
     type: { SERVICE: 'Service', REPAIR: 'Repair', TIRES: 'Tires', ITP: 'ITP' },
