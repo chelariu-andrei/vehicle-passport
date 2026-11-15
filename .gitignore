@@ -6,3 +6,5 @@ infra/supabase/.branches/
 .superpowers/
 .worktrees/
 .claude/worktrees/
+
+hs_err_pid*.log
