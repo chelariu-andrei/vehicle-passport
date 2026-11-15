@@ -2,6 +2,7 @@ package com.vehiclepassport.server.event;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,6 +31,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -198,6 +205,66 @@ class AttachmentPersistenceIT {
         assertEquals("application/octet-stream", row.contentType());
         assertEquals(0L, row.sizeBytes());
         assertEquals(f.owner(), row.createdBy());
+    }
+
+    @Test
+    void concurrentDuplicateUploadLosesWithDuplicateDocument() throws Exception {
+        Fixture f = fixture();
+        UUID winnerEvent = event(f, null);
+        UUID loserEvent = event(f, null);
+        CountDownLatch inserted = new CountDownLatch(1);
+        CountDownLatch commit = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> winner = pool.submit(() -> QuarkusTransaction.requiringNew().run(() -> {
+                attachments.save(attachment(f, winnerEvent, HASH_A, AttachmentKind.UPLOAD));
+                inserted.countDown();
+                try {
+                    commit.await(10, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }));
+            assertTrue(inserted.await(10, TimeUnit.SECONDS));
+            Future<?> loser = pool.submit(() -> QuarkusTransaction.requiringNew()
+                    .run(() -> attachments.save(attachment(f, loserEvent, HASH_A, AttachmentKind.UPLOAD))));
+            Thread.sleep(500); // the loser's pre-check misses and its insert blocks on the uncommitted winner
+            commit.countDown();
+            winner.get(10, TimeUnit.SECONDS);
+
+            ExecutionException e = assertThrows(ExecutionException.class, () -> loser.get(10, TimeUnit.SECONDS));
+            DuplicateDocumentException dup = assertInstanceOf(DuplicateDocumentException.class, e.getCause());
+            assertEquals(winnerEvent, dup.existingEventId());
+        } finally {
+            commit.countDown();
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void scanSourceSaveIsNeverReportedAsDuplicate() {
+        Fixture f = fixture();
+        UUID eventId = event(f, null);
+        save(attachment(f, eventId, HASH_A, AttachmentKind.UPLOAD));
+
+        save(attachment(f, event(f, null), HASH_A, AttachmentKind.SCAN_SOURCE));
+    }
+
+    @Test
+    void bulkSoftDeleteKeepsPendingChangesOfOtherEntities() {
+        Fixture f = fixture();
+        UUID eventId = event(f, null);
+        save(attachment(f, eventId, HASH_A, AttachmentKind.UPLOAD));
+
+        QuarkusTransaction.requiringNew().run(() -> {
+            events.save(new VehicleEvent(eventId, f.vin(), EventType.SERVICE, LocalDate.parse("2025-03-01"), 1000,
+                    new BigDecimal("10.50"), "RON", null, null, EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL,
+                    f.owner(), f.period(), null, T0, T0.plusSeconds(30)));
+            attachments.softDeleteAllFor(eventId, T0.plusSeconds(30));
+        });
+
+        assertTrue(QuarkusTransaction.requiringNew().call(() -> events.findActive(f.vin(), eventId)).isEmpty());
+        assertEquals(0, QuarkusTransaction.requiringNew().call(() -> attachments.countLive(eventId)));
     }
 
     private int runBackfill(UUID eventId) {

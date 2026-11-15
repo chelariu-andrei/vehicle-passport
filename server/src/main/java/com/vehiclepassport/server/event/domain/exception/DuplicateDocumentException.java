@@ -8,9 +8,11 @@ public class DuplicateDocumentException extends DomainException {
 
     private final UUID existingEventId;
 
+    /** existingEventId is null only when the other copy vanished before it could be looked up. */
     public DuplicateDocumentException(UUID existingEventId) {
-        super(ErrorKind.CONFLICT, "duplicate-document",
-                "This document is already attached to event " + existingEventId);
+        super(ErrorKind.CONFLICT, "duplicate-document", existingEventId == null
+                ? "This document is already attached to another event"
+                : "This document is already attached to event " + existingEventId);
         this.existingEventId = existingEventId;
     }
 

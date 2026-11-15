@@ -10,6 +10,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceException;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
@@ -23,6 +24,7 @@ import org.hibernate.exception.ConstraintViolationException;
 @ApplicationScoped
 public class AttachmentPanacheRepository implements AttachmentRepositoryPort {
 
+    private static final String UPLOAD_HASH_INDEX = "event_attachment_upload_hash";
     private static final String LIVE = "from EventAttachmentEntity a where a.deletedAt is null";
 
     @Inject
@@ -59,15 +61,37 @@ public class AttachmentPanacheRepository implements AttachmentRepositoryPort {
         try {
             em.flush();
         } catch (PersistenceException e) {
-            if (e.getCause() instanceof ConstraintViolationException && attachment.sha256() != null) {
-                // Lost a race with a concurrent insert; this transaction is unusable, so look up in a new one.
+            if (attachment.kind() == AttachmentKind.UPLOAD && attachment.sha256() != null
+                    && isUploadHashViolation(e)) {
+                // Lost a race with a concurrent insert. The failed statement aborts this transaction (Postgres
+                // rejects further queries in it), so the winner is looked up in a separate REQUIRES_NEW one.
+                // The winner may have been soft-deleted meanwhile; then no event id is known.
                 UUID eventId = QuarkusTransaction.requiringNew()
                         .call(() -> findLiveUploadByHash(attachment.vin(), attachment.sha256()))
-                        .map(Attachment::eventId).orElseThrow(() -> e);
+                        .map(Attachment::eventId).orElse(null);
                 throw new DuplicateDocumentException(eventId);
             }
             throw e;
         }
+    }
+
+    /** SQLState 23505 on the upload hash index, found anywhere in the cause chain. */
+    private static boolean isUploadHashViolation(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof ConstraintViolationException cve
+                    && cve.getKind() == ConstraintViolationException.ConstraintKind.UNIQUE
+                    && (cve.getConstraintName() == null || cve.getConstraintName().contains(UPLOAD_HASH_INDEX))) {
+                return true;
+            }
+            if (t instanceof SQLException sql && "23505".equals(sql.getSQLState())
+                    && sql.getMessage() != null && sql.getMessage().contains(UPLOAD_HASH_INDEX)) {
+                return true;
+            }
+            if (t.getCause() == t) {
+                break;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -103,6 +127,7 @@ public class AttachmentPanacheRepository implements AttachmentRepositoryPort {
     public void softDelete(UUID id, Instant at) {
         em.createQuery("update EventAttachmentEntity a set a.deletedAt = :at where a.id = :id and a.deletedAt is null")
                 .setParameter("at", micros(at)).setParameter("id", id).executeUpdate();
+        em.flush();
         em.clear();
     }
 
@@ -111,6 +136,7 @@ public class AttachmentPanacheRepository implements AttachmentRepositoryPort {
         em.createQuery("update EventAttachmentEntity a set a.deletedAt = :at "
                         + "where a.eventId = :e and a.deletedAt is null")
                 .setParameter("at", micros(at)).setParameter("e", eventId).executeUpdate();
+        em.flush();
         em.clear();
     }
 
