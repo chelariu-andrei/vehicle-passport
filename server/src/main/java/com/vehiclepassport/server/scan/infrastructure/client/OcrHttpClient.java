@@ -8,17 +8,22 @@ import com.vehiclepassport.server.scan.domain.model.OcrDocument;
 import com.vehiclepassport.server.scan.domain.model.OcrLine;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
-/** Posts an image to the OCR service. Every failure is an {@link ExtractionFailedException} with a constant message. */
+/** Posts an image to the OCR service. Every runtime failure is an {@link ExtractionFailedException} with a constant message. */
 public class OcrHttpClient {
+
+    static final int MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
+    static final int MAX_LINES = 5000;
 
     // Private mapper: the app-wide one rejects unknown properties, the OCR response may grow fields.
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -27,40 +32,67 @@ public class OcrHttpClient {
     private final Duration timeout;
     private final HttpClient http;
 
+    /** @throws IllegalArgumentException (constant message) when the configuration is unusable, so the app fails at startup */
     public OcrHttpClient(URI baseUrl, Duration timeout) {
+        if (baseUrl == null || baseUrl.getHost() == null
+                || !("http".equalsIgnoreCase(baseUrl.getScheme()) || "https".equalsIgnoreCase(baseUrl.getScheme()))) {
+            throw new IllegalArgumentException("scan.ocr.base-url must be an http(s) URL with a host");
+        }
+        if (timeout == null || timeout.isZero() || timeout.isNegative()) {
+            throw new IllegalArgumentException("scan.ocr.timeout must be positive");
+        }
         String base = baseUrl.toString();
-        this.endpoint = URI.create((base.endsWith("/") ? base.substring(0, base.length() - 1) : base) + "/ocr");
+        try {
+            this.endpoint = URI.create((base.endsWith("/") ? base.substring(0, base.length() - 1) : base) + "/ocr");
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("scan.ocr.base-url must be an http(s) URL with a host");
+        }
         this.timeout = timeout;
         this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     }
 
     public OcrDocument recognize(byte[] content, String contentType) {
-        String boundary = "----receipt" + UUID.randomUUID().toString().replace("-", "");
-        String filename = "image/png".equalsIgnoreCase(contentType) ? "receipt.png" : "receipt.jpg";
-        HttpRequest request = HttpRequest.newBuilder(endpoint)
-            .timeout(timeout)
-            .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-            .POST(HttpRequest.BodyPublishers.ofByteArray(multipart(boundary, filename, contentType, content)))
-            .build();
-        HttpResponse<byte[]> response;
+        byte[] body;
         try {
-            response = http.send(request, HttpResponse.BodyHandlers.ofByteArray());
+            String boundary = "----receipt" + UUID.randomUUID().toString().replace("-", "");
+            String filename = "image/png".equalsIgnoreCase(contentType) ? "receipt.png" : "receipt.jpg";
+            HttpRequest request = HttpRequest.newBuilder(endpoint)
+                .timeout(timeout)
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(multipart(boundary, filename, contentType, content)))
+                .build();
+            HttpResponse<InputStream> response = http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            try (InputStream in = response.body()) {
+                if (response.statusCode() != 200) {
+                    throw new ExtractionFailedException("OCR service returned an error");
+                }
+                body = in.readNBytes(MAX_RESPONSE_BYTES + 1);
+            }
+        } catch (ExtractionFailedException e) {
+            throw e;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new ExtractionFailedException("OCR request interrupted");
+        } catch (HttpTimeoutException e) {
+            throw new ExtractionFailedException("OCR service timed out");
         } catch (IOException | RuntimeException e) {
             throw new ExtractionFailedException("OCR service unreachable");
         }
-        if (response.statusCode() != 200) {
-            throw new ExtractionFailedException("OCR service returned an error");
+        if (body.length > MAX_RESPONSE_BYTES) {
+            throw new ExtractionFailedException("OCR response too large");
         }
         try {
-            Body body = MAPPER.readValue(response.body(), Body.class);
-            if (body == null || body.lines() == null) {
+            Body parsed = MAPPER.readValue(body, Body.class);
+            if (parsed == null || parsed.lines() == null) {
                 throw new IllegalArgumentException("no lines");
             }
-            List<OcrLine> lines = body.lines().stream().map(OcrHttpClient::toLine).toList();
-            return new OcrDocument(body.width(), body.height(), lines);
+            if (parsed.lines().size() > MAX_LINES) {
+                throw new ExtractionFailedException("OCR response has too many lines");
+            }
+            List<OcrLine> lines = parsed.lines().stream().map(OcrHttpClient::toLine).toList();
+            return new OcrDocument(parsed.width(), parsed.height(), lines);
+        } catch (ExtractionFailedException e) {
+            throw e;
         } catch (IOException | RuntimeException e) {
             throw new ExtractionFailedException("OCR response malformed");
         }

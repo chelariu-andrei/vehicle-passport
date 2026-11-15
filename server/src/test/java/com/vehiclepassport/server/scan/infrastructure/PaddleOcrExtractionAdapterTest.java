@@ -45,6 +45,10 @@ class PaddleOcrExtractionAdapterTest {
     }
 
     private static ScanConfig config(String provider) {
+        return config(provider, "http://127.0.0.1:1", Duration.ofSeconds(1));
+    }
+
+    private static ScanConfig config(String provider, String url, Duration timeout) {
         return new ScanConfig() {
             @Override public int maxAttempts() { return 3; }
             @Override public Duration processingTimeout() { return Duration.ofMinutes(5); }
@@ -52,8 +56,8 @@ class PaddleOcrExtractionAdapterTest {
             @Override public Extraction extraction() { return () -> provider; }
             @Override public Ocr ocr() {
                 return new Ocr() {
-                    @Override public String baseUrl() { return "http://127.0.0.1:1"; }
-                    @Override public Duration timeout() { return Duration.ofSeconds(1); }
+                    @Override public String baseUrl() { return url; }
+                    @Override public Duration timeout() { return timeout; }
                 };
             }
         };
@@ -100,8 +104,51 @@ class PaddleOcrExtractionAdapterTest {
 
     @Test void a_slow_service_times_out() {
         stub.delay(Duration.ofSeconds(4));
-        stub.respond(200, "{}");
-        fails();
+        stub.respond(200, "{\"width\":10,\"height\":10,\"lines\":[{\"text\":\"TOTAL GENERAL 10,00\",\"score\":0.9,\"box\":[0,0,9,9]}]}");
+        long start = System.nanoTime();
+        var e = fails();
+        assertEquals("OCR service timed out", e.getMessage());
+        assertTrue(Duration.ofNanos(System.nanoTime() - start).compareTo(Duration.ofSeconds(4)) < 0);
+    }
+
+    @Test void a_response_over_the_size_cap_fails() {
+        stub.respond(200, " ".repeat(16 * 1024 * 1024 + 1));
+        assertEquals("OCR response too large", fails().getMessage());
+    }
+
+    @Test void a_response_with_too_many_lines_fails() {
+        String line = "{\"text\":\"a\",\"score\":0.9,\"box\":[0,0,1,1]}";
+        stub.respond(200, "{\"width\":1,\"height\":1,\"lines\":[" + String.join(",", java.util.Collections.nCopies(5001, line)) + "]}");
+        assertEquals("OCR response has too many lines", fails().getMessage());
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"not a url", "ftp://host", "/relative", "http://"})
+    void the_client_rejects_a_bad_base_url(String url) {
+        assertThrows(IllegalArgumentException.class,
+            () -> new OcrHttpClient(URI.create(url.replace(" ", "%20")), Duration.ofSeconds(1)));
+    }
+
+    @Test void the_client_rejects_a_non_positive_timeout() {
+        assertThrows(IllegalArgumentException.class, () -> new OcrHttpClient(stub.uri(), Duration.ZERO));
+        assertThrows(IllegalArgumentException.class, () -> new OcrHttpClient(stub.uri(), Duration.ofSeconds(-1)));
+    }
+
+    @Test void null_content_fails_as_an_extraction_failure() {
+        assertThrows(ExtractionFailedException.class, () -> adapter.extract(null, "image/png"));
+    }
+
+    @Test void producer_with_paddle_fails_fast_on_a_bad_config() {
+        assertThrows(IllegalArgumentException.class,
+            () -> new ReceiptExtractionProducer(config("paddle", "not a url", Duration.ofSeconds(1))).port());
+        assertThrows(IllegalArgumentException.class,
+            () -> new ReceiptExtractionProducer(config("paddle", "ftp://x", Duration.ofSeconds(1))).port());
+        assertThrows(IllegalArgumentException.class,
+            () -> new ReceiptExtractionProducer(config("paddle", "http://127.0.0.1:1", Duration.ZERO)).port());
+    }
+
+    @Test void producer_with_none_ignores_a_bad_config() {
+        assertInstanceOf(NoProviderExtractionAdapter.class,
+            new ReceiptExtractionProducer(config("none", "not a url", Duration.ZERO)).port());
     }
 
     @Test void an_unreachable_service_fails() {
