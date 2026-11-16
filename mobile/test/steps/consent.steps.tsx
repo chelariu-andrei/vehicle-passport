@@ -4,6 +4,7 @@ import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
 import { defineFeature, loadFeature, setJestCucumberConfiguration } from 'jest-cucumber';
 import { Text } from 'react-native';
 
+import { AUTO_ACCEPT_TIMEOUT_MS } from '@/features/account/api/useConsentGate';
 import { PENDING_CONSENT_KEY, rememberPendingConsent } from '@/features/auth/model/pendingConsent';
 import { en } from '@/shared/i18n/en';
 
@@ -23,8 +24,21 @@ const seeGate = async () => {
   expect(screen).toHavePathname('/consent');
 };
 
+/** Waits for the remembered sign-up consent to be removed (storage is read outside act, so not through waitFor). */
+async function flagGone(): Promise<boolean> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if ((await AsyncStorage.getItem(PENDING_CONSENT_KEY)) === null) return true;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return false;
+}
+
 beforeEach(async () => {
   await AsyncStorage.clear();
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 defineFeature(feature, (test) => {
@@ -43,7 +57,8 @@ defineFeature(feature, (test) => {
   };
   const signedUpWithPendingConsent = async () => {
     acceptedNothing();
-    await rememberPendingConsent();
+    // Typed unlike the session's owner@example.com: the match ignores case and spaces.
+    await rememberPendingConsent(' Owner@Example.com ');
   };
 
   test('New Apple user is taken to the consent screen', ({ given, when, then }) => {
@@ -117,7 +132,7 @@ defineFeature(feature, (test) => {
       expect(screen.queryByText(en.consent.title)).toBeNull();
       expect(fake.callsTo('recordConsents')).toHaveLength(1);
       expect(fake.callsTo('recordConsents')[0].body).toMatchObject({ source: 'sign-up-form' });
-      await waitFor(async () => expect(await AsyncStorage.getItem(PENDING_CONSENT_KEY)).toBeNull());
+      expect(await flagGone()).toBe(true);
     });
   });
 
@@ -128,6 +143,68 @@ defineFeature(feature, (test) => {
     });
     when('the app opens', () => open());
     then('I am on the consent screen', seeGate);
+  });
+
+  test('Another account does not inherit the sign-up consent', ({ given, and, when, then }) => {
+    given('someone ticked the terms at sign-up as another email and never confirmed', async () => {
+      await rememberPendingConsent('other@example.com');
+    });
+    and('I signed in for the first time and have accepted nothing', acceptedNothing);
+    when('the app opens', () => open());
+    then('I am on the consent screen', seeGate);
+    and('nothing was recorded and the remembered consent is gone', async () => {
+      expect(fake.callsTo('recordConsents')).toHaveLength(0);
+      expect(await flagGone()).toBe(true);
+    });
+  });
+
+  test('Pending consent is dropped when nothing is owed', ({ given, and, when, then }) => {
+    given('I ticked the terms at sign-up and then confirmed my email', signedUpWithPendingConsent);
+    and('I have accepted the current terms', () => {
+      seeds.length = 0;
+    });
+    when('the app opens and I reach the garage', async () => {
+      await open();
+      await waitFor(() => expect(screen).toHavePathname('/'));
+    });
+    then('the remembered consent is gone', async () => {
+      expect(await flagGone()).toBe(true);
+    });
+    and('a new terms version later shows the gate and records nothing by itself', async () => {
+      await waitFor(() => expect(fake.callsTo('getMe')).toHaveLength(1));
+      fake.state.account.legalVersion = '2.0';
+      await act(async () => {
+        focusManager.setFocused(false);
+        focusManager.setFocused(true);
+      });
+      await seeGate();
+      expect(fake.callsTo('recordConsents')).toHaveLength(0);
+    });
+  });
+
+  test('A hanging automatic acceptance falls back to the gate', ({ given, and, when, then }) => {
+    given('I ticked the terms at sign-up and then confirmed my email', signedUpWithPendingConsent);
+    and('the server never answers the consent request', () => {
+      seeds.push(() => {
+        const answering = globalThis.fetch;
+        globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+          const request = input instanceof Request ? input : new Request(input, init);
+          return request.method === 'POST' && request.url.endsWith('/me/consents') ? new Promise<Response>(() => {}) : answering(request);
+        }) as typeof fetch;
+      });
+    });
+    when('the app opens and the wait runs out', async () => {
+      jest.useFakeTimers({ advanceTimers: true });
+      await open();
+      await waitFor(() => expect(screen.queryByText(en.consent.title)).toBeNull());
+      await act(async () => {
+        jest.advanceTimersByTime(AUTO_ACCEPT_TIMEOUT_MS);
+      });
+    });
+    then('I am on the consent screen', seeGate);
+    and('I can sign out from it', async () => {
+      expect(screen.getByRole('button', { name: en.consent.signOut })).toBeTruthy();
+    });
   });
 
   test('New terms version re-opens the gate on focus', ({ given, when, then }) => {

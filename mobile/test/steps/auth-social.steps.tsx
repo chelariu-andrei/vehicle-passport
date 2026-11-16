@@ -177,7 +177,7 @@ defineFeature(feature, (test) => {
     });
     then('I am asked to check my email and the consent is remembered', async () => {
       expect(await screen.findByText(en.auth.confirmationRequired)).toBeTruthy();
-      expect(JSON.parse((await AsyncStorage.getItem(PENDING_CONSENT_KEY)) ?? 'null')).toEqual({ termsAccepted: true });
+      expect(JSON.parse((await AsyncStorage.getItem(PENDING_CONSENT_KEY)) ?? 'null')).toMatchObject({ termsAccepted: true, email: 'new@example.com' });
     });
   });
 

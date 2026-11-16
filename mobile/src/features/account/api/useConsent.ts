@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { clearPendingConsent, readPendingConsent } from '@/features/auth';
+import { clearPendingConsent, matchesAccount, readPendingConsent } from '@/features/auth';
 import { api, isApiError, qk, unwrap } from '@/shared/api';
+import { useSession } from '@/shared/auth/session';
 import type { components } from '@/shared/api/generated/schema';
 
 import type { Me } from '../model/consentGate';
@@ -18,9 +19,12 @@ export interface AcceptInput {
 /** Records acceptance of the terms and privacy versions in `consent`. A 409 means they changed meanwhile: the texts are reloaded. */
 export function useAcceptConsent() {
   const client = useQueryClient();
+  const { email } = useSession();
   return useMutation({
     mutationFn: async ({ consent, marketing, analytics }: AcceptInput) => {
-      const pending = await readPendingConsent();
+      // Only the account that signed up with the form can claim its acceptance.
+      const stored = await readPendingConsent();
+      const pending = matchesAccount(stored, email) ? stored : null;
       const source = pending ? 'sign-up-form' : consent.terms.acceptedVersion === null ? 'social-sign-up' : 're-consent';
       const status = unwrap(
         await api.POST('/me/consents', {
@@ -35,7 +39,7 @@ export function useAcceptConsent() {
           },
         }),
       );
-      if (pending) await clearPendingConsent();
+      if (stored) await clearPendingConsent();
       return status;
     },
     onSuccess: (status) => {

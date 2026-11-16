@@ -35,6 +35,27 @@ Feature: Consent gate
     When the app opens
     Then I am on the consent screen
 
+  Scenario: Another account does not inherit the sign-up consent
+    Given someone ticked the terms at sign-up as another email and never confirmed
+    And I signed in for the first time and have accepted nothing
+    When the app opens
+    Then I am on the consent screen
+    And nothing was recorded and the remembered consent is gone
+
+  Scenario: Pending consent is dropped when nothing is owed
+    Given I ticked the terms at sign-up and then confirmed my email
+    And I have accepted the current terms
+    When the app opens and I reach the garage
+    Then the remembered consent is gone
+    And a new terms version later shows the gate and records nothing by itself
+
+  Scenario: A hanging automatic acceptance falls back to the gate
+    Given I ticked the terms at sign-up and then confirmed my email
+    And the server never answers the consent request
+    When the app opens and the wait runs out
+    Then I am on the consent screen
+    And I can sign out from it
+
   Scenario: New terms version re-opens the gate on focus
     Given I have accepted the current terms and use the app
     When the terms version is raised and the app comes back to the foreground

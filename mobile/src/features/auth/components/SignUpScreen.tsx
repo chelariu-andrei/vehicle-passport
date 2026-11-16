@@ -30,7 +30,7 @@ export function SignUpScreen() {
               signUp.mutate(values, {
                 // The terms were accepted in this form; the first signed-in session records them (Task 6 reads this).
                 onSuccess: (result) => {
-                  if (result === 'confirmationRequired') void rememberPendingConsent();
+                  if (result === 'confirmationRequired') void rememberPendingConsent(values.email);
                 },
               })
             }
