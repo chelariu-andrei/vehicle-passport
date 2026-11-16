@@ -188,6 +188,7 @@ const addEvent: Handler = (c) => {
     evidence: 'USER_CONFIRMED',
     source: 'MANUAL',
     documentPresent: false,
+    attachmentCount: 0,
   };
   events.push(event);
   return ok(event, 201);
@@ -307,6 +308,7 @@ const confirmScan: Handler = (c) => {
     evidence: 'DOCUMENTED',
     source: 'SCAN',
     documentPresent: true,
+    attachmentCount: 0,
   };
   events.push(event);
   job.status = 'CONFIRMED';

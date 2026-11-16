@@ -38,6 +38,7 @@ export function anEvent(o: Partial<EventResponse> = {}): EventResponse {
     evidence: 'USER_CONFIRMED',
     source: 'MANUAL',
     documentPresent: false,
+    attachmentCount: 0,
     ...o,
   };
 }

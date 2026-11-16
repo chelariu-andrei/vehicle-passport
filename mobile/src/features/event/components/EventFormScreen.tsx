@@ -1,12 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Modal, Platform, Pressable, View } from 'react-native';
 import type { z } from 'zod';
 
 import { errorMessage } from '@/shared/api';
-import { ActionBar, AppBar, ErrorState, Field, Icon, Screen, Skeleton, Text, tokens, useTheme } from '@/shared/design';
+import { ActionBar, AppBar, ConfirmSheet, ErrorState, Field, Icon, Screen, Skeleton, Text, tokens, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 import { useBack } from '@/shared/navigation/useBack';
 
@@ -15,6 +15,7 @@ import { useTimeline } from '../api/useTimeline';
 import { useUpdateEvent } from '../api/useUpdateEvent';
 import { EVENT_TYPES, eventFormSchema, formatLocalDate, maxEventDate, toEventRequest } from '../model/eventForm';
 import type { EventForm, EventType } from '../model/eventForm';
+import { eventSummary } from '../model/eventSummary';
 import type { EventResponse } from '../model/timeline';
 
 type FormInput = z.input<ReturnType<typeof eventFormSchema>>;
@@ -194,9 +195,24 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
   };
 
   const close = useBack('/');
-  const submit = handleSubmit((values) => {
-    save.mutate(toEventRequest(original, values), { onSuccess: close });
-  });
+  const [checking, setChecking] = useState<EventForm | null>(null);
+  const sent = useRef(false);
+  // Task 9 wires the real attached files.
+  const documents = 0;
+  const submit = handleSubmit((values) => setChecking(values));
+  const confirm = () => {
+    // A second tap lands before the sheet is gone; only the first may post.
+    if (checking === null || sent.current) return;
+    sent.current = true;
+    const values = checking;
+    setChecking(null);
+    save.mutate(toEventRequest(original, values), {
+      onSuccess: close,
+      onSettled: () => {
+        sent.current = false;
+      },
+    });
+  };
   const problem = (field: FieldName): string | undefined => (errors[field] === undefined ? undefined : PROBLEMS[field]);
 
   return (
@@ -326,6 +342,28 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
           {errorMessage(save.error)}
         </Text>
       ) : null}
+      <ConfirmSheet
+        visible={checking !== null}
+        title={en.event.check.title}
+        body={en.event.check.body}
+        confirmLabel={en.event.check.confirm}
+        dismissLabel={en.event.check.back}
+        onConfirm={confirm}
+        onCancel={() => setChecking(null)}
+      >
+        <View style={{ gap: tokens.space['space-3'] }}>
+          {checking
+            ? eventSummary(checking, documents).map((row) => (
+                <View key={row.label} style={{ gap: tokens.space['space-1'] }}>
+                  <Text variant="label" color="ink-muted">
+                    {row.label}
+                  </Text>
+                  <Text variant={row.emphasis ? 'title-lg' : 'body-lg'}>{row.value}</Text>
+                </View>
+              ))
+            : null}
+        </View>
+      </ConfirmSheet>
     </Screen>
   );
 }
