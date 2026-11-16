@@ -32,4 +32,4 @@ Feature: Support and acknowledgements
   Scenario: Acknowledgements list includes expo-router
     When I open the acknowledgements
     Then I see expo-router in the list
-    And tapping it shows its licence details
+    And tapping it shows its licence text

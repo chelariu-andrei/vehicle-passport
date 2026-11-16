@@ -594,7 +594,10 @@ export const en = {
     version: (version: string) => `Version ${version}`,
     license: 'Licence',
     repository: 'Source',
-    noText: 'The licence text is not bundled with this package. See its source for the full text.',
+    noText: 'No licence text is available for this package. See its source for the full text.',
+    generatedNote: (id: string) => `Licence text generated from the declared ${id} licence.`,
+    search: 'Search packages',
+    none: 'No package matches.',
     expand: (name: string) => `${name}, show licence`,
   },
   validation: {

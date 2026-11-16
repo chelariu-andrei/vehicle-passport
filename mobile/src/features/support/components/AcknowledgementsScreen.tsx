@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { FlatList, Pressable, View } from 'react-native';
 
-import { AppBar, Card, Icon, Screen, Text, tokens } from '@/shared/design';
+import { AppBar, Card, Field, Icon, Screen, Text, tokens } from '@/shared/design';
 import { useStrings } from '@/shared/i18n';
 import { useBack } from '@/shared/navigation/useBack';
 
@@ -10,7 +10,8 @@ import { packages, texts, type LicensedPackage } from '../model/licenses';
 function PackageRow({ pkg }: { pkg: LicensedPackage }) {
   const s = useStrings();
   const [open, setOpen] = useState(false);
-  const text = pkg.textId ? texts[pkg.textId] : undefined;
+  // The text is only looked up (and rendered) for an expanded row.
+  const text = open && pkg.textId ? texts[pkg.textId] : undefined;
   return (
     <Card>
       <Pressable
@@ -37,8 +38,13 @@ function PackageRow({ pkg }: { pkg: LicensedPackage }) {
               {pkg.repository}
             </Text>
           ) : null}
+          {pkg.generatedFrom ? (
+            <Text variant="caption" color="ink-muted">
+              {s.acknowledgements.generatedNote(pkg.generatedFrom)}
+            </Text>
+          ) : null}
           <Text variant="caption" selectable>
-            {text ?? s.acknowledgements.noText}
+            {text ?? (pkg.textId ? '' : s.acknowledgements.noText)}
           </Text>
         </View>
       ) : null}
@@ -46,16 +52,33 @@ function PackageRow({ pkg }: { pkg: LicensedPackage }) {
   );
 }
 
-/** Account > Acknowledgements: the open-source packages the app ships with, from the generated licence file. */
+/** Account > Acknowledgements: every open-source package the app ships with, from the generated licence file. */
 export function AcknowledgementsScreen() {
   const s = useStrings();
   const back = useBack('/account');
+  const [query, setQuery] = useState('');
+  const shown = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return needle ? packages.filter((pkg) => pkg.name.toLowerCase().includes(needle)) : packages;
+  }, [query]);
   return (
-    <Screen scroll header={<AppBar onBack={back} title={s.acknowledgements.title} />}>
-      <Text color="ink-muted">{s.acknowledgements.intro}</Text>
-      {packages.map((pkg) => (
-        <PackageRow key={pkg.name} pkg={pkg} />
-      ))}
+    <Screen header={<AppBar onBack={back} title={s.acknowledgements.title} />}>
+      <FlatList
+        data={shown}
+        keyExtractor={(pkg) => `${pkg.name}@${pkg.version}`}
+        renderItem={({ item }) => <PackageRow pkg={item} />}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ gap: tokens.space['space-4'] }}
+        initialNumToRender={12}
+        windowSize={7}
+        ListHeaderComponent={
+          <View style={{ gap: tokens.space['space-4'], marginBottom: tokens.space['space-4'] }}>
+            <Text color="ink-muted">{s.acknowledgements.intro}</Text>
+            <Field label={s.acknowledgements.search} value={query} onChangeText={setQuery} autoCapitalize="none" autoCorrect={false} />
+          </View>
+        }
+        ListEmptyComponent={<Text color="ink-muted">{s.acknowledgements.none}</Text>}
+      />
     </Screen>
   );
 }

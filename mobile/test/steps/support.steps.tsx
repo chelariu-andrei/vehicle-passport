@@ -101,12 +101,14 @@ defineFeature(feature, (test) => {
       await openApp('/account/acknowledgements', { routes: inertTabs });
     });
     then('I see expo-router in the list', async () => {
-      expect(await screen.findByRole('button', { name: /^expo-router/ })).toBeTruthy();
+      // The list holds hundreds of packages and is virtualised, so it is searched by name.
+      await fireEvent.changeText(await screen.findByLabelText(en.acknowledgements.search), 'expo-router');
+      expect(await screen.findByRole('button', { name: /^expo-router / })).toBeTruthy();
     });
-    and('tapping it shows its licence details', async () => {
-      await fireEvent.press(screen.getByRole('button', { name: /^expo-router/ }));
-      expect(await screen.findByText('https://github.com/expo/expo')).toBeTruthy();
-      expect(screen.getByText(en.acknowledgements.noText)).toBeTruthy();
+    and('tapping it shows its licence text', async () => {
+      await fireEvent.press(screen.getByRole('button', { name: /^expo-router / }));
+      expect(await screen.findByText(/Permission is hereby granted/)).toBeTruthy();
+      expect(screen.getByText(en.acknowledgements.generatedNote('MIT'))).toBeTruthy();
     });
   });
 });
