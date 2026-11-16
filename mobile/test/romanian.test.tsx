@@ -54,3 +54,17 @@ test('the security screen is in Romanian', async () => {
   expect(await screen.findByRole('button', { name: ro.security!.signOutOthers! })).toBeTruthy();
   expect(screen.getByRole('switch', { name: ro.security!.biometrics! })).toBeTruthy();
 });
+
+test('support and acknowledgements are in Romanian', async () => {
+  await openApp('/account/support', { routes: inertTabs });
+  expect(await screen.findByText(ro.support!.intro!)).toBeTruthy();
+  await fireEvent.changeText(screen.getByLabelText(ro.support!.message!), 'scurt');
+  await fireEvent.press(screen.getByRole('button', { name: ro.support!.send! }));
+  expect(await screen.findByText(ro.validation!.supportMessageTooShort!)).toBeTruthy();
+  expect(screen.getByRole('switch', { name: ro.support!.diagnostics! })).toBeTruthy();
+});
+
+test('the acknowledgements are in Romanian', async () => {
+  await openApp('/account/acknowledgements', { routes: inertTabs });
+  expect(await screen.findByText(ro.acknowledgements!.intro!)).toBeTruthy();
+});

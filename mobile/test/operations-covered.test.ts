@@ -26,7 +26,6 @@ const NOT_YET_CONSUMED = new Set([
   'scheduleDeletion',
   'cancelDeletion',
   'exportMyData',
-  'createSupportReport',
 ]);
 
 function authenticatedOperations(): Operation[] {

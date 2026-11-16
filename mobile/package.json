@@ -77,7 +77,9 @@
     "build:viewer": "node scripts/build-viewer.mjs",
     "gen:tokens": "node scripts/gen-tokens.mjs",
     "check:contract": "node scripts/check-contract.mjs",
-    "check": "npm run typecheck && npm run lint && npm run check:contract && npm test"
+    "check": "npm run typecheck && npm run lint && npm run check:contract && npm run check:licenses && npm test",
+    "gen:licenses": "node scripts/gen-licenses.mjs",
+    "check:licenses": "node scripts/gen-licenses.mjs --check"
   },
   "private": true
 }

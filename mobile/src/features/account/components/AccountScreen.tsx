@@ -51,7 +51,7 @@ function ProfileCard() {
   );
 }
 
-/** Rows whose screens arrive in later tasks already point at their paths. */
+/** Rows whose screens arrive in a later task already point at their path. */
 const go = (path: string) => () => router.push(path as never);
 
 export function AccountScreen() {
@@ -77,11 +77,11 @@ export function AccountScreen() {
         <SettingsRow label={t('settings.appearance.title')} onPress={() => router.push('/account/appearance')} />
       </SettingsGroup>
       <SettingsGroup title={t('account.groups.help')}>
-        <SettingsRow label={t('account.support')} onPress={go('/account/support')} />
+        <SettingsRow label={t('account.support')} onPress={() => router.push('/account/support')} />
       </SettingsGroup>
       <SettingsGroup title={t('account.groups.about')}>
-        <SettingsRow label={t('account.legal')} onPress={go('/account/legal')} />
-        <SettingsRow label={t('account.acknowledgements')} onPress={go('/account/acknowledgements')} />
+        <SettingsRow label={t('account.legal')} onPress={() => router.push('/account/legal')} />
+        <SettingsRow label={t('account.acknowledgements')} onPress={() => router.push('/account/acknowledgements')} />
       </SettingsGroup>
       <SettingsGroup testID="group-sign-out">
         <SettingsRow label={t('account.signOut')} chevron={false} disabled={signOut.isPending} onPress={() => signOut.mutate()} />
