@@ -62,7 +62,7 @@ function Detail({ vin, event, failure }: { vin: string; event: EventResponse; fa
 
       <AttachmentList vin={vin} eventId={event.id} count={event.attachmentCount} initialFailure={failure} />
 
-      {event.documentPresent ? (
+      {event.documentPresent && event.source === 'SCAN' ? (
         <Button kind="secondary" title={en.event.viewInvoice} loading={document.isPending} onPress={() => document.mutate()} />
       ) : null}
       {document.isError ? (

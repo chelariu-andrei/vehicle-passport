@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { File } from 'expo-file-system';
 
-import { deletedFiles, manipulator } from '../../../../test/fakes/photos';
+import { deletedFiles, manipulator } from '../../../test/fakes/photos';
 import { MAX_UPLOAD_BYTES, PhotoUnusableError, preparePhoto } from './preparePhoto';
 
 const photo = (width: number, height: number) => ({ uri: 'file:///photos/a.heic', width, height });

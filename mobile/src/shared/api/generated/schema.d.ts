@@ -1348,6 +1348,15 @@ export interface operations {
                     "application/json": components["schemas"]["AttachmentResponse"];
                 };
             };
+            /** @description Code `validation-failed` (the `file` part is missing). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description Code `event-from-prior-owner` (event was created in a previous ownership period). */
             403: {
                 headers: {

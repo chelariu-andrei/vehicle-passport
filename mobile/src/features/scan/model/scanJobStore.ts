@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { File } from 'expo-file-system';
+
+import { deleteKeptFile } from '@/shared/media';
 
 /**
  * The API has no "list my scan jobs" (integration G1), so the phone remembers the jobs it submitted, with the VIN they
@@ -44,16 +45,6 @@ function change<T>(userId: string, edit: (jobs: LocalScanJob[]) => { jobs: Local
   });
   queue = run.catch(() => undefined);
   return run;
-}
-
-/** Deletes a kept photo. Never throws: a missing file is already what we want. */
-export function deleteKeptFile(uri: string): void {
-  try {
-    const file = new File(uri);
-    if (file.exists) file.delete();
-  } catch {
-    // The file is already gone or unreachable; the row is removed regardless.
-  }
 }
 
 export const scanJobStore = {

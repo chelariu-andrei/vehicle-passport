@@ -1,4 +1,4 @@
-import { MAX_UPLOAD_BYTES } from '@/features/scan';
+import { MAX_UPLOAD_BYTES } from '@/shared/media';
 
 import type { PreparedFile } from './preparedFile';
 

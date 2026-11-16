@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { MAX_PHOTOS, preparePhoto } from '@/features/scan';
+import { MAX_PHOTOS, preparePhoto } from '@/shared/media';
 import { Button, Text, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 

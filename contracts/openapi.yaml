@@ -344,6 +344,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AttachmentResponse' }
+        '400':
+          description: Code `validation-failed` (the `file` part is missing).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '403':
           description: Code `event-from-prior-owner` (event was created in a previous ownership period).
           content:

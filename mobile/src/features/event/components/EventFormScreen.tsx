@@ -1,10 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useNavigation, usePreventRemove, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { BackHandler, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import type { z } from 'zod';
 
 import { errorMessage, qk } from '@/shared/api';
@@ -209,11 +209,24 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
   const documents = files.length;
   // Leaving mid-save would drop the staged files or navigate over whatever the person opened, so back waits until the flow is done.
   const busy = save.isPending || uploading;
+  // A native guard, so the iOS edge swipe and the Android button are held back before they start.
+  usePreventRemove(busy, () => {});
+  const navigation = useNavigation<{ setOptions(options: { gestureEnabled: boolean }): void }>();
   useEffect(() => {
-    if (!busy) return;
-    const hold = BackHandler.addEventListener('hardwareBackPress', () => true);
-    return () => hold.remove();
-  }, [busy]);
+    navigation.setOptions({ gestureEnabled: !busy });
+  }, [navigation, busy]);
+  // Leaving is done after the render that lifts the guard, or the guard would still hold the pop.
+  const [exit, setExit] = useState<{ go(): void } | null>(null);
+  useEffect(() => {
+    if (exit && !busy) exit.go();
+  }, [exit, busy]);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const leave = () => {
     if (!busy) close();
   };
@@ -228,21 +241,29 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
   const attach = async (eventId: string) => {
     let failed = 0;
     let duplicates = 0;
-    for (const [index, file] of files.entries()) {
-      try {
-        const outcome = await uploadAttachments(vin, eventId, [file]);
-        for (const problem of outcome.failed) {
-          failed += 1;
-          if (problem.code === 'duplicate-document') duplicates += 1;
+    try {
+      for (const [index, file] of files.entries()) {
+        try {
+          const outcome = await uploadAttachments(vin, eventId, [file]);
+          for (const problem of outcome.failed) {
+            failed += 1;
+            if (problem.code === 'duplicate-document') duplicates += 1;
+          }
+        } catch {
+          failed += files.length - index;
+          break;
         }
-      } catch {
-        failed += files.length - index;
-        break;
       }
+      await Promise.all([queryClient.invalidateQueries({ queryKey: qk.timeline(vin) }), queryClient.invalidateQueries({ queryKey: qk.attachments(vin, eventId) })]);
+    } finally {
+      if (mounted.current) setUploading(false);
     }
-    await Promise.all([queryClient.invalidateQueries({ queryKey: qk.timeline(vin) }), queryClient.invalidateQueries({ queryKey: qk.attachments(vin, eventId) })]);
-    if (failed === 0) return close();
-    router.replace({ pathname: '/vehicles/[vin]/events/[eventId]', params: { vin, eventId, failedUploads: String(failed), totalUploads: String(files.length), duplicateUploads: String(duplicates) } });
+    if (!mounted.current) return;
+    if (failed === 0) return setExit({ go: close });
+    setExit({
+      go: () =>
+        router.replace({ pathname: '/vehicles/[vin]/events/[eventId]', params: { vin, eventId, failedUploads: String(failed), totalUploads: String(files.length), duplicateUploads: String(duplicates) } }),
+    });
   };
   const confirm = () => {
     // A second tap lands before the sheet is gone; only the first may post.
@@ -252,7 +273,7 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
     setChecking(null);
     save.mutate(toEventRequest(original, values), {
       onSuccess: (saved) => {
-        if (original || files.length === 0) return close();
+        if (original || files.length === 0) return setExit({ go: close });
         // `sent` stays set: the event exists, and a second save would add it again.
         setUploading(true);
         void attach(saved.id);

@@ -134,3 +134,9 @@ test('the picker only offers the room that is left', async () => {
   expect(jest.mocked(ImagePicker.launchImageLibraryAsync).mock.calls.at(-1)?.[0]).toMatchObject({ selectionLimit: 2 });
   expect(await screen.findByText(en.event.documents.limit)).toBeTruthy();
 });
+
+test('a manual entry with an upload shows no separate View invoice button', async () => {
+  await openApp(detailUrl, { seed: seedWith([anAttachment({ contentType: 'image/jpeg' })], { source: 'MANUAL', documentPresent: true }) });
+  await screen.findByRole('button', { name: en.event.documents.photo(1) });
+  expect(screen.queryByRole('button', { name: en.event.viewInvoice })).toBeNull();
+});

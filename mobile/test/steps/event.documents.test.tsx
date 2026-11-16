@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { fireEvent, screen, waitFor } from 'expo-router/testing-library';
+import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library';
+import { router } from 'expo-router';
 
 import { en } from '@/shared/i18n/en';
 
@@ -165,6 +166,27 @@ test('back is ignored while the files are uploading, and the upload still finish
     held.restore();
   }
   expect(fake.state.attachments[fake.state.events[SAMPLE_VIN][0].id]).toHaveLength(1);
+});
+
+test('a swipe-back or router pop is blocked while the files are uploading', async () => {
+  // Opened from a screen underneath, so that there is something to pop to.
+  const fake = await openApp('/', { seed, routes: { '(tabs)/index': () => null } });
+  await act(async () => router.push(newEventUrl));
+  await fireEvent.changeText(await screen.findByLabelText(en.event.odometer), '148200');
+  await fireEvent.changeText(screen.getByLabelText(en.event.cost), '350');
+  await choosePhotos(1);
+  await screen.findByText(en.event.documents.photo(1));
+  const held = holdUploads();
+  try {
+    await saveAndConfirm();
+    await waitFor(() => expect(fake.callsTo('addEvent')).toHaveLength(1));
+    await act(async () => router.back());
+    expect(screen.getByText(en.event.addTitle)).toBeTruthy();
+    held.release();
+    await waitFor(() => expect(screen.queryByText(en.event.addTitle)).toBeNull());
+  } finally {
+    held.restore();
+  }
 });
 
 test('tapping confirm twice uploads the file once', async () => {
