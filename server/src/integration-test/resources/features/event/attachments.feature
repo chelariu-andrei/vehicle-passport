@@ -28,6 +28,13 @@ Feature: Event attachments
     When I open Alice's attachment of E
     Then the attachment request fails with 403 "document-restricted"
 
+  Scenario: A later owner uploading a prior owner's file is not told which event holds it
+    Given Alice attached the PDF file "receipt-1" to event E, then ownership of V moved to me
+    And I add an event F to V
+    When I attach the PDF file "receipt-1" to F
+    Then the attachment request fails with 409 "duplicate-document"
+    And the problem detail does not name E
+
   Scenario: An event holds at most 10 attachments
     Given I own vehicle V with an event E
     And 10 different PDF files are attached to E

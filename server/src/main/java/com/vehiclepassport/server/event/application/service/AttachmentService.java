@@ -97,7 +97,7 @@ public class AttachmentService implements AddAttachmentUseCase, ListAttachmentsU
             events.lockTimeline(owned.vin());
             checkWritable(owned, eventId);
             attachments.findLiveUploadByHash(owned.vin(), hashed.sha256()).ifPresent(existing -> {
-                throw new DuplicateDocumentException(existing.eventId());
+                throw duplicate(owned, existing.eventId());
             });
             UUID id = UUID.randomUUID();
             Attachment attachment = new Attachment(id, eventId, owned.vin(), hashed.sha256(), file.contentType(),
@@ -109,6 +109,9 @@ public class AttachmentService implements AddAttachmentUseCase, ListAttachmentsU
                 attachments.save(attachment);
             } catch (RuntimeException e) {
                 removeObject(attachment.storageKey(), e);
+                if (e instanceof DuplicateDocumentException dup) {
+                    throw duplicate(owned, dup.existingEventId());
+                }
                 throw e;
             }
             return toView(attachment);
@@ -129,20 +132,19 @@ public class AttachmentService implements AddAttachmentUseCase, ListAttachmentsU
     }
 
     /**
-     * Order: active owner (404) → event exists (404) → attachment exists (404) → active period (403
-     * document-restricted), like the event document. Legacy rows are stored as application/octet-stream; their
-     * real type comes from the storage object or, failing that, from the file's magic bytes.
+     * Order: active owner (404) → event exists (404) → active period (403
+     * document-restricted) → attachment exists (404), so a later owner learns nothing about which ids exist. Legacy rows are stored as
+     * application/octet-stream; their real type comes from the storage object or, failing that, from the file's magic bytes.
      */
     @Override
     @Transactional
     public EventDocument open(UUID userId, String vin, UUID eventId, UUID attachmentId) {
         OwnedPeriod owned = owners.assertActiveOwner(vin, userId);
         VehicleEvent event = findEvent(owned, eventId);
-        Attachment attachment = findAttachment(eventId, attachmentId);
         if (!owned.periodId().equals(event.periodId())) {
             throw new DocumentRestrictedException("The document is restricted to the owner who added it");
         }
-        return read(attachment);
+        return read(findAttachment(eventId, attachmentId));
     }
 
     /**
@@ -209,6 +211,16 @@ public class AttachmentService implements AddAttachmentUseCase, ListAttachmentsU
         }
         // Soft delete: the object stays in storage, the hash is free for a new upload.
         attachments.softDelete(attachment.id(), clock.instant());
+    }
+
+    /**
+     * The 409 names the other event only when it belongs to the caller's own ownership period; a copy that sits in
+     * a prior owner's event (or whose event is gone) gets the generic body, so nothing of theirs is revealed.
+     */
+    private DuplicateDocumentException duplicate(OwnedPeriod owned, UUID existingEventId) {
+        boolean own = existingEventId != null && events.findActive(owned.vin(), existingEventId)
+                .map(e -> owned.periodId().equals(e.periodId())).orElse(false);
+        return new DuplicateDocumentException(own ? existingEventId : null);
     }
 
     private void checkWritable(OwnedPeriod owned, UUID eventId) {

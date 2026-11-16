@@ -129,6 +129,55 @@ class AttachmentServiceTest {
     }
 
     @Test
+    void duplicateOfAPriorOwnersUploadDoesNotNameTheirEvent() {
+        VehicleEvent prior = events.add(manual(VIN, period));
+        service.add(user, VIN, prior.id(), pdf(PDF));
+        UUID laterOwner = UUID.randomUUID();
+        UUID laterPeriod = UUID.randomUUID();
+        activeOwner.remove(VIN + user);
+        activeOwner.put(VIN + laterOwner, new OwnedPeriod(VIN, laterPeriod));
+        VehicleEvent mine = events.add(manual(VIN, laterPeriod));
+
+        DuplicateDocumentException e = assertThrows(DuplicateDocumentException.class,
+                () -> service.add(laterOwner, VIN, mine.id(), pdf(PDF)));
+
+        assertNull(e.existingEventId());
+        assertFalse(e.getMessage().contains(prior.id().toString()));
+        assertFalse(e.getMessage().contains("null"));
+    }
+
+    @Test
+    void raceLostToAPriorOwnersEventDoesNotNameIt() {
+        VehicleEvent mine = events.add(manual(VIN, period));
+        UUID elsewhere = events.add(manual(VIN, otherPeriod)).id();
+        attachments.failNextSave = new DuplicateDocumentException(elsewhere);
+
+        DuplicateDocumentException e = assertThrows(DuplicateDocumentException.class,
+                () -> service.add(user, VIN, mine.id(), pdf(PDF)));
+
+        assertNull(e.existingEventId());
+    }
+
+    @Test
+    void duplicateWithoutAnEventIdHasAGenericMessage() {
+        DuplicateDocumentException e = new DuplicateDocumentException(null);
+
+        assertNull(e.existingEventId());
+        assertEquals("This document is already attached to another event", e.getMessage());
+    }
+
+    @Test
+    void laterOwnerGetsRestrictedBeforeAttachmentNotFound() {
+        VehicleEvent event = events.add(manual(VIN, period));
+        UUID laterOwner = UUID.randomUUID();
+        activeOwner.remove(VIN + user);
+        activeOwner.put(VIN + laterOwner, new OwnedPeriod(VIN, UUID.randomUUID()));
+
+        assertThrows(DocumentRestrictedException.class,
+                () -> service.open(laterOwner, VIN, event.id(), UUID.randomUUID()));
+    }
+
+    @Test
     void sameBytesOnOtherVinStored() {
         VehicleEvent mine = events.add(manual(VIN, period));
         VehicleEvent theirs = events.add(manual(OTHER_VIN, otherPeriod));
@@ -279,7 +328,7 @@ class AttachmentServiceTest {
     @Test
     void raceOnUniqueIndexMapsToDuplicate() {
         VehicleEvent event = events.add(manual(VIN, period));
-        UUID winnerEvent = UUID.randomUUID();
+        UUID winnerEvent = events.add(manual(VIN, period)).id();
         // the pre-check sees nothing; the insert then loses to a concurrent identical upload
         attachments.failNextSave = new DuplicateDocumentException(winnerEvent);
 

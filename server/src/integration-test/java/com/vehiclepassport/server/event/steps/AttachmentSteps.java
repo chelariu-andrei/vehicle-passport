@@ -134,6 +134,11 @@ public class AttachmentSteps {
         world.put(OWNED_KEY, true);
     }
 
+    @Given("I add an event F to V")
+    public void iAddAnEventFToV() {
+        world.put(F_KEY, addEventAs(world.me(), VIN, "2025-06-01", 130000));
+    }
+
     @When("I attach the PDF file {string} to {word}")
     public void iAttachThePdfFileTo(String name, String event) {
         UUID id = world.get(event.equals("F") ? F_KEY : E_KEY);
@@ -204,6 +209,13 @@ public class AttachmentSteps {
                 "expected a domain error, got " + world.lastError());
         assertEquals(code, e.code());
         assertEquals(status, e.kind().status());
+    }
+
+    @Then("the problem detail does not name E")
+    public void theProblemDetailDoesNotNameE() {
+        String detail = world.lastError().getMessage();
+        assertFalse(detail.contains(world.<UUID>get(E_KEY).toString()), detail);
+        assertFalse(detail.contains("null"), detail);
     }
 
     @Then("the problem detail names E")
