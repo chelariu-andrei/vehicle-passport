@@ -596,6 +596,7 @@ export const en = {
     repository: 'Source',
     noText: 'No licence text is available for this package. See its source for the full text.',
     generatedNote: (id: string) => `Licence text generated from the declared ${id} licence.`,
+    holderNote: 'Copyright holder not declared by the package; see its source repository.',
     search: 'Search packages',
     none: 'No package matches.',
     expand: (name: string) => `${name}, show licence`,

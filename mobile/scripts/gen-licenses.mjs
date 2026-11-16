@@ -147,13 +147,21 @@ function repositoryUrl(pkg) {
   return /^https?:\/\//.test(url) ? url.replace(/^http:/, 'https:') : null;
 }
 
-/** The copyright holder named by the package itself: its author, else the owner of its repository, else "<name> contributors". */
+const META = 'Meta Platforms, Inc. and affiliates';
+const META_OWNERS = new Set(['react', 'facebook', 'facebookincubator']);
+const META_NAMES = /^(@react-native\/|metro|ob1$|hermes-|react-devtools-|babel-plugin-react-compiler$)/;
+
+/**
+ * The copyright holder for a generated notice. Meta's packages are known by name or repository owner; otherwise the package's
+ * own `author`. With neither, no holder is invented: the notice points at the source repository and is flagged as inferred.
+ */
 function holderOf(pkg, repository) {
+  const owner = repository ? /^https:\/\/[^/]+\/([^/]+)\//.exec(repository)?.[1]?.toLowerCase() : undefined;
+  if (META_NAMES.test(pkg.name) || (owner && META_OWNERS.has(owner))) return { holder: META, inferred: false };
   const author = typeof pkg.author === 'string' ? pkg.author : pkg.author?.name;
-  const name = author?.replace(/<[^>]*>|\([^)]*\)/g, '').trim();
-  if (name) return name;
-  const owner = repository ? /^https?:\/\/[^/]+\/([^/]+)\//.exec(repository)?.[1] : null;
-  return owner ?? `${pkg.name} contributors`;
+  const name = author?.replace(/<[^>]*>|\([^)]*\)/g, '').trim().replace(/^["']+|["']+$/g, '').trim();
+  if (name) return { holder: name, inferred: false };
+  return { holder: `the ${pkg.name} authors (see the source repository)`, inferred: true };
 }
 
 function licenseFile(dir) {
@@ -203,8 +211,10 @@ function build() {
     // No licence file shipped: the declared licence's standard text, naming the package's own copyright holder.
     const template = templateFor(license);
     if (template) {
-      result.textId = keep(template.make(holderOf({ ...pkg, name }, repository)));
+      const { holder, inferred } = holderOf({ ...pkg, name }, repository);
+      result.textId = keep(template.make(holder));
       result.generatedFrom = template.id;
+      if (inferred) result.holderInferred = true;
     }
     return result;
   });

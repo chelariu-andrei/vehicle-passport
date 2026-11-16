@@ -43,6 +43,11 @@ function PackageRow({ pkg }: { pkg: LicensedPackage }) {
               {s.acknowledgements.generatedNote(pkg.generatedFrom)}
             </Text>
           ) : null}
+          {pkg.holderInferred ? (
+            <Text variant="caption" color="ink-muted">
+              {s.acknowledgements.holderNote}
+            </Text>
+          ) : null}
           <Text variant="caption" selectable>
             {text ?? (pkg.textId ? '' : s.acknowledgements.noText)}
           </Text>

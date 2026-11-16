@@ -233,6 +233,7 @@ export const ro: DeepPartial<Widen<typeof en>> = {
     repository: 'Sursă',
     noText: 'Nu există text de licență pentru acest pachet. Consultă sursa pentru textul complet.',
     generatedNote: (id: string) => `Textul licenței a fost generat din licența declarată ${id}.`,
+    holderNote: 'Titularul drepturilor de autor nu este declarat de pachet; consultă depozitul sursă.',
     search: 'Caută pachete',
     none: 'Niciun pachet nu se potrivește.',
     expand: (name: string) => `${name}, arată licența`,
