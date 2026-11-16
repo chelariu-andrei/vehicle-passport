@@ -23,23 +23,6 @@ class ContractConformanceIT {
     private static final Set<String> METHODS =
             Set.of("get", "put", "post", "delete", "patch", "head", "options");
 
-    // TEMPORARY (account backend): contract operations whose server side lands in Tasks 4-10.
-    // Task 11 deletes this set and its use in everyContractRouteIsImplemented.
-    private static final Set<String> EXPECTED_UNIMPLEMENTED = Set.of(
-            "GET /public/legal/documents",
-            "GET /public/legal/documents/{type}",
-            "GET /me",
-            "PATCH /me",
-            "GET /me/settings",
-            "PUT /me/settings",
-            "GET /me/consents",
-            "POST /me/consents",
-            "GET /me/consents/history",
-            "POST /me/deletion",
-            "DELETE /me/deletion",
-            "GET /me/export",
-            "POST /support/reports");
-
     @Test
     void everyImplementedRouteIsInTheContract() throws IOException {
         Set<String> contract = routes(new YAMLMapper().readTree(contractFile()));
@@ -62,7 +45,6 @@ class ContractConformanceIT {
 
         Set<String> missing = new TreeSet<>(contract);
         missing.removeAll(implemented);
-        missing.removeAll(EXPECTED_UNIMPLEMENTED);
         assertTrue(missing.isEmpty(),
                 "Routes in contracts/openapi.yaml but not implemented: " + missing);
     }

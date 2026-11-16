@@ -1004,7 +1004,10 @@ export interface components {
             settings: components["schemas"]["SettingsDto"];
             consents: components["schemas"]["ConsentEvent"][];
             vehicles: components["schemas"]["VehicleResponse"][];
-            events: components["schemas"]["EventResponse"][];
+            /** @description Events of every car in the caller's garage; `vin` says which car. */
+            events: (components["schemas"]["EventResponse"] & {
+                vin: components["schemas"]["Vin"];
+            })[];
             passports: components["schemas"]["PassportResponse"][];
         };
         SupportDiagnostics: {
