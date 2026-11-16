@@ -1,32 +1,36 @@
 import { useRouter } from 'expo-router';
 
 import { Button, Screen, Text } from '@/shared/design';
-import { en } from '@/shared/i18n/en';
+import { useStrings } from '@/shared/i18n';
 
-import { authErrorMessage, useSignUp } from '../api/useAuth';
+import { authErrorField, authErrorMessage, useSignUp } from '../api/useAuth';
 import { CredentialsForm } from './CredentialsForm';
+import { ProvidersBlock } from './ProvidersBlock';
 
 export function SignUpScreen() {
+  const s = useStrings();
   const router = useRouter();
   const signUp = useSignUp();
   const needsConfirmation = signUp.data === 'confirmationRequired';
   return (
     <Screen scroll>
       <Text variant="display-xl" accessibilityRole="header">
-        {en.auth.signUpTitle}
+        {s.auth.signUpTitle}
       </Text>
       {needsConfirmation ? (
-        <Text accessibilityRole="alert">{en.auth.confirmationRequired}</Text>
+        <Text accessibilityRole="alert">{s.auth.confirmationRequired}</Text>
       ) : (
-        <CredentialsForm
-          action={en.auth.signUpAction}
-          newPassword
-          pending={signUp.isPending}
-          error={signUp.isError ? authErrorMessage(signUp.error) : null}
-          onSubmit={(email, password) => signUp.mutate({ email, password })}
-        />
+        <>
+          <ProvidersBlock mode="up" />
+          <CredentialsForm
+            mode="up"
+            pending={signUp.isPending}
+            serverError={signUp.isError ? { field: authErrorField(signUp.error), message: authErrorMessage(signUp.error, s) } : null}
+            onSubmit={(values) => signUp.mutate(values)}
+          />
+        </>
       )}
-      <Button kind="secondary" title={en.auth.toSignIn} onPress={() => router.back()} />
+      <Button kind="secondary" title={s.auth.toSignIn} onPress={() => router.back()} />
     </Screen>
   );
 }

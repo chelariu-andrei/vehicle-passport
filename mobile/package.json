@@ -11,14 +11,17 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "9.2.1",
     "@react-native-community/netinfo": "12.0.1",
+    "@react-native-google-signin/google-signin": "^17.0.0",
     "@supabase/supabase-js": "^2.119.0",
     "@tanstack/react-query": "^5.107.1",
     "aes-js": "^3.1.2",
     "expo": "~58.0.23",
+    "expo-apple-authentication": "~58.0.3",
     "expo-asset": "~58.0.20",
     "expo-constants": "~58.0.15",
     "expo-crypto": "~58.0.7",
     "expo-dev-client": "~58.0.18",
+    "expo-device": "~58.0.5",
     "expo-document-picker": "~58.0.5",
     "expo-file-system": "~58.0.13",
     "expo-font": "~58.0.11",
@@ -26,6 +29,7 @@
     "expo-image-manipulator": "~58.0.16",
     "expo-image-picker": "~58.0.10",
     "expo-linking": "~58.0.16",
+    "expo-local-authentication": "~58.0.3",
     "expo-router": "~58.0.30",
     "expo-secure-store": "~58.0.2",
     "expo-sharing": "~58.0.22",
@@ -73,7 +77,9 @@
     "build:viewer": "node scripts/build-viewer.mjs",
     "gen:tokens": "node scripts/gen-tokens.mjs",
     "check:contract": "node scripts/check-contract.mjs",
-    "check": "npm run typecheck && npm run lint && npm run check:contract && npm test"
+    "check": "npm run typecheck && npm run lint && npm run check:contract && npm run check:licenses && npm test",
+    "gen:licenses": "node scripts/gen-licenses.mjs",
+    "check:licenses": "node scripts/gen-licenses.mjs --check"
   },
   "private": true
 }

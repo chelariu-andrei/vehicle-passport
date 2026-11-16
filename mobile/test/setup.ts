@@ -1,11 +1,19 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { resetAppLockForTests } from '@/features/account/model/appLock';
+
 import { fakeAuth } from './fakes/auth';
 import { resetFiles, resetPhotoFakes } from './fakes/photos';
 
 process.env.EXPO_PUBLIC_API_URL ??= 'http://api.test';
 
 /* A signed-in fake session is installed before every test; tests change it through `fakeAuth`. */
-beforeEach(() => {
+beforeEach(async () => {
+  // Language and appearance are kept on the phone; one test's choice must not reach the next.
+  await AsyncStorage.clear();
   fakeAuth.reset();
+  // The biometric offer is made once; every test but its own starts as if it had been answered.
+  await resetAppLockForTests({ offered: true });
   resetPhotoFakes();
   resetFiles();
 });

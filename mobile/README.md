@@ -39,3 +39,15 @@ The dev screen `/dev/viewer` cycles the seven body types and four finishes and s
 ## Release notes for the car look
 
 The app sends `plate` and `appearance` on `PATCH /vehicles/{vin}` and reads them from `VehicleResponse`. The backend must ship both before the feature is released; until then the app treats a missing field as none. The plate is owner-only and never part of a passport.
+
+## Account, sign-in & legal
+
+The app has email and password, Apple and Google sign-in, a consent gate, an account area (profile, settings, sign-in methods, app lock, support, acknowledgements) and data export with account deletion.
+
+- Env: besides the Supabase and API values above, set `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` (see `env.example`). Set them as EAS environment variables for cloud builds.
+- Native config in `app.json`: `usesAppleSignIn` for iOS, and the Google plugin `iosUrlScheme`, which is a placeholder (`com.googleusercontent.apps.REPLACE_WITH_IOS_CLIENT_ID`) and must be replaced with the reversed iOS client ID before an iOS build.
+- Apple sign-in is iOS only. Google works on iOS and Android.
+- Apple, Google and local authentication use native modules, so Expo Go cannot run them. Use a dev build: `eas build --profile development`.
+- Supabase needs the Apple and Google providers enabled with the same client IDs (`infra/supabase/config.toml`), and `vehiclepassport://reset-password` in the redirect allow-list.
+- Licences: `npm run gen:licenses` regenerates `licenses.json` for the acknowledgements screen from `package-lock.json`; `npm run check:licenses` fails when it is stale and runs as part of `npm run check`. Run the generator after changing dependencies.
+- Manual end-to-end checklist for the real-device run: `docs/e2e-account.md`.

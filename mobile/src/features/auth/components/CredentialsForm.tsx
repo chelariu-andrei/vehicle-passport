@@ -1,46 +1,114 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { View } from 'react-native';
+import { z } from 'zod';
 
-import { Button, Field } from '@/shared/design';
+import { Button, Field, tokens } from '@/shared/design';
+import { useStrings, useValidationMessage } from '@/shared/i18n';
 import { en } from '@/shared/i18n/en';
+import { displayNameSchema, emailSchema, passwordSchema } from '@/shared/validation';
+
+import { TermsCheckbox } from './TermsCheckbox';
+
+const signInSchema = z.object({
+  email: emailSchema,
+  // Sign-in accepts whatever the account already has; the length rules apply when choosing one.
+  password: z.string().min(1, en.validation.passwordRequired),
+});
+const signUpSchema = z.object({
+  displayName: displayNameSchema,
+  email: emailSchema,
+  password: passwordSchema,
+  termsAccepted: z.literal(true),
+});
+
+type FormValues = { displayName: string; email: string; password: string; termsAccepted: boolean };
 
 type Props = {
-  action: string;
-  newPassword?: boolean;
+  mode: 'in' | 'up';
   pending: boolean;
-  error: string | null;
-  onSubmit(email: string, password: string): void;
+  /** A failure from the server and the field it belongs under. */
+  serverError?: { field: 'email' | 'password'; message: string } | null;
+  onSubmit(values: { email: string; password: string; displayName: string }): void;
+  onForgotPassword?(): void;
 };
 
-/** The two fields and the button both auth screens share. */
-export function CredentialsForm({ action, newPassword = false, pending, error, onSubmit }: Props) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const ready = email.trim() !== '' && password !== '';
+/** The fields and the button both auth screens share. Checks run on submit; the email is never cleared. */
+export function CredentialsForm({ mode, pending, serverError, onSubmit, onForgotPassword }: Props) {
+  const s = useStrings();
+  const localized = useValidationMessage();
+  const up = mode === 'up';
+  const [visible, setVisible] = useState(false);
+  const { control, handleSubmit } = useForm<FormValues>({
+    resolver: zodResolver(up ? signUpSchema : signInSchema) as never,
+    defaultValues: { displayName: '', email: '', password: '', termsAccepted: false },
+  });
+  const [email, password, termsAccepted] = useWatch({ control, name: ['email', 'password', 'termsAccepted'] });
+  const ready = up ? termsAccepted : email.trim() !== '' && password !== '';
 
   return (
-    <View style={{ gap: 16 }}>
-      <Field
-        label={en.auth.email}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoComplete="email"
-        keyboardType="email-address"
-        textContentType="emailAddress"
+    <View style={{ gap: tokens.space['space-4'] }}>
+      {up ? (
+        <Controller
+          control={control}
+          name="displayName"
+          render={({ field, fieldState }) => (
+            <Field
+              label={s.auth.displayName}
+              value={field.value}
+              onChangeText={field.onChange}
+              autoComplete="name"
+              textContentType="name"
+              error={localized(fieldState.error?.message)}
+            />
+          )}
+        />
+      ) : null}
+      <Controller
+        control={control}
+        name="email"
+        render={({ field, fieldState }) => (
+          <Field
+            label={s.auth.email}
+            value={field.value}
+            onChangeText={field.onChange}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            error={localized(fieldState.error?.message) ?? (serverError?.field === 'email' ? serverError.message : undefined)}
+          />
+        )}
       />
-      <Field
-        label={en.auth.password}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        autoCapitalize="none"
-        autoComplete={newPassword ? 'new-password' : 'current-password'}
-        textContentType={newPassword ? 'newPassword' : 'password'}
-        error={error ?? undefined}
+      <Controller
+        control={control}
+        name="password"
+        render={({ field, fieldState }) => (
+          <Field
+            label={s.auth.password}
+            value={field.value}
+            onChangeText={field.onChange}
+            secureTextEntry={!visible}
+            autoCapitalize="none"
+            autoComplete={up ? 'new-password' : 'current-password'}
+            textContentType={up ? 'newPassword' : 'password'}
+            error={localized(fieldState.error?.message) ?? (serverError?.field === 'password' ? serverError.message : undefined)}
+          />
+        )}
       />
-      <Button title={action} loading={pending} disabled={!ready} onPress={() => onSubmit(email.trim(), password)} />
+      <Button kind="quiet" title={visible ? s.auth.hidePassword : s.auth.showPassword} onPress={() => setVisible((shown) => !shown)} />
+      {!up && onForgotPassword ? <Button kind="quiet" title={s.auth.forgotPassword} onPress={onForgotPassword} /> : null}
+      {up ? (
+        <Controller control={control} name="termsAccepted" render={({ field }) => <TermsCheckbox checked={field.value} onChange={field.onChange} />} />
+      ) : null}
+      <Button
+        title={up ? s.auth.signUpAction : s.auth.signInAction}
+        loading={pending}
+        disabled={!ready}
+        onPress={() => void handleSubmit((values) => onSubmit({ email: values.email, password: values.password, displayName: values.displayName }))()}
+      />
     </View>
   );
 }

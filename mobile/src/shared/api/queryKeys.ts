@@ -1,4 +1,7 @@
 export const qk = {
+  me: ['me'] as const,
+  settings: ['settings'] as const,
+  consents: ['consents'] as const,
   vehicles: ['vehicles'] as const,
   vehicle: (vin: string) => ['vehicle', vin] as const,
   timeline: (vin: string) => ['timeline', vin] as const,
@@ -8,4 +11,6 @@ export const qk = {
   passports: ['passports'] as const,
   activeCar: (userId: string) => ['activeCar', userId] as const,
   journeyDraft: (userId: string) => ['journeyDraft', userId] as const,
+  legalDocuments: (locale: string) => ['legalDocuments', locale] as const,
+  legalDocument: (type: string, locale: string) => ['legalDocument', type, locale] as const,
 };

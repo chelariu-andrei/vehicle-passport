@@ -14,6 +14,26 @@ jest.mock('expo-crypto', () => ({
   __esModule: true,
   ...jest.requireActual('expo-crypto'),
   randomUUID: () => require('node:crypto').randomUUID(),
+  getRandomBytes: (count: number) => new Uint8Array(require('node:crypto').randomBytes(count)),
+  digestStringAsync: async (_algorithm: string, data: string) =>
+    require('node:crypto').createHash('sha256').update(data).digest('hex'),
+}));
+
+/* Sign in with Apple and Google: tests script signInAsync / signIn. */
+jest.mock('expo-apple-authentication', () => ({
+  signInAsync: jest.fn(),
+  AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
+}));
+
+jest.mock('@react-native-google-signin/google-signin', () => ({
+  GoogleSignin: { configure: jest.fn(), hasPlayServices: jest.fn(async () => true), signIn: jest.fn() },
+  statusCodes: { SIGN_IN_CANCELLED: 'SIGN_IN_CANCELLED' },
+}));
+
+jest.mock('expo-local-authentication', () => ({
+  hasHardwareAsync: jest.fn(async () => true),
+  isEnrolledAsync: jest.fn(async () => true),
+  authenticateAsync: jest.fn(async () => ({ success: true })),
 }));
 
 jest.mock('expo-secure-store', () => {
@@ -65,7 +85,8 @@ jest.mock('expo-file-system', () => {
       return File.sizes.get(this.uri) ?? 0;
     }
     get exists(): boolean {
-      return !File.removed.has(this.uri);
+      // Only what a test put there (`putFile`) or the app wrote exists; a path nobody touched holds nothing.
+      return !File.removed.has(this.uri) && (File.sizes.has(this.uri) || File.written.some((w) => w.uri === this.uri));
     }
     create = jest.fn();
     write = jest.fn(async (data: unknown) => {

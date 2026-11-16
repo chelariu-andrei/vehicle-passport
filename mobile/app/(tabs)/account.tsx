@@ -1,3 +1,3 @@
-import { AccountScreen } from '@/features/auth';
+import { AccountScreen } from '@/features/account';
 
 export default AccountScreen;

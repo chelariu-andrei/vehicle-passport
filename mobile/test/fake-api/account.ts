@@ -16,6 +16,8 @@ export interface AccountState {
   phone: string | null;
   createdAt: string;
   settings: Schemas['SettingsDto'];
+  /** The terms and privacy version the server currently asks for; a test raises it to re-open the consent gate. */
+  legalVersion: string;
   accepted: { terms: string | null; privacy: string | null };
   marketing: boolean;
   analytics: boolean;
@@ -45,6 +47,7 @@ export function initialAccount(): AccountState {
         productNews: false,
       },
     },
+    legalVersion: CURRENT_LEGAL_VERSION,
     accepted: { terms: null, privacy: null },
     marketing: false,
     analytics: false,
@@ -62,8 +65,8 @@ const problem = (status: number, code: string): Reply => ({
 const ok = (body: unknown, status = 200): Reply => ({ status, body });
 
 function consentStatus(a: AccountState): Schemas['ConsentStatus'] {
-  const terms = { currentVersion: CURRENT_LEGAL_VERSION, acceptedVersion: a.accepted.terms };
-  const privacy = { currentVersion: CURRENT_LEGAL_VERSION, acceptedVersion: a.accepted.privacy };
+  const terms = { currentVersion: a.legalVersion, acceptedVersion: a.accepted.terms };
+  const privacy = { currentVersion: a.legalVersion, acceptedVersion: a.accepted.privacy };
   return {
     required: terms.acceptedVersion !== terms.currentVersion || privacy.acceptedVersion !== privacy.currentVersion,
     terms,
@@ -130,7 +133,7 @@ const recordConsents: Handler = (c) => {
   const a = c.state.account;
   const body = c.body as Schemas['ConsentUpdate'];
   const accept = body.accept ?? [];
-  if (accept.some((x) => x.version !== CURRENT_LEGAL_VERSION)) return problem(409, 'consent-version-outdated');
+  if (accept.some((x) => x.version !== a.legalVersion)) return problem(409, 'consent-version-outdated');
   const at = new Date().toISOString();
   for (const x of accept) {
     a.accepted[x.type] = x.version;

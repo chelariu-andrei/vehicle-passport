@@ -1,6 +1,9 @@
 /* Who is signed in, and what must happen when they are not any more. */
 import { useSyncExternalStore } from 'react';
+import { Platform } from 'react-native';
 
+import { getAppleCredential } from './social/apple';
+import { getGoogleCredential } from './social/google';
 import { supabase } from './supabase';
 
 export type SessionStatus = 'loading' | 'signedIn' | 'signedOut';
@@ -70,7 +73,15 @@ export function onSessionEnd(cleanup: () => void): () => void {
   return () => void endCallbacks.delete(cleanup);
 }
 
-export type AuthFailure = 'invalid-credentials' | 'email-taken' | 'weak-password' | 'network' | 'other';
+export type AuthFailure =
+  | 'invalid-credentials'
+  | 'email-taken'
+  | 'weak-password'
+  | 'network'
+  | 'account-exists-other-provider'
+  | 'provider-unavailable'
+  | 'last-identity'
+  | 'other';
 
 export class AuthFailed extends Error {
   readonly failure: AuthFailure;
@@ -112,8 +123,10 @@ export async function signIn(email: string, password: string): Promise<void> {
 }
 
 /** Resolves 'confirmationRequired' when the project asks for email confirmation and so returned no session. */
-export async function signUp(email: string, password: string): Promise<'signedIn' | 'confirmationRequired'> {
-  const { data } = await attempt(() => supabase.auth.signUp({ email, password }));
+export async function signUp(email: string, password: string, displayName?: string): Promise<'signedIn' | 'confirmationRequired'> {
+  const { data } = await attempt(() =>
+    supabase.auth.signUp({ email, password, options: displayName ? { data: { display_name: displayName } } : undefined }),
+  );
   return data.session ? 'signedIn' : 'confirmationRequired';
 }
 
@@ -122,4 +135,109 @@ export async function signOut(): Promise<void> {
   const { error } = await supabase.auth.signOut();
   // The server could not be reached, but this phone must still forget the account.
   if (error) await supabase.auth.signOut({ scope: 'local' });
+}
+
+export type SocialResult = 'signedIn' | 'cancelled';
+export type SocialProvider = 'apple' | 'google';
+export interface AccountIdentity {
+  provider: 'email' | 'apple' | 'google';
+  id: string;
+}
+
+/** The same email is already registered through another way of signing in. */
+function classifySocial(error: { code?: string; name?: string }): AuthFailure {
+  switch (error.code) {
+    case 'email_exists':
+    case 'user_already_exists':
+    case 'identity_already_exists':
+      return 'account-exists-other-provider';
+    default:
+      return classify(error);
+  }
+}
+
+async function attemptSocial<T extends { error: { code?: string; name?: string } | null }>(call: () => Promise<T>): Promise<T> {
+  let result: T;
+  try {
+    result = await call();
+  } catch {
+    throw new AuthFailed('network');
+  }
+  if (result.error) throw new AuthFailed(classifySocial(result.error));
+  return result;
+}
+
+async function credentialFor(provider: SocialProvider): Promise<{ idToken: string; nonce?: string } | null> {
+  if (provider === 'apple') {
+    if (Platform.OS !== 'ios') throw new AuthFailed('provider-unavailable');
+    return getAppleCredential();
+  }
+  return getGoogleCredential();
+}
+
+/** A failure of the native sign-in itself (not a cancel) is reported as 'other'. */
+async function credentialOrFail(provider: SocialProvider): ReturnType<typeof credentialFor> {
+  try {
+    return await credentialFor(provider);
+  } catch (error) {
+    if (error instanceof AuthFailed) throw error;
+    throw new AuthFailed('other');
+  }
+}
+
+async function socialSignIn(provider: SocialProvider): Promise<SocialResult> {
+  const credential = await credentialOrFail(provider);
+  if (credential === null) return 'cancelled';
+  await attemptSocial(() => supabase.auth.signInWithIdToken({ provider, token: credential.idToken, nonce: credential.nonce }));
+  return 'signedIn';
+}
+
+export const signInWithApple = (): Promise<SocialResult> => socialSignIn('apple');
+export const signInWithGoogle = (): Promise<SocialResult> => socialSignIn('google');
+
+/** Adds a social identity to the signed-in account. */
+export async function linkProvider(provider: SocialProvider): Promise<SocialResult> {
+  const credential = await credentialOrFail(provider);
+  if (credential === null) return 'cancelled';
+  await attemptSocial(() => supabase.auth.linkIdentity({ provider, token: credential.idToken, nonce: credential.nonce }));
+  return 'signedIn';
+}
+
+export async function listIdentities(): Promise<AccountIdentity[]> {
+  const { data } = await attempt(() => supabase.auth.getUserIdentities());
+  return (data?.identities ?? []).map((identity) => ({
+    provider: identity.provider as AccountIdentity['provider'],
+    id: identity.identity_id,
+  }));
+}
+
+/** Removes one way of signing in; the last one cannot be removed. */
+export async function unlinkIdentity(id: string): Promise<void> {
+  const { data } = await attempt(() => supabase.auth.getUserIdentities());
+  const identities = data?.identities ?? [];
+  if (identities.length <= 1) throw new AuthFailed('last-identity');
+  const identity = identities.find((candidate) => candidate.identity_id === id);
+  if (!identity) throw new AuthFailed('other');
+  await attempt(() => supabase.auth.unlinkIdentity(identity));
+}
+
+/** The deep link the reset email opens; the reset-password screen reads the recovery code from it. */
+export const PASSWORD_RESET_REDIRECT = 'vehiclepassport://reset-password';
+
+export async function sendPasswordReset(email: string): Promise<void> {
+  await attempt(() => supabase.auth.resetPasswordForEmail(email, { redirectTo: PASSWORD_RESET_REDIRECT }));
+}
+
+/** Turns the code from the reset link into a (recovery) session, so the new password can be set. */
+export async function startPasswordRecovery(code: string): Promise<void> {
+  await attempt(() => supabase.auth.exchangeCodeForSession(code));
+}
+
+export async function updatePassword(newPassword: string): Promise<void> {
+  await attempt(() => supabase.auth.updateUser({ password: newPassword }));
+}
+
+/** Signs this account out everywhere except on this phone. */
+export async function signOutOthers(): Promise<void> {
+  await attempt(() => supabase.auth.signOut({ scope: 'others' }));
 }

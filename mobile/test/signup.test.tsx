@@ -1,14 +1,19 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, screen, waitFor } from 'expo-router/testing-library';
 
 import { en } from '@/shared/i18n/en';
+
+import { PENDING_CONSENT_KEY } from '@/features/auth/model/pendingConsent';
 
 import { fakeAuth, PASSWORD } from './fakes/auth';
 import { openApp } from './harness';
 
 async function submitSignUp(email: string) {
   await openApp('/sign-up', { as: null });
+  await fireEvent.changeText(await screen.findByLabelText(en.auth.displayName), 'Ana');
   await fireEvent.changeText(await screen.findByLabelText(en.auth.email), email);
   await fireEvent.changeText(screen.getByLabelText(en.auth.password), PASSWORD);
+  await fireEvent.press(screen.getByRole('checkbox', { name: new RegExp(en.auth.termsLabel) }));
   await fireEvent.press(screen.getByRole('button', { name: en.auth.signUpAction }));
 }
 
@@ -23,6 +28,11 @@ test('a project that wants email confirmation returns no session, and the screen
   await submitSignUp('new@example.com');
   expect(await screen.findByText(en.auth.confirmationRequired)).toBeTruthy();
   expect(screen).toHavePathname('/sign-up');
+  // The ticked box waits for the first sign-in, with the versions that were shown.
+  expect(JSON.parse((await AsyncStorage.getItem(PENDING_CONSENT_KEY)) ?? 'null')).toMatchObject({
+    email: 'new@example.com',
+    versions: { terms: '1.0', privacy: '1.0' },
+  });
 });
 
 test('an email that already has an account is explained', async () => {

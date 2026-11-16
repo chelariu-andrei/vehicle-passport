@@ -8,7 +8,8 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vehiclepassport.app"
+      "bundleIdentifier": "com.vehiclepassport.app",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -37,6 +38,19 @@
         {
           "cameraPermission": "Vehicle Passport uses the camera to photograph invoices.",
           "photosPermission": "Vehicle Passport uses your photos to attach invoice pictures."
+        }
+      ],
+      "expo-apple-authentication",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Vehicle Passport uses Face ID to unlock the app."
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_IOS_CLIENT_ID"
         }
       ]
     ],

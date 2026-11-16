@@ -5,6 +5,7 @@ import { autoJourney } from '@/features/vehicle';
 import { en } from '@/shared/i18n/en';
 
 import { fakeAuth } from './fakes/auth';
+import { CURRENT_LEGAL_VERSION } from './fake-api/account';
 import { installFakeApi } from './fake-api';
 import type { FakeApi } from './fake-api';
 
@@ -31,6 +32,8 @@ function neighbourTabs(url: string): Routes {
 
 export async function openApp(url: string, opts: OpenAppOptions = {}): Promise<FakeApi> {
   const api = installFakeApi();
+  // The consent gate is off unless a scenario's seed takes the acceptance away.
+  api.state.account.accepted = { terms: CURRENT_LEGAL_VERSION, privacy: CURRENT_LEGAL_VERSION };
   opts.seed?.(api);
   if (opts.autoJourney) autoJourney.reset();
   else autoJourney.dismiss();
