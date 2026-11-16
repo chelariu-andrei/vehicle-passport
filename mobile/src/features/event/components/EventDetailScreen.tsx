@@ -7,6 +7,8 @@ import { ActionBar, AppBar, Button, ConfirmSheet, ErrorState, EvidenceBadge, Scr
 import { en } from '@/shared/i18n/en';
 import { useBack } from '@/shared/navigation/useBack';
 
+import { AttachmentList } from './AttachmentList';
+import type { UploadFailure } from './AttachmentList';
 import { useDeleteEvent } from '../api/useDeleteEvent';
 import { useEventDocument } from '../api/useEventDocument';
 import { useTimeline } from '../api/useTimeline';
@@ -25,18 +27,12 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Detail({ vin, event, failedUploads, duplicateUploads }: { vin: string; event: EventResponse; failedUploads: number; duplicateUploads: number }) {
+function Detail({ vin, event, failure }: { vin: string; event: EventResponse; failure: UploadFailure | null }) {
   const document = useEventDocument(vin, event.id, `invoice-${event.id}`);
 
   const parts = event.details?.parts ?? [];
   return (
     <>
-      {failedUploads > 0 ? (
-        <Text color="danger" accessibilityRole="alert">
-          {en.event.documents.failedUploads(failedUploads)}
-          {duplicateUploads > 0 ? ` ${en.event.documents.duplicateUploads(duplicateUploads)}` : ''}
-        </Text>
-      ) : null}
       <View style={{ gap: tokens.space['space-2'] }}>
         <Text variant="display" accessibilityRole="header">
           {eventTitle(event)}
@@ -64,6 +60,8 @@ function Detail({ vin, event, failedUploads, duplicateUploads }: { vin: string; 
       ) : null}
       {event.details?.labor != null ? <Fact label={en.event.labor} value={String(event.details.labor)} /> : null}
 
+      <AttachmentList vin={vin} eventId={event.id} count={event.attachmentCount} initialFailure={failure} />
+
       {event.documentPresent ? (
         <Button kind="secondary" title={en.event.viewInvoice} loading={document.isPending} onPress={() => document.mutate()} />
       ) : null}
@@ -80,12 +78,15 @@ export function EventDetailScreen({
   vin,
   eventId,
   failedUploads = 0,
+  totalUploads = 0,
   duplicateUploads = 0,
 }: {
   vin: string;
   eventId: string;
   /** Files that could not be attached when the entry was saved. */
   failedUploads?: number;
+  /** How many files were being attached, for "N of M did not upload". */
+  totalUploads?: number;
   duplicateUploads?: number;
 }) {
   const router = useRouter();
@@ -125,7 +126,7 @@ export function EventDetailScreen({
       }
     >
       {event ? (
-        <Detail vin={vin} event={event} failedUploads={failedUploads} duplicateUploads={duplicateUploads} />
+        <Detail vin={vin} event={event} failure={failedUploads > 0 ? { failed: failedUploads, total: Math.max(totalUploads, failedUploads), duplicates: duplicateUploads } : null} />
       ) : timeline.data ? (
         <Text accessibilityRole="alert">{en.errors.codes['event-not-found']}</Text>
       ) : timeline.isError ? (

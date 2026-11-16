@@ -242,7 +242,7 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
     }
     await Promise.all([queryClient.invalidateQueries({ queryKey: qk.timeline(vin) }), queryClient.invalidateQueries({ queryKey: qk.attachments(vin, eventId) })]);
     if (failed === 0) return close();
-    router.replace({ pathname: '/vehicles/[vin]/events/[eventId]', params: { vin, eventId, failedUploads: String(failed), duplicateUploads: String(duplicates) } });
+    router.replace({ pathname: '/vehicles/[vin]/events/[eventId]', params: { vin, eventId, failedUploads: String(failed), totalUploads: String(files.length), duplicateUploads: String(duplicates) } });
   };
   const confirm = () => {
     // A second tap lands before the sheet is gone; only the first may post.

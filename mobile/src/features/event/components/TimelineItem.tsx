@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { EvidenceBadge, Text, tokens, useTheme } from '@/shared/design';
+import { EvidenceBadge, Icon, Text, tokens, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 
 import { dayAndMonth, eventMeta, eventTitle } from '../model/display';
@@ -18,7 +18,7 @@ export function TimelineItem({ vin, event }: { vin: string; event: EventResponse
     <Pressable
       testID="timeline-item"
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${event.date}, ${meta}, ${en.evidence.a11y(en.evidence[event.evidence])}`}
+      accessibilityLabel={`${title}, ${event.date}, ${meta}, ${en.evidence.a11y(en.evidence[event.evidence])}${event.attachmentCount > 0 ? `, ${en.event.documents.count(event.attachmentCount)}` : ''}`}
       onPress={() => router.push(`/vehicles/${vin}/events/${event.id}`)}
       style={{
         minHeight: 48,
@@ -40,6 +40,14 @@ export function TimelineItem({ vin, event }: { vin: string; event: EventResponse
         <Text variant="title">{title}</Text>
         <Text color="ink-muted">{meta}</Text>
       </View>
+      {event.attachmentCount > 0 ? (
+        <View testID="timeline-attachments" style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.space['space-1'] }}>
+          <Icon name="clip" size={16} color="ink-muted" />
+          <Text variant="caption" color="ink-muted">
+            {event.attachmentCount}
+          </Text>
+        </View>
+      ) : null}
       <EvidenceBadge evidence={event.evidence} />
     </Pressable>
   );

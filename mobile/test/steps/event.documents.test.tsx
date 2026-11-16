@@ -101,7 +101,7 @@ test('a duplicate file is reported and skipped', async () => {
   await screen.findByText(en.event.documents.photo(2));
   await saveAndConfirm();
   // The device files are all empty, so the second is a copy of the first.
-  expect(await screen.findByText(`${en.event.documents.failedUploads(1)} ${en.event.documents.duplicateUploads(1)}`)).toBeTruthy();
+  expect(await screen.findByText(`${en.event.documents.failedUploads(1, 2)} ${en.event.documents.duplicateUploads(1)}`)).toBeTruthy();
   expect(fake.state.events[SAMPLE_VIN]).toHaveLength(1);
 });
 
@@ -111,7 +111,7 @@ test('event is kept when an upload fails', async () => {
   await screen.findByText(en.event.documents.photo(1));
   fake.failNext('addAttachment', 500, null);
   await saveAndConfirm();
-  expect(await screen.findByText(en.event.documents.failedUploads(1))).toBeTruthy();
+  expect(await screen.findByText(en.event.documents.failedUploads(1, 1))).toBeTruthy();
   expect(fake.state.events[SAMPLE_VIN]).toHaveLength(1);
 });
 
@@ -122,12 +122,12 @@ test('a lost connection mid-upload keeps the event and counts the unsent files a
   const online = globalThis.fetch;
   let uploads = 0;
   globalThis.fetch = (async (...args: Parameters<typeof fetch>) => {
-    if ((args[0] as Request).url.includes('/attachments') && ++uploads === 2) throw new TypeError('Network request failed');
+    if ((args[0] as Request).method === 'POST' && (args[0] as Request).url.includes('/attachments') && ++uploads === 2) throw new TypeError('Network request failed');
     return online(...args);
   }) as typeof fetch;
   try {
     await saveAndConfirm();
-    expect(await screen.findByText(en.event.documents.failedUploads(2))).toBeTruthy();
+    expect(await screen.findByText(en.event.documents.failedUploads(2, 3))).toBeTruthy();
   } finally {
     globalThis.fetch = online;
   }
