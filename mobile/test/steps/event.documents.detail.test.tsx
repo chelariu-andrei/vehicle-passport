@@ -126,14 +126,34 @@ test('a failed retry does not shrink the total', async () => {
   expect(await screen.findByText(en.event.documents.failedUploads(4, 5))).toBeTruthy();
 });
 
+/** Holds every attachment request until `release` is called. */
+function holdAttachmentRequests() {
+  const online = globalThis.fetch;
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  globalThis.fetch = (async (...args: Parameters<typeof fetch>) => {
+    if ((args[0] as Request).url.includes('/attachments')) await gate;
+    return online(...args);
+  }) as typeof fetch;
+  return { release, restore: () => (globalThis.fetch = online) };
+}
+
 test('the picker only offers the room that is left', async () => {
   await openApp(detailUrl, { seed: seedWith(Array.from({ length: 8 }, () => anAttachment())) });
   await press(en.event.documents.add);
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce(picked(anAsset(), anAsset(), anAsset()));
-  await press(en.event.documents.choosePhoto);
-  expect(jest.mocked(ImagePicker.launchImageLibraryAsync).mock.calls.at(-1)?.[0]).toMatchObject({ selectionLimit: 2 });
-  // The notice is set after the picked photos are prepared (async); CI runners need more than the 1 s default.
-  expect(await screen.findByText(en.event.documents.limit, {}, { timeout: 5000 })).toBeTruthy();
+  // The picker closes as soon as the upload finishes; hold the upload so the notice stays on screen to be asserted.
+  const held = holdAttachmentRequests();
+  try {
+    await press(en.event.documents.choosePhoto);
+    expect(jest.mocked(ImagePicker.launchImageLibraryAsync).mock.calls.at(-1)?.[0]).toMatchObject({ selectionLimit: 2 });
+    expect(await screen.findByText(en.event.documents.limit)).toBeTruthy();
+  } finally {
+    held.release();
+    held.restore();
+  }
 });
 
 test('a manual entry with an upload shows no separate View invoice button', async () => {
