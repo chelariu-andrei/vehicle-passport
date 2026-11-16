@@ -21,7 +21,6 @@ type Operation = { method: string; path: string; id: string };
  * Remove an id here as soon as a feature calls it; the last test fails if a listed operation is already in use.
  */
 const NOT_YET_CONSUMED = new Set([
-  'updateProfile',
   'getSettings',
   'updateSettings',
   'getConsentStatus',
