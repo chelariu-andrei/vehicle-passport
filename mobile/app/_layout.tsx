@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useConsentGate } from '@/features/account';
+import { AppLockBoundary, BiometricOfferSheet, useConsentGate } from '@/features/account';
 import { SettingsSync } from '@/features/settings';
 import { autoJourney } from '@/features/vehicle';
 import { createAppQueryClient, forgetVehicle } from '@/shared/api';
@@ -73,6 +73,7 @@ function Shell() {
       {status === 'signedIn' && inAuth && !resettingPassword ? <Redirect href="/" /> : null}
       {status === 'signedIn' && !resettingPassword ? <ConsentGuard segments={segments} /> : null}
       {status === 'signedIn' ? <SettingsSync /> : null}
+      {status === 'signedIn' && !resettingPassword ? <BiometricOfferSheet /> : null}
       <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0 }}>
         <OfflineBanner />
       </View>
@@ -119,7 +120,9 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <LocaleProvider>
-            <Shell />
+            <AppLockBoundary>
+              <Shell />
+            </AppLockBoundary>
           </LocaleProvider>
         </ThemeProvider>
       </QueryClientProvider>

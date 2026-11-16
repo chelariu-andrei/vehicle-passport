@@ -6,3 +6,4 @@ export { TermsCheckbox } from './components/TermsCheckbox';
 export { clearPendingConsent, matchesAccount, readPendingConsent } from './model/pendingConsent';
 export type { PendingConsent } from './model/pendingConsent';
 export { useSignOut } from './api/useAuth';
+export { authErrorMessage, useUpdatePassword } from './api/useAuth';

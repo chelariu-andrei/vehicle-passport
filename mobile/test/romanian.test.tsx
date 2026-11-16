@@ -41,3 +41,16 @@ test('the legal list shows the Romanian version line', async () => {
   await openApp('/account/legal', { routes: inertTabs });
   expect((await screen.findAllByText(/^Versiunea 1\.0 · în vigoare din /)).length).toBe(3);
 });
+
+test('sign-in methods and security are in Romanian', async () => {
+  await openApp('/account/sign-in-methods', { routes: inertTabs });
+  expect(await screen.findByText(ro.signInMethods!.intro!)).toBeTruthy();
+  expect(screen.getByRole('button', { name: ro.signInMethods!.disconnectLabel!(ro.signInMethods!.email!) })).toBeTruthy();
+  expect(screen.getByText(ro.signInMethods!.changePassword!, { exact: true })).toBeTruthy();
+});
+
+test('the security screen is in Romanian', async () => {
+  await openApp('/account/security', { routes: inertTabs });
+  expect(await screen.findByRole('button', { name: ro.security!.signOutOthers! })).toBeTruthy();
+  expect(screen.getByRole('switch', { name: ro.security!.biometrics! })).toBeTruthy();
+});

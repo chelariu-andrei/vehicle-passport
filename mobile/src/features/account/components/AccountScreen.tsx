@@ -65,10 +65,10 @@ export function AccountScreen() {
       </Text>
       <ProfileCard />
       <SettingsGroup title={t('account.groups.account')}>
-        <SettingsRow label={t('account.signInMethods')} onPress={go('/account/sign-in-methods')} />
+        <SettingsRow label={t('account.signInMethods')} onPress={() => router.push('/account/sign-in-methods')} />
       </SettingsGroup>
       <SettingsGroup title={t('account.groups.security')}>
-        <SettingsRow label={t('account.security')} onPress={go('/account/security')} />
+        <SettingsRow label={t('account.security')} onPress={() => router.push('/account/security')} />
       </SettingsGroup>
       <SettingsGroup title={t('account.groups.preferences')}>
         <SettingsRow label={t('account.notifications')} onPress={() => router.push('/account/notifications')} />
