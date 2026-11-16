@@ -29,6 +29,29 @@ Feature: Consent gate
     When the app opens
     Then the consent is recorded as the sign-up form and I land on the garage
 
+  Scenario: Email sign-up without confirmation records the sign-up form once
+    Given nobody is signed in and the project does not ask for email confirmation
+    When I sign up with email and tick the terms box
+    Then I land on the garage without the gate, and one consent is recorded as the sign-up form
+
+  Scenario: A failed sign-up forgets the ticked box
+    Given nobody is signed in and the project does not ask for email confirmation
+    When I sign up with an email that already has an account
+    Then no consent is remembered
+
+  Scenario: Terms that changed since the form was shown are not accepted for me
+    Given I ticked the terms at sign-up when the version was older, and then confirmed my email
+    When the app opens
+    Then I am on the consent screen
+    And nothing was recorded and the remembered consent is gone
+
+  Scenario: Versions that could not be read at sign-up are never guessed
+    Given nobody is signed in and the project does not ask for email confirmation
+    And the legal documents cannot be loaded
+    When I sign up with email and tick the terms box
+    Then I am on the consent screen
+    And nothing was recorded and the remembered consent is gone
+
   Scenario: A failed automatic acceptance shows the gate
     Given I ticked the terms at sign-up and then confirmed my email
     And the server cannot record consents

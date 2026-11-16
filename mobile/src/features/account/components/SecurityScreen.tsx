@@ -63,10 +63,11 @@ export function SecurityScreen() {
   const toggle = async (on: boolean) => {
     setNote(undefined);
     if (!on) {
-      // Anyone holding the unlocked phone could otherwise switch the lock off. A phone that can no longer check anything
-      // (the fingerprint was removed) must not trap the person behind the lock, so it may be switched off without.
-      const canCheck = (await biometricCapability()) === 'available';
-      if (canCheck && !(await authenticate(s.security.promptMessage))) {
+      // Anyone holding the unlocked phone could otherwise switch the lock off, so the check is always asked for (the device
+      // passcode still answers it when no fingerprint is enrolled any more). Only a phone that definitely has no sensor is
+      // switched off without; a check that fails or cannot be run keeps the lock on.
+      const noSensor = (await biometricCapability()) === 'no-hardware';
+      if (!noSensor && !(await authenticate(s.security.promptMessage))) {
         setNote(s.security.authFailedOff);
         return;
       }
@@ -75,7 +76,9 @@ export function SecurityScreen() {
     }
     const capability = await biometricCapability();
     if (capability !== 'available') {
-      setNote(capability === 'no-hardware' ? s.security.noHardware : s.security.notEnrolled);
+      setNote(
+        capability === 'no-hardware' ? s.security.noHardware : capability === 'not-enrolled' ? s.security.notEnrolled : s.security.authFailed,
+      );
       return;
     }
     // Turning the lock on must prove the person can open it, or they could lock themselves out.

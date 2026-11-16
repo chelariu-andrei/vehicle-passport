@@ -74,6 +74,7 @@ export function AccountScreen() {
         <SettingsRow label={t('account.language')} onPress={() => router.push('/account/language')} />
         <SettingsRow label={t('account.units')} onPress={() => router.push('/account/units')} />
         <SettingsRow label={t('settings.appearance.title')} onPress={() => router.push('/account/appearance')} />
+        <SettingsRow label={t('account.privacyChoices')} onPress={() => router.push('/account/privacy')} />
       </SettingsGroup>
       <SettingsGroup title={t('account.groups.help')}>
         <SettingsRow label={t('account.support')} onPress={() => router.push('/account/support')} />

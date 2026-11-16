@@ -12,12 +12,19 @@ export interface PendingConsent {
   email: string;
   /** Epoch milliseconds when the terms were accepted. */
   at: number;
+  /** The terms and privacy versions the form showed. Absent when they could not be fetched: the acceptance is then never applied automatically. */
+  versions?: ShownVersions;
+}
+
+export interface ShownVersions {
+  terms: string;
+  privacy: string;
 }
 
 export const normaliseEmail = (email: string): string => email.trim().toLowerCase();
 
-export async function rememberPendingConsent(email: string): Promise<void> {
-  const consent: PendingConsent = { termsAccepted: true, email: normaliseEmail(email), at: Date.now() };
+export async function rememberPendingConsent(email: string, versions?: ShownVersions | null): Promise<void> {
+  const consent: PendingConsent = { termsAccepted: true, email: normaliseEmail(email), at: Date.now(), ...(versions ? { versions } : {}) };
   await AsyncStorage.setItem(PENDING_CONSENT_KEY, JSON.stringify(consent));
 }
 
@@ -26,6 +33,10 @@ function isPending(value: unknown): value is PendingConsent {
   const { termsAccepted, email, at } = value as Partial<PendingConsent>;
   return termsAccepted === true && typeof email === 'string' && email !== '' && typeof at === 'number';
 }
+
+/** True only when the person was shown exactly the versions the server asks for now. Unknown versions never match. */
+export const shownVersionsMatch = (pending: PendingConsent, current: ShownVersions): boolean =>
+  pending.versions?.terms === current.terms && pending.versions?.privacy === current.privacy;
 
 /** The remembered acceptance, or null: nothing stored, the old shape without an email, or older than a week (then forgotten). */
 export async function readPendingConsent(): Promise<PendingConsent | null> {

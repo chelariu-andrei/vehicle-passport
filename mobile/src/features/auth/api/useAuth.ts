@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 
+import { api, unwrap } from '@/shared/api';
 import {
   AuthFailed,
   sendPasswordReset,
@@ -13,6 +14,8 @@ import {
   type SocialProvider,
 } from '@/shared/auth/session';
 import type { Strings } from '@/shared/i18n';
+
+import { clearPendingConsent, rememberPendingConsent, type ShownVersions } from '../model/pendingConsent';
 
 export function authErrorMessage(error: unknown, s: Strings): string {
   if (!(error instanceof AuthFailed)) return s.errors.generic;
@@ -41,6 +44,23 @@ export function authErrorField(error: unknown): 'email' | 'password' {
   return error instanceof AuthFailed && error.failure === 'email-taken' ? 'email' : 'password';
 }
 
+/** The wait for the legal versions at sign-up; the sign-up itself must not hang on it. */
+const VERSIONS_TIMEOUT_MS = 5_000;
+
+/** The terms and privacy versions the sign-up form is showing now, or null when they cannot be fetched in time (never guessed). */
+async function fetchShownVersions(): Promise<ShownVersions | null> {
+  try {
+    const request = api.GET('/public/legal/documents', { params: { query: { locale: 'en' } } }).then((r) => unwrap(r).documents);
+    const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), VERSIONS_TIMEOUT_MS));
+    const documents = await Promise.race([request, timeout]);
+    const terms = documents.find((d) => d.type === 'terms')?.version;
+    const privacy = documents.find((d) => d.type === 'privacy')?.version;
+    return terms && privacy ? { terms, privacy } : null;
+  } catch {
+    return null;
+  }
+}
+
 type Credentials = { email: string; password: string };
 
 export function useSignIn() {
@@ -53,7 +73,17 @@ export function useSignOut() {
 
 export function useSignUp() {
   return useMutation({
-    mutationFn: ({ email, password, displayName }: Credentials & { displayName: string }) => signUp(email, password, displayName),
+    mutationFn: async ({ email, password, displayName }: Credentials & { displayName: string }) => {
+      // The terms were accepted in the form. The flag is saved before the session exists: the consent gate reads it once, as soon as
+      // sign-up signs the person in. It is removed when sign-up fails; when confirmation is required it stays for the first sign-in.
+      await rememberPendingConsent(email, await fetchShownVersions());
+      try {
+        return await signUp(email, password, displayName);
+      } catch (error) {
+        await clearPendingConsent();
+        throw error;
+      }
+    },
   });
 }
 

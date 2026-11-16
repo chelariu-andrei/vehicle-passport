@@ -82,3 +82,16 @@ test('switching the lock on after being away past the timeout does not lock at o
   await send('active');
   expect(screen.queryByRole('button', { name: en.appLock.unlock })).toBeNull();
 });
+
+test('the lock screen has a way out: Sign out ends the session and the lock closes', async () => {
+  await appLock.update({ enabled: true, timeout: '1m' });
+  await openApp('/account', { routes: inertTabs });
+  await screen.findByRole('button', { name: en.account.security });
+  authenticate.mockResolvedValue({ success: false });
+  await leaveAndReturn(120);
+  await fireEvent.press(await screen.findByRole('button', { name: en.appLock.signOut }));
+  await waitFor(() => expect(screen).toHavePathname('/sign-in'));
+  expect(fakeAuth.signOutCalls).toBe(1);
+  expect(screen.queryByRole('button', { name: en.appLock.unlock })).toBeNull();
+  expect(appLock.get().locked).toBe(false);
+});

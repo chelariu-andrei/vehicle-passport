@@ -88,7 +88,16 @@ export const ro: DeepPartial<Widen<typeof en>> = {
     legal: 'Juridic',
     acknowledgements: 'Mulțumiri',
     deleteAccount: 'Șterge contul',
+    privacyChoices: 'Opțiuni de confidențialitate',
     loadError: 'Nu ți-am putut încărca contul',
+  },
+  privacy: {
+    title: 'Opțiuni de confidențialitate',
+    intro: 'Aceste două opțiuni sunt opționale. Le poți schimba oricând, iar acceptarea Termenilor și a Politicii de confidențialitate rămâne neschimbată.',
+    marketing: 'Noutăți despre produs și oferte',
+    analytics: 'Trimite date de utilizare pentru a ne ajuta să îmbunătățim aplicația',
+    saveFailed: 'Nu ți-am putut salva alegerea. Încearcă din nou.',
+    loadError: 'Nu ți-am putut încărca opțiunile de confidențialitate',
   },
   signInMethods: {
     title: 'Metode de autentificare',
@@ -136,6 +145,7 @@ export const ro: DeepPartial<Widen<typeof en>> = {
     body: 'Deblochează cu Face ID, amprentă sau codul dispozitivului.',
     unlock: 'Deblochează',
     failed: 'Nu am putut confirma că ești tu. Încearcă din nou.',
+    signOut: 'Deconectare',
   },
   biometricOffer: {
     title: 'Blochezi aplicația cu Face ID sau amprentă?',

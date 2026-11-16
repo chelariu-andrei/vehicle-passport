@@ -130,15 +130,15 @@ export async function reloadAppLockForTests(): Promise<void> {
   await hydrate();
 }
 
-export type Capability = 'available' | 'no-hardware' | 'not-enrolled';
+export type Capability = 'available' | 'no-hardware' | 'not-enrolled' | 'unknown';
 
-/** Whether this phone can check a fingerprint or face. */
+/** Whether this phone can check a fingerprint or face. 'unknown' when the system could not be asked: that is never taken as "no sensor". */
 export async function biometricCapability(): Promise<Capability> {
   try {
     if (!(await LocalAuthentication.hasHardwareAsync())) return 'no-hardware';
     return (await LocalAuthentication.isEnrolledAsync()) ? 'available' : 'not-enrolled';
   } catch {
-    return 'no-hardware';
+    return 'unknown';
   }
 }
 

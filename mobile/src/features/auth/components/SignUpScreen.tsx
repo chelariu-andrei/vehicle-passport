@@ -4,7 +4,6 @@ import { Button, Screen, Text } from '@/shared/design';
 import { useStrings } from '@/shared/i18n';
 
 import { authErrorField, authErrorMessage, useSignUp } from '../api/useAuth';
-import { rememberPendingConsent } from '../model/pendingConsent';
 import { CredentialsForm } from './CredentialsForm';
 import { ProvidersBlock } from './ProvidersBlock';
 
@@ -27,14 +26,7 @@ export function SignUpScreen() {
             mode="up"
             pending={signUp.isPending}
             serverError={signUp.isError ? { field: authErrorField(signUp.error), message: authErrorMessage(signUp.error, s) } : null}
-            onSubmit={(values) =>
-              signUp.mutate(values, {
-                // The terms were accepted in this form; the first signed-in session records them (Task 6 reads this).
-                onSuccess: (result) => {
-                  if (result === 'confirmationRequired') void rememberPendingConsent(values.email);
-                },
-              })
-            }
+            onSubmit={(values) => signUp.mutate(values)}
           />
         </>
       )}

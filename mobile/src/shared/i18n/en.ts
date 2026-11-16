@@ -86,7 +86,16 @@ export const en = {
     legal: 'Legal',
     acknowledgements: 'Acknowledgements',
     deleteAccount: 'Delete account',
+    privacyChoices: 'Privacy choices',
     loadError: "We couldn't load your account",
+  },
+  privacy: {
+    title: 'Privacy choices',
+    intro: 'These two choices are optional. You can change them at any time, and your Terms and Privacy Policy acceptance is not affected.',
+    marketing: 'Product news and offers',
+    analytics: 'Share usage analytics to help improve the app',
+    saveFailed: "We couldn't save your choice. Try again.",
+    loadError: "We couldn't load your privacy choices",
   },
   signInMethods: {
     title: 'Sign-in methods',
@@ -134,6 +143,7 @@ export const en = {
     body: 'Unlock with Face ID, your fingerprint or your device passcode.',
     unlock: 'Unlock',
     failed: "We couldn't confirm it's you. Try again.",
+    signOut: 'Sign out',
   },
   biometricOffer: {
     title: 'Lock the app with Face ID or fingerprint?',

@@ -6,6 +6,8 @@ import { Text } from 'react-native';
 
 import { AUTO_ACCEPT_TIMEOUT_MS } from '@/features/account/api/useConsentGate';
 import { PENDING_CONSENT_KEY, rememberPendingConsent } from '@/features/auth/model/pendingConsent';
+import { CURRENT_LEGAL_VERSION } from '../fake-api/account';
+import { fakeAuth, PASSWORD } from '../fakes/auth';
 import { en } from '@/shared/i18n/en';
 
 import { openApp } from '../harness';
@@ -58,7 +60,23 @@ defineFeature(feature, (test) => {
   const signedUpWithPendingConsent = async () => {
     acceptedNothing();
     // Typed unlike the session's owner@example.com: the match ignores case and spaces.
-    await rememberPendingConsent(' Owner@Example.com ');
+    await rememberPendingConsent(' Owner@Example.com ', { terms: CURRENT_LEGAL_VERSION, privacy: CURRENT_LEGAL_VERSION });
+  };
+  const signedOutProject = () => {
+    acceptedNothing();
+    fakeAuth.confirmationRequired = false;
+  };
+  const signUpWith = async (email: string) => {
+    fake = await openApp('/sign-up', { as: null, routes: inertTabs, seed: (api) => seeds.forEach((seed) => seed(api)) });
+    await fireEvent.changeText(await screen.findByLabelText(en.auth.displayName), 'Ana');
+    await fireEvent.changeText(await screen.findByLabelText(en.auth.email), email);
+    await fireEvent.changeText(screen.getByLabelText(en.auth.password), PASSWORD);
+    await fireEvent.press(screen.getByRole('checkbox', { name: new RegExp(en.auth.termsLabel) }));
+    await fireEvent.press(screen.getByRole('button', { name: en.auth.signUpAction }));
+  };
+  const nothingRecordedAndFlagGone = async () => {
+    expect(fake.callsTo('recordConsents')).toHaveLength(0);
+    expect(await flagGone()).toBe(true);
   };
 
   test('New Apple user is taken to the consent screen', ({ given, when, then }) => {
@@ -134,6 +152,47 @@ defineFeature(feature, (test) => {
       expect(fake.callsTo('recordConsents')[0].body).toMatchObject({ source: 'sign-up-form' });
       expect(await flagGone()).toBe(true);
     });
+  });
+
+  test('Email sign-up without confirmation records the sign-up form once', ({ given, when, then }) => {
+    given('nobody is signed in and the project does not ask for email confirmation', signedOutProject);
+    when('I sign up with email and tick the terms box', () => signUpWith('new@example.com'));
+    then('I land on the garage without the gate, and one consent is recorded as the sign-up form', async () => {
+      await waitFor(() => expect(screen).toHavePathname('/'));
+      expect(screen.queryByText(en.consent.title)).toBeNull();
+      await waitFor(() => expect(fake.callsTo('recordConsents')).toHaveLength(1));
+      expect(fake.callsTo('recordConsents')[0].body).toMatchObject({ source: 'sign-up-form' });
+      expect(await flagGone()).toBe(true);
+    });
+  });
+
+  test('A failed sign-up forgets the ticked box', ({ given, when, then }) => {
+    given('nobody is signed in and the project does not ask for email confirmation', signedOutProject);
+    when('I sign up with an email that already has an account', () => signUpWith('a@example.com'));
+    then('no consent is remembered', async () => {
+      expect(await screen.findByText(en.auth.emailTaken)).toBeTruthy();
+      expect(await flagGone()).toBe(true);
+    });
+  });
+
+  test('Terms that changed since the form was shown are not accepted for me', ({ given, when, then, and }) => {
+    given('I ticked the terms at sign-up when the version was older, and then confirmed my email', async () => {
+      acceptedNothing();
+      await rememberPendingConsent('owner@example.com', { terms: '0.9', privacy: '0.9' });
+    });
+    when('the app opens', () => open());
+    then('I am on the consent screen', seeGate);
+    and('nothing was recorded and the remembered consent is gone', nothingRecordedAndFlagGone);
+  });
+
+  test('Versions that could not be read at sign-up are never guessed', ({ given, and, when, then }) => {
+    given('nobody is signed in and the project does not ask for email confirmation', signedOutProject);
+    and('the legal documents cannot be loaded', () => {
+      seeds.push((api) => api.failNext('listLegalDocuments', 503, 'unavailable'));
+    });
+    when('I sign up with email and tick the terms box', () => signUpWith('new@example.com'));
+    then('I am on the consent screen', seeGate);
+    and('nothing was recorded and the remembered consent is gone', nothingRecordedAndFlagGone);
   });
 
   test('A failed automatic acceptance shows the gate', ({ given, and, when, then }) => {

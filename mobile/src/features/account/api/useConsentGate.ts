@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { clearPendingConsent, matchesAccount, readPendingConsent, type PendingConsent } from '@/features/auth';
+import { clearPendingConsent, matchesAccount, readPendingConsent, shownVersionsMatch, type PendingConsent } from '@/features/auth';
 import { useSession } from '@/shared/auth/session';
 
 import { resolveGate, type Gate } from '../model/consentGate';
@@ -12,8 +12,8 @@ export const AUTO_ACCEPT_TIMEOUT_MS = 15_000;
 
 /**
  * Where a signed-in person stands with the terms. The acceptance left by the email sign-up form is recorded once, without
- * the gate, only for the account that signed up. It is forgotten when another account is signed in, when nothing is owed
- * or once recorded. If recording fails or takes too long the gate is shown and the person decides. Mounted only while signed in.
+ * the gate, only for the account that signed up and only when the versions it showed are the ones owed now. It is forgotten
+ * when another account is signed in, when nothing is owed, when the versions differ or once recorded. If recording fails or takes too long the gate is shown and the person decides. Mounted only while signed in.
  */
 export function useConsentGate(): { gate: Gate; retry: () => void } {
   const me = useMe();
@@ -39,7 +39,10 @@ export function useConsentGate(): { gate: Gate; retry: () => void } {
   useEffect(() => {
     if (!stored) return;
     // Someone else's acceptance, or nothing is owed: it must not be used later (a new version would be accepted unseen).
-    if (own === null || (consent && !consent.required)) {
+    // Or the terms changed since the form: what was shown is not what would be recorded, so the person sees the gate.
+    const unseen =
+      own !== null && own !== undefined && consent?.required === true && !shownVersionsMatch(own, { terms: consent.terms.currentVersion, privacy: consent.privacy.currentVersion });
+    if (own === null || unseen || (consent && !consent.required)) {
       void clearPendingConsent().then(() => setStored(null));
       return;
     }

@@ -1,7 +1,9 @@
 /* With the app in Romanian, the auth and legal screens speak Romanian (English is the default, covered by the other suites). */
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, screen } from 'expo-router/testing-library';
+import { act, fireEvent, screen } from 'expo-router/testing-library';
+import * as LocalAuthentication from 'expo-local-authentication';
 
+import { appLock } from '@/features/account/model/appLock';
 import { ro } from '@/shared/i18n/ro';
 
 import { openApp } from './harness';
@@ -79,4 +81,33 @@ test('the delete account screen and the export are in Romanian', async () => {
   await fireEvent.press(await screen.findByRole('button', { name: ro.deletion!.sheetConfirm! }));
   expect(await screen.findByText(ro.deletion!.scheduledTitle!)).toBeTruthy();
   expect(screen.getByRole('button', { name: ro.deletion!.cancel! })).toBeTruthy();
+});
+
+test('the consent retry screen is in Romanian', async () => {
+  await openApp('/', {
+    routes: inertTabs,
+    seed: (api) => {
+      api.failNext('getMe', 503, 'unavailable');
+    },
+  });
+  expect(await screen.findByText(ro.consent!.retryTitle!)).toBeTruthy();
+  expect(screen.getAllByRole('button', { name: ro.consent!.signOut! }).length).toBeGreaterThan(0);
+});
+
+test('the lock screen is in Romanian, with its way out', async () => {
+  const authenticate = LocalAuthentication.authenticateAsync as jest.Mock;
+  authenticate.mockResolvedValue({ success: false });
+  await appLock.update({ enabled: true });
+  await openApp('/', { routes: inertTabs });
+  await act(async () => appLock.setLocked(true));
+  expect(await screen.findByText(ro.appLock!.title!)).toBeTruthy();
+  expect(screen.getByRole('button', { name: ro.appLock!.signOut! })).toBeTruthy();
+  authenticate.mockImplementation(async () => ({ success: true }));
+});
+
+test('the privacy choices are in Romanian', async () => {
+  await openApp('/account/privacy', { routes: inertTabs });
+  expect(await screen.findByText(ro.privacy!.intro!)).toBeTruthy();
+  expect(screen.getByRole('switch', { name: ro.privacy!.marketing! })).toBeTruthy();
+  expect(screen.getByRole('switch', { name: ro.privacy!.analytics! })).toBeTruthy();
 });

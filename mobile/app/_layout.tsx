@@ -13,7 +13,7 @@ import { createAppQueryClient, forgetVehicle } from '@/shared/api';
 import { onSessionEnd, signOut, startSession, useSession } from '@/shared/auth/session';
 import { Button, ErrorState, fontAssets, Ground, OfflineBanner, Screen, ThemeProvider, toast, ToastHost, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
-import { LocaleProvider } from '@/shared/i18n';
+import { LocaleProvider, useStrings } from '@/shared/i18n';
 import { goToGarage } from '@/shared/navigation/goToGarage';
 
 void SplashScreen.preventAutoHideAsync();
@@ -24,6 +24,7 @@ void SplashScreen.preventAutoHideAsync();
  */
 function ConsentGuard({ segments }: { segments: string[] }) {
   const { gate, retry } = useConsentGate();
+  const s = useStrings();
   const onConsent = segments[0] === 'consent';
   // The terms themselves must stay readable from the gate.
   const readingLegal = segments[0] === 'account' && segments[1] === 'legal';
@@ -34,13 +35,13 @@ function ConsentGuard({ segments }: { segments: string[] }) {
         {gate === 'loading' ? (
           <Ground>
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <ActivityIndicator accessibilityLabel={en.consent.loading} />
+              <ActivityIndicator accessibilityLabel={s.consent.loading} />
             </View>
           </Ground>
         ) : (
           <Screen>
-            <ErrorState title={en.consent.retryTitle} onRetry={retry} />
-            <Button kind="quiet" title={en.consent.signOut} onPress={() => void signOut()} />
+            <ErrorState title={s.consent.retryTitle} onRetry={retry} />
+            <Button kind="quiet" title={s.consent.signOut} onPress={() => void signOut()} />
           </Screen>
         )}
       </View>

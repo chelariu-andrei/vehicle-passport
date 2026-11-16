@@ -6,11 +6,11 @@ Nothing here has been verified on a device or against real Apple or Google crede
 
 ## 1. Prerequisites
 
-1. Local Supabase stack from `infra/supabase/config.toml`: run `npx supabase start` in `infra/`. `config.toml` mentions `infra/SUPABASE-LOCAL.md`, but that file does not exist in the repo, so use this list instead.
+1. Local Supabase stack from `infra/supabase/config.toml`: run `npx supabase start` in `infra/`. Use the list below for the rest of the setup.
 2. Provider secrets exported before starting the stack (names from `config.toml`):
    - `SUPABASE_AUTH_EXTERNAL_APPLE_CLIENT_ID` (comma-separated accepted audiences: bundle ID `com.vehiclepassport.app`, optionally a Services ID) and `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET`
    - `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` (comma-separated: web client ID first, then iOS, then Android) and `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`
-3. Redirect allow-list: `additional_redirect_urls` must accept `vehiclepassport://reset-password`. The committed `config.toml` lists `vehiclepassport://` only, and the comment above that setting says entries are exact URLs. Add `vehiclepassport://reset-password` before testing section 7. Same for any hosted project.
+3. Redirect allow-list: `additional_redirect_urls` must accept `vehiclepassport://reset-password` (entries are exact URLs). The committed `infra/supabase/config.toml` has it for the local stack; any hosted project needs the same entry added by hand before testing section 7.
 4. Backend running against that stack (see `server/README.md`). Do not point it at a shared database.
 5. Mobile `.env` (copy `mobile/env.example`): `EXPO_PUBLIC_API_URL` (LAN address), `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`.
 6. `mobile/app.json`: the `@react-native-google-signin/google-signin` plugin has `iosUrlScheme` set to the placeholder `com.googleusercontent.apps.REPLACE_WITH_IOS_CLIENT_ID`. It MUST be replaced with the reversed iOS client ID before building for iOS.
@@ -32,6 +32,8 @@ Record the test run:
 
 Use a Google account that has never signed in before.
 
+Note for Google on iOS: if Google sign-in is rejected for a nonce mismatch, see `skip_nonce_check` in `infra/supabase/config.toml` (local) / provider settings (hosted).
+
 | # | Step | Expected | Result |
 |---|---|---|---|
 | 2.1 | Sign-in screen, tap Continue with Google | Native Google sheet, then the app lands on the consent gate, not Home | |
@@ -43,7 +45,8 @@ Use a Google account that has never signed in before.
 | 2.7 | Run query B | `display_name` and `phone` updated | |
 | 2.8 | Settings: change distance unit, currency, appearance, notification toggles and reminder days | Changes apply immediately and survive a restart | |
 | 2.9 | Run query C | Values match the UI | |
-| 2.10 | Settings: marketing consent on, then off | Two new `consent_record` rows, `type = 'marketing'`, `granted` true then false, `source = 'settings'`; earlier rows unchanged (append-only) | |
+| 2.10 | Account > Privacy choices: marketing on, then off (and the same for analytics) | The switches move at once and keep their state after leaving and reopening the screen. Two new `consent_record` rows, `type = 'marketing'`, `granted` true then false, `source = 'settings'` (and the same for `type = 'analytics'`); the `terms` and `privacy` rows are unchanged (append-only) | |
+| 2.10a | Turn the server off (or go offline) and flip a Privacy choices switch | The switch goes back and a "couldn't save" message appears; no new `consent_record` row | |
 | 2.11 | Export my data | Share sheet opens with a data file containing profile, settings, consents and vehicle data | |
 | 2.12 | Schedule account deletion (confirm dialog) | Account tab shows the pending deletion state with a date; the Account tab icon shows a dot | |
 | 2.13 | Run query B | `deletion_scheduled_for` is set | |
@@ -67,6 +70,8 @@ Use a Google account that has never signed in before.
 | 4.1 | Sign up with email and password, ticking terms and privacy | Validation messages on bad input; success tells the user to check the inbox | |
 | 4.2 | Query `consent_record` before confirming | Consent is held on the device as pending; no rows for the user yet | |
 | 4.3 | Open the confirmation email link, then sign in | Sign-in works; pending consent is written (`source = 'sign-up-form'`) and the gate is not shown | |
+| 4.5 | Turn `enable_confirmations` back off and restart the stack. Sign up with a new email, ticking terms and privacy | Lands on Home without the consent gate (no second ticking). Query A: `terms` and `privacy` rows with `source = 'sign-up-form'` and the current versions; exactly one pair | |
+| 4.6 | With confirmation off, sign up with an email that already has an account | "Email already in use" style error on the email field; no consent rows added or changed for that account | |
 | 4.4 | Sign up a second email on the same device before confirming the first | Consent flag is single-slot: only the latest sign-up's consent is kept (known limitation). Record what happens | |
 
 ## 5. Sign-in methods
@@ -81,12 +86,13 @@ Use a Google account that has never signed in before.
 
 | # | Step | Expected | Result |
 |---|---|---|---|
-| 6.1 | Enable app lock in Security | Biometric or device passcode prompt confirms enabling | |
+| 6.1 | Enable app lock in Security on a phone with biometrics enrolled | Biometric prompt confirms enabling. On a phone with no biometrics enrolled the switch cannot be turned on and says why; the device passcode is only the fallback once the lock is on | |
 | 6.2 | Background the app past the lock delay, return | Lock screen shown; unlock restores the previous screen | |
 | 6.3 | iOS manual check: open a sheet or native modal (for example the export share sheet or a picker), background and return | The lock presents above the open sheet or modal | |
 | 6.4 | Android manual check: on the lock modal, trigger the biometric prompt | The prompt does not loop (no repeated re-prompt after cancel or success) | |
 | 6.5 | Cancel biometrics, use the fallback | Fallback or retry works; app stays locked until success | |
-| 6.6 | Disable app lock | No lock on next return | |
+| 6.6 | Disable app lock | The biometric (or passcode fallback) check is asked for first; after it passes there is no lock on next return | |
+| 6.7 | Lock screen: press Sign out | The session ends, the lock closes and the sign-in screen is shown; signing in again does not show the old lock | |
 
 ## 7. Password reset (PKCE, device-bound)
 
@@ -101,7 +107,7 @@ Use a Google account that has never signed in before.
 
 | # | Step | Expected | Result |
 |---|---|---|---|
-| 8.1 | Settings: language Romanian | All visible screens switch to Romanian, including account, legal, lock and delete dialogs | |
+| 8.1 | Settings: language Romanian | The migrated screens switch to Romanian: Account, Profile, Consent gate (including its loading and retry screen), Legal, Auth, Settings, Security (and the lock screen), Support, Delete account and Privacy choices. NOT expected in Romanian: vehicle, scan, passport and event screens, server error messages, and ErrorState default texts | |
 | 8.2 | Query C | `language = 'ro'` | |
 | 8.3 | Language System, phone set to Romanian then English | Follows the phone | |
 | 8.4 | Legal pages in Romanian | Romanian documents load | |

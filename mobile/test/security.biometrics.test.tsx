@@ -77,9 +77,34 @@ describe('turning the lock off', () => {
     expect(appLock.get().enabled).toBe(true);
   });
 
-  test('with nothing enrolled any more it can still be switched off', async () => {
+  test('with nothing enrolled any more the device passcode check is still asked for', async () => {
     isEnrolled.mockResolvedValue(false);
     await fireEvent(await openOn(), 'valueChange', false);
+    await waitFor(() => expect(appLock.get().enabled).toBe(false));
+    expect(authenticate).toHaveBeenCalled();
+  });
+
+  test('with nothing enrolled and the check failing the lock stays on', async () => {
+    isEnrolled.mockResolvedValue(false);
+    authenticate.mockResolvedValue({ success: false });
+    await fireEvent(await openOn(), 'valueChange', false);
+    expect(await screen.findByText(en.security.authFailedOff)).toBeTruthy();
+    expect(appLock.get().enabled).toBe(true);
+  });
+
+  test('when the phone cannot be asked about its sensor the check is still asked for, and failing keeps the lock on', async () => {
+    hasHardware.mockRejectedValue(new Error('unavailable'));
+    authenticate.mockResolvedValue({ success: false });
+    await fireEvent(await openOn(), 'valueChange', false);
+    await waitFor(() => expect(authenticate).toHaveBeenCalled());
+    expect(await screen.findByText(en.security.authFailedOff)).toBeTruthy();
+    expect(appLock.get().enabled).toBe(true);
+  });
+
+  test('a phone that definitely has no sensor can be switched off without a check', async () => {
+    const toggle = await openOn();
+    hasHardware.mockResolvedValue(false);
+    await fireEvent(toggle, 'valueChange', false);
     await waitFor(() => expect(appLock.get().enabled).toBe(false));
     expect(authenticate).not.toHaveBeenCalled();
   });
