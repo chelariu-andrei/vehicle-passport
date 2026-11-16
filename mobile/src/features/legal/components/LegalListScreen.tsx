@@ -2,20 +2,21 @@ import { useRouter } from 'expo-router';
 import { Pressable } from 'react-native';
 
 import { AppBar, Card, ErrorState, Screen, Skeleton, Text } from '@/shared/design';
-import { en } from '@/shared/i18n/en';
+import { useStrings } from '@/shared/i18n';
 import { useBack } from '@/shared/navigation/useBack';
 
 import { useLegalDocuments } from '../api/useLegal';
 import { versionLine } from '../model/display';
-import { currentLocale } from '../model/locale';
+import { useLegalLocale } from '../model/locale';
 
 /** Account > Legal: every document with its version and effective date. */
 export function LegalListScreen() {
   const router = useRouter();
   const back = useBack('/account');
-  const query = useLegalDocuments(currentLocale());
+  const s = useStrings();
+  const query = useLegalDocuments(useLegalLocale());
   return (
-    <Screen scroll header={<AppBar onBack={back} title={en.legal.title} />}>
+    <Screen scroll header={<AppBar onBack={back} title={s.legal.title} />}>
       {query.isError && !query.data ? (
         <ErrorState onRetry={() => void query.refetch()} />
       ) : query.data ? (

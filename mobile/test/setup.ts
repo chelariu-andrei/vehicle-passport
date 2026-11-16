@@ -1,10 +1,14 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { fakeAuth } from './fakes/auth';
 import { resetFiles, resetPhotoFakes } from './fakes/photos';
 
 process.env.EXPO_PUBLIC_API_URL ??= 'http://api.test';
 
 /* A signed-in fake session is installed before every test; tests change it through `fakeAuth`. */
-beforeEach(() => {
+beforeEach(async () => {
+  // Language and appearance are kept on the phone; one test's choice must not reach the next.
+  await AsyncStorage.clear();
   fakeAuth.reset();
   resetPhotoFakes();
   resetFiles();

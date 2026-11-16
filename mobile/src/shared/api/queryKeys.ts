@@ -1,5 +1,6 @@
 export const qk = {
   me: ['me'] as const,
+  settings: ['settings'] as const,
   vehicles: ['vehicles'] as const,
   vehicle: (vin: string) => ['vehicle', vin] as const,
   timeline: (vin: string) => ['timeline', vin] as const,

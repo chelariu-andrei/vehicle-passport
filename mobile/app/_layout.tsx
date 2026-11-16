@@ -7,11 +7,13 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useConsentGate } from '@/features/account';
+import { SettingsSync } from '@/features/settings';
 import { autoJourney } from '@/features/vehicle';
 import { createAppQueryClient, forgetVehicle } from '@/shared/api';
 import { onSessionEnd, signOut, startSession, useSession } from '@/shared/auth/session';
 import { Button, ErrorState, fontAssets, Ground, OfflineBanner, Screen, ThemeProvider, toast, ToastHost, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { LocaleProvider } from '@/shared/i18n';
 import { goToGarage } from '@/shared/navigation/goToGarage';
 
 void SplashScreen.preventAutoHideAsync();
@@ -70,6 +72,7 @@ function Shell() {
       {status === 'signedOut' && !inAuth ? <Redirect href="/sign-in" /> : null}
       {status === 'signedIn' && inAuth && !resettingPassword ? <Redirect href="/" /> : null}
       {status === 'signedIn' && !resettingPassword ? <ConsentGuard segments={segments} /> : null}
+      {status === 'signedIn' ? <SettingsSync /> : null}
       <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0 }}>
         <OfflineBanner />
       </View>
@@ -115,7 +118,9 @@ export default function RootLayout() {
   return (
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <Shell />
+          <LocaleProvider>
+            <Shell />
+          </LocaleProvider>
         </ThemeProvider>
       </QueryClientProvider>
   );

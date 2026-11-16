@@ -6,9 +6,9 @@ import { en } from '@/shared/i18n/en';
 import { openApp } from '../harness';
 import type { FakeApi } from '../fake-api';
 
-/* The scenario that needs another app language sets this; i18n itself arrives in a later task. */
+/* The scenario that needs another app language sets this. */
 let mockLocale = 'en';
-jest.mock('@/features/legal/model/locale', () => ({ currentLocale: () => mockLocale }));
+jest.mock('@/features/legal/model/locale', () => ({ useLegalLocale: () => mockLocale }));
 
 setJestCucumberConfiguration({ errors: true });
 const feature = loadFeature('../../features/legal.feature', { loadRelativePath: true });

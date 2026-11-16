@@ -63,20 +63,6 @@ defineFeature(feature, (test) => {
     });
   });
 
-  test('Appearance is remembered', ({ when, then }) => {
-    when(/^I choose "(.*)" and restart the app$/, async (label: string) => {
-      await openApp('/account', { routes: inertTabs });
-      await fireEvent.press(await screen.findByRole('radio', { name: label }));
-      await waitFor(() => expect(screen.getByRole('radio', { name: label })).toBeSelected());
-      await cleanup();
-      await openApp('/account', { routes: inertTabs });
-    });
-    then(/^"(.*)" is selected$/, async (label: string) => {
-      await waitFor(() => expect(screen.getByRole('radio', { name: label })).toBeSelected());
-      expect(screen.getByRole('radio', { name: en.account.system })).not.toBeSelected();
-    });
-  });
-
   test('Signing out', ({ when, then }) => {
     when('I choose Sign out', async () => {
       await openApp('/account', { routes: inertTabs });

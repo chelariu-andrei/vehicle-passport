@@ -7,7 +7,7 @@ import { useBack } from '@/shared/navigation/useBack';
 
 import { useLegalDocument } from '../api/useLegal';
 import { isLegalType, versionLine } from '../model/display';
-import { currentLocale } from '../model/locale';
+import { useLegalLocale } from '../model/locale';
 
 /** One legal document. Reached signed out (from the sign-up caption) and signed in (from Account). */
 export function LegalDocumentScreen() {
@@ -15,7 +15,8 @@ export function LegalDocumentScreen() {
   const { status } = useSession();
   const back = useBack(status === 'signedIn' ? '/account/legal' : '/sign-in');
   const valid = isLegalType(type);
-  const query = useLegalDocument(valid ? type : 'terms', currentLocale(), valid);
+  const locale = useLegalLocale();
+  const query = useLegalDocument(valid ? type : 'terms', locale, valid);
   const doc = query.data;
   return (
     <Screen scroll header={<AppBar onBack={back} title={doc?.title} />}>

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { isApiError } from '@/shared/api';
 import { errorMessage } from '@/shared/api/errorMessage';
 import { AppBar, Button, ErrorState, Field, Screen, Skeleton, toast } from '@/shared/design';
-import { en } from '@/shared/i18n/en';
+import { useStrings, useValidationMessage } from '@/shared/i18n';
 import { useBack } from '@/shared/navigation/useBack';
 import { displayNameSchema, normalizePhone, phoneSchema } from '@/shared/validation';
 
@@ -16,9 +16,10 @@ type Me = NonNullable<ReturnType<typeof useMe>['data']>;
 
 /** Account > Profile: name, the read-only email, and an optional phone number. */
 export function ProfileScreen() {
+  const s = useStrings();
   const back = useBack('/account');
   const me = useMe();
-  const header = <AppBar onBack={back} title={en.profile.title} />;
+  const header = <AppBar onBack={back} title={s.profile.title} />;
   if (!me.data) {
     return (
       <Screen header={header}>
@@ -30,6 +31,8 @@ export function ProfileScreen() {
 }
 
 function ProfileForm({ account, header, back }: { account: Me; header: React.ReactElement; back: () => void }) {
+  const s = useStrings();
+  const localized = useValidationMessage();
   const update = useUpdateProfile();
   const [name, setName] = useState(account.displayName ?? '');
   const [phone, setPhone] = useState(account.phone ?? '');
@@ -40,10 +43,10 @@ function ProfileForm({ account, header, back }: { account: Me; header: React.Rea
     // A name-less account (an Apple user who shared none) is only prompted, so an empty name is left alone.
     const nameOptional = name.trim() === '' && !account.displayName?.trim();
     const parsedName = displayNameSchema.safeParse(name);
-    if (!parsedName.success && !nameOptional) nextErrors.name = parsedName.error.issues[0]?.message;
+    if (!parsedName.success && !nameOptional) nextErrors.name = localized(parsedName.error.issues[0]?.message);
     const normalized = normalizePhone(phone);
     const parsedPhone = phoneSchema.safeParse(normalized);
-    if (!parsedPhone.success) nextErrors.phone = parsedPhone.error.issues[0]?.message;
+    if (!parsedPhone.success) nextErrors.phone = localized(parsedPhone.error.issues[0]?.message);
     setErrors(nextErrors);
     if (nextErrors.name || nextErrors.phone) return;
 
@@ -57,7 +60,7 @@ function ProfileForm({ account, header, back }: { account: Me; header: React.Rea
     }
     update.mutate(patch, {
       onSuccess: () => {
-        toast(en.profile.saved);
+        toast(s.profile.saved);
         back();
       },
       onError: (error) => {
@@ -75,27 +78,27 @@ function ProfileForm({ account, header, back }: { account: Me; header: React.Rea
   return (
     <Screen scroll header={header}>
       <Field
-        label={en.profile.name}
+        label={s.profile.name}
         value={name}
         onChangeText={setName}
         error={errors.name}
-        helper={account.displayName === null ? en.profile.namePrompt : undefined}
+        helper={account.displayName === null ? s.profile.namePrompt : undefined}
         autoComplete="name"
         textContentType="name"
         autoCapitalize="words"
       />
-      <Field label={en.profile.email} value={account.email ?? ''} editable={false} helper={account.emailVerified ? en.profile.verified : en.profile.notVerified} />
+      <Field label={s.profile.email} value={account.email ?? ''} editable={false} helper={account.emailVerified ? s.profile.verified : s.profile.notVerified} />
       <Field
-        label={en.profile.phone}
+        label={s.profile.phone}
         value={phone}
         onChangeText={setPhone}
         error={errors.phone}
-        helper={en.profile.phoneHelper}
+        helper={s.profile.phoneHelper}
         keyboardType="phone-pad"
         autoComplete="tel"
         textContentType="telephoneNumber"
       />
-      <Button title={en.profile.save} loading={update.isPending} onPress={submit} />
+      <Button title={s.profile.save} loading={update.isPending} onPress={submit} />
     </Screen>
   );
 }
