@@ -48,6 +48,8 @@ public class ScanJobPanacheRepository implements ScanJobRepositoryPort {
         entity.periodId = job.periodId();
         entity.documentKey = job.documentKey();
         entity.contentType = job.contentType();
+        entity.sha256 = job.sha256();
+        entity.sizeBytes = job.sha256() == null ? null : job.sizeBytes();
         entity.status = job.status().name();
         entity.attempts = job.attempts();
         entity.processingStartedAt = job.processingStartedAt() == null ? null : micros(job.processingStartedAt());
@@ -152,6 +154,7 @@ public class ScanJobPanacheRepository implements ScanJobRepositoryPort {
         List<ScanWarning> warnings = e.warnings == null ? List.of()
                 : e.warnings.stream().map(ScanWarning::valueOf).toList();
         return ScanJob.restore(e.id, e.batchId, e.vin, e.ownerId, e.periodId, e.documentKey, e.contentType,
+                e.sha256 == null ? null : e.sha256.strip(), e.sizeBytes == null ? 0 : e.sizeBytes,
                 ScanStatus.valueOf(e.status), e.attempts, e.processingStartedAt, toDomain(e.result), warnings,
                 e.failureReason, e.createdAt);
     }

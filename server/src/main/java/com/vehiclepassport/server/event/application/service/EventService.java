@@ -4,17 +4,16 @@ import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.CheckOdometerUseCase;
 import com.vehiclepassport.server.event.application.port.in.DeleteEventUseCase;
-import com.vehiclepassport.server.event.application.port.in.EventDocument;
-import com.vehiclepassport.server.event.application.port.in.GetEventDocumentUseCase;
 import com.vehiclepassport.server.event.application.port.in.ReadVehicleHistoryUseCase;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventCommand;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.UpdateEventCommand;
 import com.vehiclepassport.server.event.application.port.in.UpdateEventUseCase;
-import com.vehiclepassport.server.event.domain.exception.DocumentRestrictedException;
 import com.vehiclepassport.server.event.domain.exception.EventNotFoundException;
 import com.vehiclepassport.server.event.domain.exception.OdometerInconsistentException;
 import com.vehiclepassport.server.event.domain.exception.PriorPeriodEventException;
+import com.vehiclepassport.server.event.domain.model.Attachment;
+import com.vehiclepassport.server.event.domain.model.AttachmentKind;
 import com.vehiclepassport.server.event.domain.model.PartLine;
 import java.time.LocalDate;
 import com.vehiclepassport.server.event.application.port.in.DetailsView;
@@ -25,7 +24,6 @@ import com.vehiclepassport.server.event.application.port.in.TimelinePage;
 import com.vehiclepassport.server.event.application.port.out.ActiveOwnerPort;
 import com.vehiclepassport.server.event.application.port.out.AttachmentRepositoryPort;
 import com.vehiclepassport.server.event.application.port.out.OwnedPeriod;
-import com.vehiclepassport.server.event.application.port.out.DocumentStoragePort;
 import com.vehiclepassport.server.event.application.port.out.EventRepositoryPort;
 import com.vehiclepassport.server.event.domain.model.EventDetails;
 import com.vehiclepassport.server.event.domain.model.EventType;
@@ -40,27 +38,26 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @ApplicationScoped
 public class EventService implements AddEventUseCase, GetTimelineUseCase, UpdateEventUseCase, DeleteEventUseCase,
-        SaveConfirmedEventUseCase, CheckOdometerUseCase, ReadVehicleHistoryUseCase, GetEventDocumentUseCase {
+        SaveConfirmedEventUseCase, CheckOdometerUseCase, ReadVehicleHistoryUseCase {
 
     private static final int MIN_LIMIT = 1;
     private static final int MAX_LIMIT = 100;
 
     private final EventRepositoryPort events;
     private final ActiveOwnerPort owners;
-    private final DocumentStoragePort documents;
     private final AttachmentRepositoryPort attachments;
     private final Clock clock;
 
     @Inject
-    public EventService(EventRepositoryPort events, ActiveOwnerPort owners, DocumentStoragePort documents,
-            AttachmentRepositoryPort attachments, Clock clock) {
+    public EventService(EventRepositoryPort events, ActiveOwnerPort owners, AttachmentRepositoryPort attachments,
+            Clock clock) {
         this.events = events;
         this.owners = owners;
-        this.documents = documents;
         this.attachments = attachments;
         this.clock = clock;
     }
@@ -76,7 +73,7 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         Neighbours around = events.neighbours(event.vin(), event.date(), event.createdAt(), event.id());
         OdometerPolicy.check(around.previousKm(), event.odometerKm(), around.nextKm());
         events.save(event);
-        return toView(event);
+        return toView(event, 0);
     }
 
     @Override
@@ -93,7 +90,7 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
             VehicleEvent last = window.get(window.size() - 1);
             next = new TimelineCursor(last.date(), last.createdAt(), last.id()).encode();
         }
-        return new TimelinePage(window.stream().map(EventService::toView).toList(), next);
+        return new TimelinePage(toViews(window), next);
     }
 
     @Override
@@ -105,7 +102,7 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         Neighbours around = events.neighbours(edited.vin(), edited.date(), edited.createdAt(), edited.id());
         OdometerPolicy.check(around.previousKm(), edited.odometerKm(), around.nextKm());
         events.save(edited);
-        return toView(edited);
+        return toView(edited, attachments.countLive(edited.id()));
     }
 
     @Override
@@ -124,12 +121,15 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         OwnedPeriod owned = owners.assertActiveOwner(c.vin(), c.userId());
         UUID periodId = owned.periodId();
         VehicleEvent event = VehicleEvent.documented(owned.vin(), EventType.parse(c.type()), c.date(), c.odometerKm(),
-                c.total(), c.currency(), c.notes(), toDomain(c.details()), c.documentKey(), c.userId(), periodId,
-                clock);
+                c.total(), c.currency(), c.notes(), toDomain(c.details()), c.userId(), periodId, clock);
         events.lockTimeline(event.vin());
         Neighbours around = events.neighbours(event.vin(), event.date(), event.createdAt(), event.id());
         OdometerPolicy.check(around.previousKm(), event.odometerKm(), around.nextKm());
         events.save(event);
+        // The scanned file stays with the event as its protected source document. Scan sources are exempt from
+        // the duplicate rule (spec: scan submit does not deduplicate in v1).
+        attachments.save(new Attachment(UUID.randomUUID(), event.id(), event.vin(), c.sha256(), c.contentType(),
+                c.sizeBytes(), c.documentKey(), AttachmentKind.SCAN_SOURCE, c.userId(), event.createdAt(), null));
         return event.id();
     }
 
@@ -148,29 +148,8 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
     @Override
     @Transactional
     public List<EventView> history(String vin) {
-        return events.allActive(vin).stream()
-                .sorted(Comparator.comparing(VehicleEvent::date).thenComparing(e -> e.id().toString()))
-                .map(EventService::toView).toList();
-    }
-
-    /**
-     * Authorisation order: active owner (404), event exists (404), event has a document (404), event belongs to
-     * the active period (403 document-restricted). Later owners see that a document exists but cannot open it.
-     */
-    @Override
-    @Transactional
-    public EventDocument get(UUID userId, String vin, UUID eventId) {
-        OwnedPeriod owned = owners.assertActiveOwner(vin, userId);
-        UUID activePeriod = owned.periodId();
-        VehicleEvent event = events.findActive(owned.vin(), eventId)
-                .orElseThrow(() -> new EventNotFoundException("Event " + eventId + " not found"));
-        if (event.documentKey() == null) {
-            throw new EventNotFoundException("Event " + eventId + " has no document");
-        }
-        if (!activePeriod.equals(event.periodId())) {
-            throw new DocumentRestrictedException("The document is restricted to the owner who added it");
-        }
-        return documents.open(event.documentKey());
+        return toViews(events.allActive(vin).stream()
+                .sorted(Comparator.comparing(VehicleEvent::date).thenComparing(e -> e.id().toString())).toList());
     }
 
     /**
@@ -198,9 +177,16 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         return new EventDetails(d.serviceName(), parts, d.labor());
     }
 
-    private static EventView toView(VehicleEvent e) {
+    private List<EventView> toViews(List<VehicleEvent> list) {
+        Map<UUID, Integer> counts = attachments.countsFor(list.stream().map(VehicleEvent::id).toList());
+        return list.stream().map(e -> toView(e, counts.getOrDefault(e.id(), 0))).toList();
+    }
+
+    /** Attachments never change evidence; they only mark that a document is present. */
+    private static EventView toView(VehicleEvent e, int attachmentCount) {
         return new EventView(e.id(), e.type().name(), e.date(), e.odometerKm(), e.costAmount(), e.currency(),
-                e.notes(), toView(e.details()), e.evidence().name(), e.source().name(), e.documentKey() != null);
+                e.notes(), toView(e.details()), e.evidence().name(), e.source().name(), attachmentCount > 0,
+                attachmentCount);
     }
 
     private static DetailsView toView(EventDetails d) {

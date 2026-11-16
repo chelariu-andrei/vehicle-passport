@@ -26,6 +26,8 @@ import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
 import jakarta.inject.Inject;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -123,12 +125,16 @@ class ScanResourceIT {
     @Test
     @TestSecurity(user = "f1")
     @OidcSecurity(claims = @Claim(key = "sub", value = ME))
-    void post_11MB_413() {
+    void post_11MB_413() throws Exception {
         Fixture f = mine();
         byte[] big = new byte[11 * 1024 * 1024];
         System.arraycopy(PNG, 0, big, 0, PNG.length);
+        // Sent from a file: RestAssured's request log would otherwise render the 11 MB array as text (heap OOM).
+        Path file = Files.createTempFile("big", ".png");
+        Files.write(file, big);
+        file.toFile().deleteOnExit();
 
-        upload("file", "big.png", big, "image/png")
+        given().multiPart("file", file.toFile(), "image/png")
                 .when().post("/vehicles/" + f.vin() + "/scans")
                 .then().statusCode(413).body("code", equalTo("file-too-large"));
     }
@@ -215,13 +221,27 @@ class ScanResourceIT {
         Fixture f = mine();
         ScanJob job = support.extracted(f);
 
-        given().contentType(ContentType.JSON).body(CONFIRM_BODY)
+        String eventId = given().contentType(ContentType.JSON).body(CONFIRM_BODY)
                 .when().post("/scans/" + job.id() + "/confirm")
-                .then().statusCode(201).body("eventId", notNullValue());
+                .then().statusCode(201).body("eventId", notNullValue()).extract().path("eventId");
 
         assertEquals(ScanStatus.CONFIRMED, support.reload(job.id()).status());
         assertEquals(1, history.history(f.vin()).size());
         assertEquals("DOCUMENTED", history.history(f.vin()).get(0).evidence());
+        assertEquals(1, history.history(f.vin()).get(0).attachmentCount());
+
+        // The scanned file is the event's protected SCAN_SOURCE, carrying the hash and size recorded at submit.
+        String attachments = "/vehicles/" + f.vin() + "/events/" + eventId + "/attachments";
+        String sourceId = given().when().get(attachments)
+                .then().statusCode(200)
+                .body("$", hasSize(1))
+                .body("[0].kind", equalTo("SCAN_SOURCE"))
+                .body("[0].sha256", equalTo(job.sha256()))
+                .body("[0].sizeBytes", equalTo((int) job.sizeBytes()))
+                .body("[0].contentType", equalTo(job.contentType()))
+                .extract().path("[0].id");
+        given().when().delete(attachments + "/" + sourceId)
+                .then().statusCode(422).body("code", equalTo("attachment-protected"));
     }
 
     @Test

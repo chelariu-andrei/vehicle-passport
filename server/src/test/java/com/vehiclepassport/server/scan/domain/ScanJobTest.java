@@ -19,7 +19,7 @@ class ScanJobTest {
 
     private static ScanJob newJob() {
         return new ScanJob(UUID.randomUUID(), null, "WVWZZZ1JZXW000001", UUID.randomUUID(),
-                UUID.randomUUID(), "scans/doc.pdf", "application/pdf", T0);
+                UUID.randomUUID(), "scans/doc.pdf", "application/pdf", null, 0, T0);
     }
 
     private static ScanResult emptyResult() {
@@ -205,7 +205,7 @@ class ScanJobTest {
     @Test
     void restored_job_keeps_state_and_enforces_transitions() {
         ScanJob job = ScanJob.restore(UUID.randomUUID(), null, "WVWZZZ1JZXW000001", UUID.randomUUID(),
-                UUID.randomUUID(), "scans/doc.pdf", "application/pdf", ScanStatus.EXTRACTED, 1, null,
+                UUID.randomUUID(), "scans/doc.pdf", "application/pdf", null, 0, ScanStatus.EXTRACTED, 1, null,
                 emptyResult(), List.of(ScanWarning.DATE_IN_FUTURE), null, T0);
 
         assertEquals(ScanStatus.EXTRACTED, job.status());

@@ -70,6 +70,8 @@ class ScanPersistenceIT {
         assertEquals(result, loaded.result());
         assertEquals(f.period(), loaded.periodId());
         assertEquals(job.documentKey(), loaded.documentKey());
+        assertEquals(job.sha256(), loaded.sha256());
+        assertEquals(job.sizeBytes(), loaded.sizeBytes());
     }
 
     @Test

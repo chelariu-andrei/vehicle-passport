@@ -5,6 +5,7 @@ import com.vehiclepassport.server.event.application.port.in.AttachmentUpload;
 import com.vehiclepassport.server.event.application.port.in.AttachmentView;
 import com.vehiclepassport.server.event.application.port.in.DeleteAttachmentUseCase;
 import com.vehiclepassport.server.event.application.port.in.EventDocument;
+import com.vehiclepassport.server.event.application.port.in.GetEventDocumentUseCase;
 import com.vehiclepassport.server.event.application.port.in.ListAttachmentsUseCase;
 import com.vehiclepassport.server.event.application.port.in.OpenAttachmentUseCase;
 import com.vehiclepassport.server.event.application.port.out.ActiveOwnerPort;
@@ -49,7 +50,7 @@ import org.jboss.logging.Logger;
  */
 @ApplicationScoped
 public class AttachmentService implements AddAttachmentUseCase, ListAttachmentsUseCase, OpenAttachmentUseCase,
-        DeleteAttachmentUseCase {
+        DeleteAttachmentUseCase, GetEventDocumentUseCase {
 
     public static final int MAX_PER_EVENT = 10;
 
@@ -124,7 +125,7 @@ public class AttachmentService implements AddAttachmentUseCase, ListAttachmentsU
         if (!owned.periodId().equals(event.periodId())) {
             throw new DocumentRestrictedException("The documents are restricted to the owner who added them");
         }
-        return attachments.liveFor(eventId).stream().map(AttachmentService::toView).toList();
+        return attachments.liveFor(eventId).stream().map(this::withRealType).map(AttachmentService::toView).toList();
     }
 
     /**
@@ -141,6 +142,28 @@ public class AttachmentService implements AddAttachmentUseCase, ListAttachmentsU
         if (!owned.periodId().equals(event.periodId())) {
             throw new DocumentRestrictedException("The document is restricted to the owner who added it");
         }
+        return read(attachment);
+    }
+
+    /**
+     * The deprecated event document: the event's first live attachment (oldest first). Order: active owner (404)
+     * → event exists (404) → event has an attachment (404 event-not-found) → active period (403
+     * document-restricted). Later owners see that a document exists but cannot open it.
+     */
+    @Override
+    @Transactional
+    public EventDocument get(UUID userId, String vin, UUID eventId) {
+        OwnedPeriod owned = owners.assertActiveOwner(vin, userId);
+        VehicleEvent event = findEvent(owned, eventId);
+        Attachment first = attachments.liveFor(eventId).stream().findFirst()
+                .orElseThrow(() -> new EventNotFoundException("Event " + eventId + " has no document"));
+        if (!owned.periodId().equals(event.periodId())) {
+            throw new DocumentRestrictedException("The document is restricted to the owner who added it");
+        }
+        return read(first);
+    }
+
+    private EventDocument read(Attachment attachment) {
         EventDocument doc = storage.open(attachment.storageKey());
         if (isSpecific(attachment.contentType())) {
             return new EventDocument(doc.content(), attachment.contentType());
@@ -149,6 +172,29 @@ public class AttachmentService implements AddAttachmentUseCase, ListAttachmentsU
             return doc;
         }
         return sniffed(doc.content());
+    }
+
+    /**
+     * Legacy scan sources were backfilled as application/octet-stream; their real type is read from storage (the
+     * object's type or its magic bytes) so the API never reports octet-stream. If the object cannot be read the
+     * row is listed as it is stored.
+     */
+    private Attachment withRealType(Attachment a) {
+        if (isSpecific(a.contentType())) {
+            return a;
+        }
+        String type;
+        try {
+            EventDocument doc = read(a);
+            try (InputStream ignored = doc.content()) {
+                type = doc.contentType();
+            }
+        } catch (IOException | RuntimeException e) {
+            LOG.warnf(e, "Could not determine the content type of attachment %s", a.id());
+            return a;
+        }
+        return new Attachment(a.id(), a.eventId(), a.vin(), a.sha256(), type, a.sizeBytes(), a.storageKey(),
+                a.kind(), a.createdBy(), a.createdAt(), a.deletedAt());
     }
 
     @Override

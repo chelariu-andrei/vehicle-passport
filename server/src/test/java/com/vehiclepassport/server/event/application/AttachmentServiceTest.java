@@ -335,8 +335,8 @@ class AttachmentServiceTest {
     void eventDeleteSoftDeletesItsAttachmentsAndFreesHashes() {
         VehicleEvent event = events.add(manual(VIN, period));
         AttachmentView view = service.add(user, VIN, event.id(), pdf(PDF));
-        EventService eventService = new EventService(events, (vin, u) -> activeOwner.get(vin + u), storage,
-                attachments, CLOCK);
+        EventService eventService = new EventService(events, (vin, u) -> activeOwner.get(vin + u), attachments,
+                CLOCK);
 
         eventService.delete(user, VIN, event.id());
 
@@ -387,7 +387,7 @@ class AttachmentServiceTest {
     }
 
     /** Enforces the (vin, sha256) uniqueness of live uploads, like the repository and its index do. */
-    private static final class FakeAttachments implements AttachmentRepositoryPort {
+    static final class FakeAttachments implements AttachmentRepositoryPort {
         final Map<UUID, Attachment> rows = new LinkedHashMap<>();
         RuntimeException failNextSave;
 

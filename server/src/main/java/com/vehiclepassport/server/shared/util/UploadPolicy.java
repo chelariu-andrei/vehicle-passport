@@ -4,6 +4,7 @@ import com.vehiclepassport.server.shared.error.BatchTooLargeException;
 import com.vehiclepassport.server.shared.error.FileTooLargeException;
 import com.vehiclepassport.server.shared.error.UnsupportedFileException;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -43,6 +44,16 @@ public final class UploadPolicy {
     public static Optional<String> sniff(byte[] head) {
         return SIGNATURES.entrySet().stream().filter(e -> startsWith(head, e.getValue()))
                 .map(Map.Entry::getKey).findFirst();
+    }
+
+    /** A declared multipart content type without parameters, lower-cased; null stays null. */
+    public static String bareType(String contentType) {
+        if (contentType == null) {
+            return null;
+        }
+        int semicolon = contentType.indexOf(';');
+        String bare = semicolon < 0 ? contentType : contentType.substring(0, semicolon);
+        return bare.trim().toLowerCase(Locale.ROOT);
     }
 
     public static void checkBatchSize(int n) {

@@ -296,7 +296,7 @@ public class ScanSteps {
         ScanJobView view = world.get(JOB_KEY);
         ScanJob job = jobs.findById(view.id()).orElseThrow();
         jobs.save(ScanJob.restore(job.id(), job.batchId(), job.vin(), job.ownerId(), job.periodId(),
-            job.documentKey(), job.contentType(), ScanStatus.PROCESSING, attempts, clock.instant(), null,
+            job.documentKey(), job.contentType(), job.sha256(), job.sizeBytes(), ScanStatus.PROCESSING, attempts, clock.instant(), null,
             List.of(), null, job.createdAt()));
         clock.advance(config.processingTimeout().plus(Duration.ofMinutes(1)));
     }

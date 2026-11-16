@@ -29,8 +29,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,6 +42,7 @@ public class ScanService implements SubmitScanUseCase, SubmitScanBatchUseCase, G
         ConfirmScanUseCase, RejectScanUseCase {
 
     private static final int HEAD_BYTES = 8;
+    private static final int BUFFER_BYTES = 8192;
     private static final String DEFAULT_TYPE = "SERVICE";
     private static final String DEFAULT_CURRENCY = "RON";
 
@@ -104,7 +108,7 @@ public class ScanService implements SubmitScanUseCase, SubmitScanBatchUseCase, G
         UUID eventId = events.saveDocumented(new ConfirmedEvent(c.userId(), job.vin(),
                 c.eventType() == null ? DEFAULT_TYPE : c.eventType(), c.date(), c.odometerKm(), c.total(),
                 c.currency() == null ? DEFAULT_CURRENCY : c.currency(), c.notes(), c.serviceName(), c.parts(),
-                c.labor(), job.documentKey()));
+                c.labor(), job.documentKey(), job.contentType(), job.sha256(), job.sizeBytes()));
         job.confirm();
         jobs.save(job);
         return eventId;
@@ -147,11 +151,14 @@ public class ScanService implements SubmitScanUseCase, SubmitScanBatchUseCase, G
         return job;
     }
 
+    /** Records the SHA-256 and size of the stored bytes; duplicates are not rejected at submit (spec §9). */
     private ScanJob store(UUID batchId, String vin, UUID userId, UUID periodId, UploadedFile file) {
         UUID jobId = UUID.randomUUID();
         String key = "scans/" + vin + "/" + jobId;
+        Hashed hashed = hash(file);
         storage.put(key, file.path(), file.contentType());
-        ScanJob job = new ScanJob(jobId, batchId, vin, userId, periodId, key, file.contentType(), clock.instant());
+        ScanJob job = new ScanJob(jobId, batchId, vin, userId, periodId, key, file.contentType(), hashed.sha256(),
+                hashed.size(), clock.instant());
         jobs.save(job);
         return job;
     }
@@ -166,6 +173,30 @@ public class ScanService implements SubmitScanUseCase, SubmitScanBatchUseCase, G
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private static Hashed hash(UploadedFile file) {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
+        long size = 0;
+        try (InputStream in = Files.newInputStream(file.path())) {
+            byte[] buffer = new byte[BUFFER_BYTES];
+            int n;
+            while ((n = in.read(buffer)) != -1) {
+                digest.update(buffer, 0, n);
+                size += n;
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return new Hashed(HexFormat.of().formatHex(digest.digest()), size);
+    }
+
+    private record Hashed(String sha256, long size) {
     }
 
     private static ScanJobView toView(ScanJob job) {
