@@ -3,6 +3,7 @@ import { documentsStatus, findOperation, responseSchema, schemaErrors, validator
 import type { Operation } from './contract';
 import { handlers, problem } from './handlers';
 import { initialAccount } from './account';
+import { publicHandlers } from './legal';
 import type { Ctx, FakeState, Reply, UploadForm } from './handlers';
 
 export * from './builders';
@@ -89,7 +90,7 @@ export function installFakeApi(): FakeApi {
       return toResponse(problem(404, 'not-found'));
     }
     const { op, params } = route;
-    const handler = handlers[op.operationId];
+    const handler = handlers[op.operationId] ?? publicHandlers[op.operationId];
     if (!handler) {
       violate(`${op.operationId}: the fake has no handler`);
       return toResponse(problem(404, 'not-found'));

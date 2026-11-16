@@ -8,4 +8,6 @@ export const qk = {
   passports: ['passports'] as const,
   activeCar: (userId: string) => ['activeCar', userId] as const,
   journeyDraft: (userId: string) => ['journeyDraft', userId] as const,
+  legalDocuments: (locale: string) => ['legalDocuments', locale] as const,
+  legalDocument: (type: string, locale: string) => ['legalDocument', type, locale] as const,
 };

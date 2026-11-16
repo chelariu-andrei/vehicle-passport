@@ -64,6 +64,10 @@ export const en = {
     signOut: 'Sign out',
     version: 'Version',
   },
+  legal: {
+    title: 'Legal',
+    versionLine: (version: string, date: string) => `Version ${version} · effective ${date}`,
+  },
   errors: {
     generic: 'Something went wrong. Try again.',
     network: "You're offline. Try again when you're connected.",
