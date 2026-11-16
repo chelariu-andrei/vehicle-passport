@@ -1004,11 +1004,22 @@ export interface components {
             settings: components["schemas"]["SettingsDto"];
             consents: components["schemas"]["ConsentEvent"][];
             vehicles: components["schemas"]["VehicleResponse"][];
-            /** @description Events of every car in the caller's garage; `vin` says which car. */
+            /** @description Every event the caller recorded, also on cars sold since (never those of the car's other owners); `vin` says which car. */
             events: (components["schemas"]["EventResponse"] & {
                 vin: components["schemas"]["Vin"];
             })[];
             passports: components["schemas"]["PassportResponse"][];
+            /** @description Support reports the caller sent, oldest first. */
+            supportReports: components["schemas"]["SupportReportExport"][];
+        };
+        SupportReportExport: {
+            /** @enum {string} */
+            kind: "problem" | "question";
+            message: string;
+            /** @description Present when the caller chose to send diagnostics. */
+            diagnostics: components["schemas"]["SupportDiagnostics"] | null;
+            /** Format: date-time */
+            createdAt: string;
         };
         SupportDiagnostics: {
             appVersion: string;

@@ -80,6 +80,6 @@ public class FakeOwnershipRepository implements OwnershipRepositoryPort, Resetta
 
     /** Not exercised through fakes: the purge runs against real persistence in AccountPurgeIT. */
     @Override
-    public void detachOwner(UUID ownerId, UUID tombstone, java.time.Instant at) {
+    public void detachOwner(UUID ownerId, UUID tombstone) {
     }
 }

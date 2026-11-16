@@ -45,7 +45,9 @@ public class AccountDeletionService implements ScheduleDeletionUseCase, CancelDe
     @Override
     @Transactional
     public void cancel(UUID userId) {
-        Profile profile = profiles.findById(userId).orElse(null);
+        // Same row lock as the purge: a cancel either lands before the purge re-checks the schedule, or after the
+        // account is gone.
+        Profile profile = profiles.findByIdForUpdate(userId).orElse(null);
         if (profile == null || !profile.deletionScheduled()) {
             throw new DeletionNotScheduledException("No deletion is scheduled");
         }

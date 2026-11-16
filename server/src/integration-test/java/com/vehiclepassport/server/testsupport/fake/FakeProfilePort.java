@@ -27,6 +27,11 @@ public class FakeProfilePort implements ProfilePort, Resettable {
     }
 
     @Override
+    public synchronized Optional<Profile> findByIdForUpdate(UUID id) {
+        return findById(id);
+    }
+
+    @Override
     public synchronized void save(Profile profile) {
         store.put(profile.id(), profile);
     }

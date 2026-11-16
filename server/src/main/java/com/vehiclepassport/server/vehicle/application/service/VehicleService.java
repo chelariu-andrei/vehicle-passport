@@ -87,7 +87,16 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
     @Override
     @Transactional
     public void detach(UUID ownerId, UUID tombstone) {
-        ownerships.detachOwner(ownerId, tombstone, clock.instant());
+        // Each car the leaving owner still holds is released exactly like a sale: plate off, pending claims on it
+        // rejected, period closed. Only then are the remaining records pointed at the tombstone.
+        Instant now = clock.instant();
+        for (OwnershipPeriod open : ownerships.findOpenByOwner(ownerId)) {
+            ownerships.lockVin(open.vin());
+            ownerships.findOpen(open.vin())
+                    .filter(p -> p.ownerId().equals(ownerId))
+                    .ifPresent(p -> releasePeriod(p, now));
+        }
+        ownerships.detachOwner(ownerId, tombstone);
     }
 
     @Override
@@ -122,11 +131,14 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
     public void release(String vin, UUID userId) {
         Vin parsed = Vin.of(vin);
         ownerships.lockVin(parsed);
-        OwnershipPeriod period = requireOwner(parsed, userId);
-        Instant now = clock.instant();
+        releasePeriod(requireOwner(parsed, userId), clock.instant());
+    }
+
+    /** Caller holds the VIN lock. */
+    private void releasePeriod(OwnershipPeriod period, Instant now) {
         ownerships.save(period.close(now));
-        ownerships.findPendingClaims(parsed).forEach(claim -> ownerships.save(claim.reject(now)));
-        vehicles.findByVin(parsed).ifPresent(v -> vehicles.save(v.withoutPlate()));
+        ownerships.findPendingClaims(period.vin()).forEach(claim -> ownerships.save(claim.reject(now)));
+        vehicles.findByVin(period.vin()).ifPresent(v -> vehicles.save(v.withoutPlate()));
     }
 
     @Override

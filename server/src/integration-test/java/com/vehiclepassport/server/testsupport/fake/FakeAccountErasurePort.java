@@ -18,6 +18,11 @@ public class FakeAccountErasurePort implements AccountErasurePort {
     }
 
     @Override
+    public boolean lockIfDue(UUID userId, Instant now) {
+        return false;
+    }
+
+    @Override
     public void anonymiseConsents(UUID userId, String subjectHash) {
     }
 

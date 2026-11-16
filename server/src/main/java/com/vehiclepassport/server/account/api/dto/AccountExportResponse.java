@@ -11,5 +11,6 @@ public record AccountExportResponse(
         List<ConsentEventDto> consents,
         List<Map<String, Object>> vehicles,
         List<Map<String, Object>> events,
-        List<Map<String, Object>> passports) {
+        List<Map<String, Object>> passports,
+        List<SupportReportExportDto> supportReports) {
 }

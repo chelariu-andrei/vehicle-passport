@@ -421,6 +421,8 @@ class AttachmentServiceTest {
 
         public long countActiveByCreator(UUID userId) { return 0; }
 
+        public List<VehicleEvent> activeByCreator(UUID userId) { return List.of(); }
+
         public void detachCreator(UUID userId, UUID tombstone) { }
 
         public Optional<VehicleEvent> findActive(String vin, UUID id) {

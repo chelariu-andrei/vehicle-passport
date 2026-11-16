@@ -29,9 +29,15 @@ class SupportServiceTest {
     private final List<SupportReport> saved = new ArrayList<>();
     private final List<UUID> owners = new ArrayList<>();
 
-    private final SupportReportPort port = (id, userId, report, createdAt) -> {
-        saved.add(report);
-        owners.add(userId);
+    private final SupportReportPort port = new SupportReportPort() {
+        public void save(UUID id, UUID userId, SupportReport report, Instant createdAt) {
+            saved.add(report);
+            owners.add(userId);
+        }
+
+        public List<com.vehiclepassport.server.account.domain.model.SubmittedSupportReport> findByUser(UUID userId) {
+            return List.of();
+        }
     };
 
     private final Clock clock = new Clock() {

@@ -8,6 +8,7 @@ import com.vehiclepassport.server.account.infrastructure.persistence.entity.Prof
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -38,6 +39,12 @@ public class ProfileRepository implements ProfilePort {
     @Override
     public Optional<Profile> findById(UUID id) {
         return Optional.ofNullable(em.find(ProfileEntity.class, id)).map(ProfileRepository::toDomain);
+    }
+
+    @Override
+    public Optional<Profile> findByIdForUpdate(UUID id) {
+        return Optional.ofNullable(em.find(ProfileEntity.class, id, LockModeType.PESSIMISTIC_WRITE))
+                .map(ProfileRepository::toDomain);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.vehiclepassport.server.account.application.service;
 
 import com.vehiclepassport.server.account.application.port.out.AccountErasurePort;
+import com.vehiclepassport.server.account.application.port.out.ErasedAccountPort;
 import com.vehiclepassport.server.account.application.port.out.IdentityAdminPort;
 import com.vehiclepassport.server.account.application.port.out.OwnerDataEraserPort;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -9,7 +10,9 @@ import jakarta.transaction.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -26,23 +29,41 @@ public class SingleAccountPurgeService {
     private final OwnerDataEraserPort ownerData;
     private final AccountErasurePort erasure;
     private final IdentityAdminPort identity;
+    private final ErasedAccountPort erased;
 
     @Inject
-    public SingleAccountPurgeService(OwnerDataEraserPort ownerData, AccountErasurePort erasure, IdentityAdminPort identity) {
+    public SingleAccountPurgeService(OwnerDataEraserPort ownerData, AccountErasurePort erasure,
+            IdentityAdminPort identity, ErasedAccountPort erased) {
         this.ownerData = ownerData;
         this.erasure = erasure;
         this.identity = identity;
+        this.erased = erased;
     }
 
+    /** A short read of its own, so no transaction stays open while the accounts are purged one by one. */
+    @Transactional
+    public List<UUID> dueAccounts(Instant now) {
+        return erasure.findDue(now);
+    }
+
+    /**
+     * Re-checks the schedule under a row lock first: the due list may be stale, and a deletion cancelled since then
+     * is left alone. Returns whether the account was purged.
+     */
     @Transactional(Transactional.TxType.REQUIRES_NEW)
-    public void purge(UUID userId) {
+    public boolean purge(UUID userId, Instant now) {
+        if (!erasure.lockIfDue(userId, now)) {
+            return false;
+        }
         ownerData.revokePassports(userId);
         ownerData.detachOwnedData(userId, TOMBSTONE);
         erasure.anonymiseConsents(userId, sha256(userId));
         erasure.detachSupportReports(userId);
         erasure.deleteSettings(userId);
         identity.deleteUser(userId);
+        erased.markErased(userId, now);
         erasure.deleteProfile(userId);
+        return true;
     }
 
     static String sha256(UUID userId) {

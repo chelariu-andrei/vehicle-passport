@@ -11,5 +11,8 @@ public interface ProfilePort {
 
     Optional<Profile> findById(UUID id);
 
+    /** Like {@link #findById} but holds the row lock until the transaction ends (the purge takes the same lock). */
+    Optional<Profile> findByIdForUpdate(UUID id);
+
     void save(Profile profile);
 }

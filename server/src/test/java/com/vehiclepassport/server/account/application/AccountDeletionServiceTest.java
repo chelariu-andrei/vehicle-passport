@@ -38,6 +38,8 @@ class AccountDeletionServiceTest {
 
         public Optional<Profile> findById(UUID id) { return Optional.ofNullable(rows.get(id)); }
 
+        public Optional<Profile> findByIdForUpdate(UUID id) { return findById(id); }
+
         public void save(Profile p) { rows.put(p.id(), p); }
     };
 

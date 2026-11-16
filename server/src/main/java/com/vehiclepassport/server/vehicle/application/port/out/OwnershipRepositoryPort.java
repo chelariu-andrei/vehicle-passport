@@ -30,8 +30,8 @@ public interface OwnershipRepositoryPort {
     void save(OwnershipClaim claim);
 
     /**
-     * Closes the owner's open periods at {@code at}, points every period and claim they hold at {@code tombstone}
-     * and drops their pending claims. Safe to repeat.
+     * Points every period and claim the owner holds at {@code tombstone} and drops their own pending claims. Open
+     * periods are closed by the caller first, through the normal release path. Safe to repeat.
      */
-    void detachOwner(UUID ownerId, UUID tombstone, java.time.Instant at);
+    void detachOwner(UUID ownerId, UUID tombstone);
 }

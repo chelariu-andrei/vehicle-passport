@@ -4,8 +4,7 @@ import com.vehiclepassport.server.account.application.port.out.OwnerDataExportPo
 import com.vehiclepassport.server.account.domain.model.OwnedData;
 import com.vehiclepassport.server.event.application.port.in.DetailsView;
 import com.vehiclepassport.server.event.application.port.in.EventView;
-import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
-import com.vehiclepassport.server.event.application.port.in.TimelinePage;
+import com.vehiclepassport.server.event.application.port.in.ListEventsByCreatorUseCase;
 import com.vehiclepassport.server.passport.application.port.in.ListMyPassportsUseCase;
 import com.vehiclepassport.server.passport.application.port.in.PassportView;
 import com.vehiclepassport.server.vehicle.application.port.in.AppearanceView;
@@ -13,42 +12,31 @@ import com.vehiclepassport.server.vehicle.application.port.in.ListMyVehiclesUseC
 import com.vehiclepassport.server.vehicle.application.port.in.VehicleView;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * Collects an owner's vehicles, their timelines and passports through the other features' public use cases only,
- * shaped like the contract's VehicleResponse, EventResponse and PassportResponse.
+ * Collects an owner's vehicles, the events they recorded and their passports through the other features' public
+ * use cases only, shaped like the contract's VehicleResponse, EventResponse and PassportResponse.
  */
 @ApplicationScoped
 public class OwnerDataExportAdapter implements OwnerDataExportPort {
 
-    private static final int PAGE = 100;
-
     @Inject
     ListMyVehiclesUseCase vehicles;
     @Inject
-    GetTimelineUseCase timeline;
+    ListEventsByCreatorUseCase recorded;
     @Inject
     ListMyPassportsUseCase passports;
 
     @Override
     public OwnedData exportFor(UUID ownerId) {
         List<VehicleView> owned = vehicles.list(ownerId);
-        List<Map<String, Object>> events = new ArrayList<>();
-        for (VehicleView v : owned) {
-            String cursor = null;
-            do {
-                TimelinePage page = timeline.get(ownerId, v.vin(), cursor, PAGE);
-                for (EventView e : page.items()) {
-                    events.add(event(v.vin(), e));
-                }
-                cursor = page.nextCursor();
-            } while (cursor != null);
-        }
+        // The events the user recorded, also on cars sold since; never those of the car's other owners.
+        List<Map<String, Object>> events = recorded.listByCreator(ownerId).stream()
+                .map(c -> event(c.vin(), c.event())).toList();
         return new OwnedData(owned.stream().map(OwnerDataExportAdapter::vehicle).toList(), events,
                 passports.list(ownerId).stream().map(OwnerDataExportAdapter::passport).toList());
     }

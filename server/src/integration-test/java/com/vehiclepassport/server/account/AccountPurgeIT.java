@@ -1,11 +1,18 @@
 package com.vehiclepassport.server.account;
 
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.vehiclepassport.server.account.application.port.in.CancelDeletionUseCase;
 import com.vehiclepassport.server.account.application.port.in.ConsentAcceptance;
+import com.vehiclepassport.server.account.application.service.SingleAccountPurgeService;
+import io.quarkus.test.security.TestSecurity;
+import io.quarkus.test.security.oidc.Claim;
+import io.quarkus.test.security.oidc.OidcSecurity;
 import com.vehiclepassport.server.account.application.port.in.ConsentChange;
 import com.vehiclepassport.server.account.application.port.in.GetMeUseCase;
 import com.vehiclepassport.server.account.application.port.in.PurgeAccountsUseCase;
@@ -47,10 +54,16 @@ class AccountPurgeIT {
     static final UUID LEAVER = UUID.fromString("00000000-0000-0000-0000-00000000a001");
     static final UUID WAITER = UUID.fromString("00000000-0000-0000-0000-00000000a002");
     static final UUID RETRIER = UUID.fromString("00000000-0000-0000-0000-00000000a003");
+    static final UUID CANCELLER = UUID.fromString("00000000-0000-0000-0000-00000000a006");
+    static final String GHOST_SUB = "00000000-0000-0000-0000-00000000a007";
     static final UUID TOMBSTONE = new UUID(0L, 0L);
 
     @Inject
     EntityManager em;
+    @Inject
+    CancelDeletionUseCase cancelling;
+    @Inject
+    SingleAccountPurgeService step;
     @Inject
     GetMeUseCase me;
     @Inject
@@ -172,6 +185,64 @@ class AccountPurgeIT {
         purge.purgeDue(when.minusSeconds(1));
         assertEquals(1, count("select count(*) from vehicle_passport.user_profile where id = ?1", WAITER));
         assertFalse(identity.deleted().contains(WAITER));
+    }
+
+    @Test
+    void aCancelledDeletionIsNotPurgedFromAStaleDueList() {
+        me.get(CANCELLER, "canceller@example.com", true);
+        scheduling.schedule(CANCELLER);
+        // The job's due list was read while the deletion was still scheduled; the user cancels before their turn.
+        cancelling.cancel(CANCELLER);
+
+        assertFalse(step.purge(CANCELLER, Instant.now().plus(java.time.Duration.ofDays(400))));
+
+        assertEquals(1, count("select count(*) from vehicle_passport.user_profile where id = ?1", CANCELLER));
+        assertFalse(identity.deleted().contains(CANCELLER));
+    }
+
+    @Test
+    @TestSecurity(user = "a007")
+    @OidcSecurity(claims = {@Claim(key = "sub", value = GHOST_SUB), @Claim(key = "email", value = "ghost@example.com")})
+    void anErasedSubjectIsRefusedAndNoProfileIsRecreated() {
+        UUID ghost = UUID.fromString(GHOST_SUB);
+        me.get(ghost, "ghost@example.com", true);
+        Instant when = scheduling.schedule(ghost);
+        assertTrue(purge.purgeDue(when.plusSeconds(1)) >= 1);
+
+        // The access token outlives the account by up to an hour.
+        given().when().get("/me").then().statusCode(401).body(equalTo(""));
+        given().contentType("application/json").body("{\"displayName\":\"Back again\"}")
+                .when().patch("/me").then().statusCode(401);
+        given().when().post("/me/deletion").then().statusCode(401);
+
+        assertEquals(0, count("select count(*) from vehicle_passport.user_profile where id = ?1", ghost));
+    }
+
+    @Test
+    void purgeReleasesTheCarLikeASaleWouldPlateRemovedAndPendingClaimsRejected() {
+        String vin = randomVin();
+        UUID leaver = UUID.fromString("00000000-0000-0000-0000-00000000a008");
+        UUID claimant = UUID.fromString("00000000-0000-0000-0000-00000000a009");
+        registering.register(new RegisterVehicleCommand(leaver, vin, "Dacia", "Logan", null, 2019, "PETROL"));
+        QuarkusTransaction.requiringNew().run(() -> em.createNativeQuery(
+                "update vehicle_passport.vehicle set plate = 'B123ABC' where vin = ?1")
+                .setParameter(1, vin).executeUpdate());
+        var filed = registering.register(new RegisterVehicleCommand(claimant, vin, "Dacia", "Logan", null, 2019,
+                "PETROL"));
+        assertTrue(filed instanceof RegisterVehicleUseCase.ClaimFiled);
+        UUID claimId = ((RegisterVehicleUseCase.ClaimFiled) filed).claimId();
+
+        Instant when = scheduling.schedule(leaver);
+        assertTrue(purge.purgeDue(when.plusSeconds(1)) >= 1);
+
+        assertEquals(1, count("select count(*) from vehicle_passport.vehicle where vin = ?1 and plate is null", vin));
+        assertEquals("REJECTED", single("select status from vehicle_passport.ownership_claim where id = ?1", claimId));
+        assertEquals(1, count("select count(*) from vehicle_passport.ownership_claim "
+                + "where id = ?1 and decided_at is not null", claimId));
+        var registered = registering.register(new RegisterVehicleCommand(claimant, vin, "Dacia", "Logan", null, 2019,
+                "PETROL"));
+        assertTrue(registered instanceof RegisterVehicleUseCase.Registered);
+        assertEquals(null, ((RegisterVehicleUseCase.Registered) registered).vehicle().plate());
     }
 
     @Test

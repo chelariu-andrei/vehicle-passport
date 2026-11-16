@@ -127,6 +127,14 @@ public class EventPanacheRepository implements EventRepositoryPort {
                 .setParameter("user", userId).getSingleResult();
     }
 
+    @Override
+    public List<VehicleEvent> activeByCreator(UUID userId) {
+        return em.createQuery("from VehicleEventEntity e where e.createdBy = :user and e.deletedAt is null "
+                        + "order by e.vin, e.eventDate, e.createdAt, e.id", VehicleEventEntity.class)
+                .setParameter("user", userId)
+                .getResultList().stream().map(EventPanacheRepository::toDomain).toList();
+    }
+
     private static Integer firstKm(TypedQuery<VehicleEventEntity> query) {
         return query.setMaxResults(1).getResultStream().findFirst().map(e -> e.odometerKm).orElse(null);
     }

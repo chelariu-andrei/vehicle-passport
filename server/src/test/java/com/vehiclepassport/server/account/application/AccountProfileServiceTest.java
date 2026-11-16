@@ -47,6 +47,11 @@ class AccountProfileServiceTest {
         }
 
         @Override
+        public Optional<Profile> findByIdForUpdate(UUID id) {
+            return findById(id);
+        }
+
+        @Override
         public void save(Profile profile) {
             rows.put(profile.id(), profile);
         }

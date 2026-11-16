@@ -1,38 +1,37 @@
 package com.vehiclepassport.server.account.application.service;
 
 import com.vehiclepassport.server.account.application.port.in.PurgeAccountsUseCase;
-import com.vehiclepassport.server.account.application.port.out.AccountErasurePort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
-/** Finds the accounts whose grace period has ended and purges each in its own transaction. */
+/**
+ * Finds the accounts whose grace period has ended and purges each in its own transaction. Deliberately not
+ * transactional itself: an outer transaction would sit idle on a connection across every account's HTTP calls.
+ */
 @ApplicationScoped
 public class AccountPurgeService implements PurgeAccountsUseCase {
 
     private static final Logger LOG = Logger.getLogger(AccountPurgeService.class);
 
-    private final AccountErasurePort erasure;
     private final SingleAccountPurgeService step;
 
     @Inject
-    public AccountPurgeService(AccountErasurePort erasure, SingleAccountPurgeService step) {
-        this.erasure = erasure;
+    public AccountPurgeService(SingleAccountPurgeService step) {
         this.step = step;
     }
 
     @Override
-    @Transactional
     public int purgeDue(Instant now) {
         int done = 0;
         int failed = 0;
-        for (UUID userId : erasure.findDue(now)) {
+        for (UUID userId : step.dueAccounts(now)) {
             try {
-                step.purge(userId);
-                done++;
+                if (step.purge(userId, now)) {
+                    done++;
+                }
             } catch (RuntimeException e) {
                 failed++;
                 // Counts and exception type only: ids, emails and cause messages can be personal data.

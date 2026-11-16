@@ -28,6 +28,9 @@ public interface EventRepositoryPort {
     /** Non-deleted events recorded by the given user. */
     long countActiveByCreator(UUID userId);
 
+    /** Non-deleted events recorded by the given user, ordered by vin then the timeline order. */
+    List<VehicleEvent> activeByCreator(UUID userId);
+
     /** Points every event recorded by the user at {@code tombstone}. Safe to repeat. */
     void detachCreator(UUID userId, UUID tombstone);
 }

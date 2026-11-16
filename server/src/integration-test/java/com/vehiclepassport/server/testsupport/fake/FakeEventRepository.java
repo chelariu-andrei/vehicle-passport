@@ -77,6 +77,12 @@ public class FakeEventRepository implements EventRepositoryPort, Resettable {
     }
 
     @Override
+    public List<VehicleEvent> activeByCreator(UUID userId) {
+        return store.stream().filter(e -> e.deletedAt() == null && e.createdBy().equals(userId))
+            .sorted(Comparator.comparing(VehicleEvent::vin).thenComparing(ORDER)).toList();
+    }
+
+    @Override
     public void reset() {
         store.clear();
     }

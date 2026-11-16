@@ -27,6 +27,32 @@ public class AccountErasureRepository implements AccountErasurePort {
     }
 
     @Override
+    public boolean lockIfDue(UUID userId, Instant now) {
+        List<?> rows = em.createNativeQuery("select deletion_scheduled_for from vehicle_passport.user_profile "
+                        + "where id = :user for update")
+                .setParameter("user", userId)
+                .getResultList();
+        if (rows.isEmpty() || rows.get(0) == null) {
+            return false;
+        }
+        Instant scheduled = toInstant(rows.get(0));
+        return !scheduled.isAfter(now.truncatedTo(ChronoUnit.MICROS));
+    }
+
+    private static Instant toInstant(Object value) {
+        if (value instanceof Instant i) {
+            return i;
+        }
+        if (value instanceof java.time.OffsetDateTime o) {
+            return o.toInstant();
+        }
+        if (value instanceof java.sql.Timestamp t) {
+            return t.toInstant();
+        }
+        throw new IllegalStateException("Unexpected timestamp type " + value.getClass().getName());
+    }
+
+    @Override
     public void anonymiseConsents(UUID userId, String subjectHash) {
         em.createNativeQuery("update vehicle_passport.consent_record set user_id = null, subject_hash = :hash "
                         + "where user_id = :user")

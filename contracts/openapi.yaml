@@ -1569,7 +1569,7 @@ components:
     AccountExport:
       type: object
       description: Everything stored about the caller, delivered as an attachment download (Content-Disposition attachment).
-      required: [exportedAt, profile, settings, consents, vehicles, events, passports]
+      required: [exportedAt, profile, settings, consents, vehicles, events, passports, supportReports]
       properties:
         exportedAt: { type: string, format: date-time }
         profile: { $ref: '#/components/schemas/MeResponse' }
@@ -1582,7 +1582,7 @@ components:
           items: { $ref: '#/components/schemas/VehicleResponse' }
         events:
           type: array
-          description: Events of every car in the caller's garage; `vin` says which car.
+          description: Every event the caller recorded, also on cars sold since (never those of the car's other owners); `vin` says which car.
           items:
             allOf:
               - $ref: '#/components/schemas/EventResponse'
@@ -1593,6 +1593,21 @@ components:
         passports:
           type: array
           items: { $ref: '#/components/schemas/PassportResponse' }
+        supportReports:
+          type: array
+          description: Support reports the caller sent, oldest first.
+          items: { $ref: '#/components/schemas/SupportReportExport' }
+
+    SupportReportExport:
+      type: object
+      required: [kind, message, diagnostics, createdAt]
+      properties:
+        kind: { type: string, enum: [problem, question] }
+        message: { type: string }
+        diagnostics:
+          description: Present when the caller chose to send diagnostics.
+          oneOf: [{ $ref: '#/components/schemas/SupportDiagnostics' }, { type: 'null' }]
+        createdAt: { type: string, format: date-time }
 
     SupportDiagnostics:
       type: object

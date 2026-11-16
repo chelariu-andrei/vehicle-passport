@@ -6,6 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.vehiclepassport.server.account.application.port.in.AccountExport;
 import com.vehiclepassport.server.account.application.port.in.Me;
 import com.vehiclepassport.server.account.application.port.out.OwnerDataExportPort;
+import com.vehiclepassport.server.account.application.port.out.SupportReportPort;
+import com.vehiclepassport.server.account.domain.model.SubmittedSupportReport;
+import com.vehiclepassport.server.account.domain.model.SupportKind;
+import com.vehiclepassport.server.account.domain.model.SupportReport;
 import com.vehiclepassport.server.account.application.service.AccountExportService;
 import com.vehiclepassport.server.account.domain.model.ConsentRecord;
 import com.vehiclepassport.server.account.domain.model.ConsentSource;
@@ -53,7 +57,14 @@ class AccountExportServiceTest {
                     new OwnerStats(0, 0, 0), ConsentStatus.of("1.0", "1.0", null, null, false, false)),
             user -> Settings.defaults(),
             user -> consents.stream().filter(c -> user.equals(c.userId())).toList(),
-            data, clock);
+            data, new SupportReportPort() {
+                public void save(UUID id, UUID userId, SupportReport report, Instant createdAt) { }
+
+                public List<SubmittedSupportReport> findByUser(UUID userId) {
+                    return ME.equals(userId) ? List.of(new SubmittedSupportReport(SupportKind.QUESTION,
+                            "how do I export my data?", null, NOW)) : List.of();
+                }
+            }, clock);
 
     private static ConsentRecord consent(UUID user) {
         return new ConsentRecord(UUID.randomUUID(), user, null, ConsentType.TERMS, "1.0", true,
@@ -70,6 +81,13 @@ class AccountExportServiceTest {
         assertEquals(List.of(Map.of("vin", "MINE")), export.data().vehicles());
         assertEquals(NOW, export.exportedAt());
         assertEquals(Settings.defaults(), export.settings());
+    }
+
+    @Test
+    void exportContainsTheCallersSupportReports() {
+        assertEquals(List.of(new SubmittedSupportReport(SupportKind.QUESTION, "how do I export my data?", null, NOW)),
+                service.export(ME, null, false).supportReports());
+        assertTrue(service.export(OTHER, null, false).supportReports().isEmpty());
     }
 
     @Test

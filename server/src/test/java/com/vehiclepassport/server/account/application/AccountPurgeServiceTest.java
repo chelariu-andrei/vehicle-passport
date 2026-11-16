@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.account.application.port.out.AccountErasurePort;
+import com.vehiclepassport.server.account.application.port.out.ErasedAccountPort;
 import com.vehiclepassport.server.account.application.port.out.IdentityAdminPort;
 import com.vehiclepassport.server.account.application.port.out.OwnerDataEraserPort;
 import com.vehiclepassport.server.account.application.service.AccountPurgeService;
@@ -29,11 +30,17 @@ class AccountPurgeServiceTest {
             Map.of(DUE, NOW.minusSeconds(1), LATER, NOW.plusSeconds(1)));
     private final List<String> calls = new ArrayList<>();
     private boolean identityDown;
+    private boolean cancelledAfterSnapshot;
 
     private final AccountErasurePort erasure = new AccountErasurePort() {
         public List<UUID> findDue(Instant now) {
             return scheduled.entrySet().stream().filter(e -> !e.getValue().isAfter(now)).map(Map.Entry::getKey)
                     .toList();
+        }
+
+        public boolean lockIfDue(UUID userId, Instant now) {
+            Instant when = cancelledAfterSnapshot ? null : scheduled.get(userId);
+            return when != null && !when.isAfter(now);
         }
 
         public void anonymiseConsents(UUID userId, String subjectHash) {
@@ -63,7 +70,14 @@ class AccountPurgeServiceTest {
         calls.add("identity:" + userId);
     };
 
-    private final AccountPurgeService service = new AccountPurgeService(erasure, new SingleAccountPurgeService(data, erasure, identity));
+    private final ErasedAccountPort erased = new ErasedAccountPort() {
+        public void markErased(UUID userId, Instant at) { calls.add("erased:" + userId); }
+
+        public boolean isErased(UUID userId) { return false; }
+    };
+
+    private final AccountPurgeService service =
+            new AccountPurgeService(new SingleAccountPurgeService(data, erasure, identity, erased));
 
     private static String sha256(UUID id) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(id.toString().getBytes("UTF-8")));
@@ -87,8 +101,18 @@ class AccountPurgeServiceTest {
                 "support:" + DUE,
                 "settings:" + DUE,
                 "identity:" + DUE,
+                "erased:" + DUE,
                 "profile:" + DUE), calls);
         assertTrue(scheduled.containsKey(LATER));
+    }
+
+    @Test
+    void aDeletionCancelledAfterTheDueListWasReadIsNotPurged() {
+        // findDue still lists DUE, but the locked re-check sees the cancelled schedule.
+        cancelledAfterSnapshot = true;
+        assertEquals(0, service.purgeDue(NOW));
+        assertTrue(calls.isEmpty(), "nothing may be erased: " + calls);
+        assertTrue(scheduled.containsKey(DUE));
     }
 
     @Test
@@ -133,7 +157,7 @@ class AccountPurgeServiceTest {
 
             public void detachOwnedData(UUID ownerId, UUID tombstone) { }
         };
-        AccountPurgeService s = new AccountPurgeService(erasure, new SingleAccountPurgeService(flaky, erasure, identity));
+        AccountPurgeService s = new AccountPurgeService(new SingleAccountPurgeService(flaky, erasure, identity, erased));
         assertEquals(1, s.purgeDue(NOW));
         assertTrue(scheduled.containsKey(DUE));
         assertTrue(!scheduled.containsKey(OTHER_DUE));
