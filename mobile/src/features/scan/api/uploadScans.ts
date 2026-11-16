@@ -4,10 +4,10 @@ import { File } from 'expo-file-system';
 
 import { api, unwrap } from '@/shared/api';
 import { useSession } from '@/shared/auth/session';
+import { deleteKeptFile, PhotoUnusableError, preparePhoto } from '@/shared/media';
+import type { PreparedPhoto } from '@/shared/media';
 
-import { preparePhoto, PhotoUnusableError } from '../model/preparePhoto';
-import type { PreparedPhoto } from '../model/preparePhoto';
-import { deleteKeptFile, scanJobStore } from '../model/scanJobStore';
+import { scanJobStore } from '../model/scanJobStore';
 import type { LocalScanJob } from '../model/scanJobStore';
 
 /** Prefix of the on-device job list. These rows are not server state, so they sit outside `qk`. */

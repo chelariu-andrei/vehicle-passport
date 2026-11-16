@@ -39,6 +39,8 @@ jest.mock('expo-image-picker', () => ({
   requestCameraPermissionsAsync: jest.fn(),
 }));
 
+jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
+
 jest.mock('expo-image-manipulator', () => require('./photos').imageManipulatorModule);
 
 /* A device file system in memory: `sizes` holds the files that exist, `removed` the ones that vanished, `deleted` what the app deleted. */
@@ -69,7 +71,11 @@ jest.mock('expo-file-system', () => {
     write = jest.fn(async (data: unknown) => {
       File.written.push({ uri: this.uri, data });
     });
-    copy = jest.fn();
+    /** Like the real one: the destination now holds the same bytes. */
+    copy = jest.fn((destination: File) => {
+      File.sizes.set(destination.uri, this.size);
+      File.removed.delete(destination.uri);
+    });
     /** Like the real one: the file is now at the destination. */
     move = jest.fn((destination: File) => {
       File.sizes.set(destination.uri, this.size);

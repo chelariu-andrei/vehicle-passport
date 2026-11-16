@@ -1,6 +1,6 @@
 /* One handler per authenticated operation, mirroring the server behaviour the integration spec marks (server). */
 import type { components } from '@/shared/api/generated/schema';
-import type { EventResponse, PassportResponse, PendingClaimResponse, ScanJobResponse, VehicleResponse } from './builders';
+import type { AttachmentResponse, EventResponse, PassportResponse, PendingClaimResponse, ScanJobResponse, VehicleResponse } from './builders';
 
 type Schemas = components['schemas'];
 
@@ -11,6 +11,8 @@ export interface FakeState {
   otherOwnerVins: Set<string>;
   scans: Record<string, ScanJobResponse>;
   passports: PassportResponse[];
+  /** Attachments by event id. */
+  attachments: Record<string, AttachmentResponse[]>;
 }
 
 export interface Reply {
@@ -188,6 +190,7 @@ const addEvent: Handler = (c) => {
     evidence: 'USER_CONFIRMED',
     source: 'MANUAL',
     documentPresent: false,
+    attachmentCount: 0,
   };
   events.push(event);
   return ok(event, 201);
@@ -228,6 +231,74 @@ const getEventDocument: Handler = (c) => {
   const event = (c.state.events[c.params.vin] ?? []).find((e) => e.id === c.params.eventId);
   if (!event?.documentPresent) return problem(404, 'event-not-found');
   return { status: 200, contentType: 'image/jpeg', bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xd9]) };
+};
+
+export const MAX_ATTACHMENTS = 10;
+
+async function sha256Hex(file: Blob): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** The vehicle and event of the path, or the problem to answer. */
+function eventOf(c: Ctx): { event: EventResponse } | { refused: Reply } {
+  if (!ownedVehicle(c)) return { refused: notOwned() };
+  const event = (c.state.events[c.params.vin] ?? []).find((e) => e.id === c.params.eventId);
+  return event ? { event } : { refused: problem(404, 'event-not-found') };
+}
+
+const addAttachment: Handler = async (c) => {
+  const found = eventOf(c);
+  if ('refused' in found) return found.refused;
+  const { event } = found;
+  const value = c.form?.get('file') ?? null;
+  const refused = checkFile(value);
+  if (refused) return refused;
+  const file = value as Blob;
+  const list = (c.state.attachments[event.id] ??= []);
+  if (list.length >= MAX_ATTACHMENTS) return problem(422, 'attachment-limit');
+  const sha256 = await sha256Hex(file);
+  const vehicleEvents = c.state.events[c.params.vin] ?? [];
+  if (vehicleEvents.some((e) => (c.state.attachments[e.id] ?? []).some((a) => a.sha256 === sha256))) {
+    return problem(409, 'duplicate-document');
+  }
+  const attachment: AttachmentResponse = {
+    id: uuid(),
+    contentType: file.type,
+    sizeBytes: file.size,
+    sha256,
+    kind: 'UPLOAD',
+    createdAt: new Date().toISOString(),
+  };
+  list.push(attachment);
+  event.attachmentCount = list.length;
+  return ok(attachment, 201);
+};
+
+const listAttachments: Handler = (c) => {
+  const found = eventOf(c);
+  if ('refused' in found) return found.refused;
+  return ok(c.state.attachments[found.event.id] ?? []);
+};
+
+const getAttachment: Handler = (c) => {
+  const found = eventOf(c);
+  if ('refused' in found) return found.refused;
+  const attachment = (c.state.attachments[found.event.id] ?? []).find((a) => a.id === c.params.attachmentId);
+  if (!attachment) return problem(404, 'attachment-not-found');
+  return { status: 200, contentType: attachment.contentType, bytes: new Uint8Array([0xff, 0xd8, 0xff, 0xd9]) };
+};
+
+const deleteAttachment: Handler = (c) => {
+  const found = eventOf(c);
+  if ('refused' in found) return found.refused;
+  const list = c.state.attachments[found.event.id] ?? [];
+  const attachment = list.find((a) => a.id === c.params.attachmentId);
+  if (!attachment) return problem(404, 'attachment-not-found');
+  if (attachment.kind === 'SCAN_SOURCE') return problem(422, 'attachment-protected');
+  c.state.attachments[found.event.id] = list.filter((a) => a !== attachment);
+  found.event.attachmentCount = c.state.attachments[found.event.id].length;
+  return noContent();
 };
 
 const getTimeline: Handler = (c) => {
@@ -307,6 +378,7 @@ const confirmScan: Handler = (c) => {
     evidence: 'DOCUMENTED',
     source: 'SCAN',
     documentPresent: true,
+    attachmentCount: 0,
   };
   events.push(event);
   job.status = 'CONFIRMED';
@@ -386,6 +458,10 @@ export const handlers: Record<string, Handler> = {
   updateEvent,
   deleteEvent,
   getEventDocument,
+  addAttachment,
+  listAttachments,
+  getAttachment,
+  deleteAttachment,
   getTimeline,
   submitScan,
   submitScanBatch,
