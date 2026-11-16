@@ -3,17 +3,49 @@ import { useFonts } from 'expo-font';
 import { Redirect, SplashScreen, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useConsentGate } from '@/features/account';
 import { autoJourney } from '@/features/vehicle';
 import { createAppQueryClient, forgetVehicle } from '@/shared/api';
-import { onSessionEnd, startSession, useSession } from '@/shared/auth/session';
-import { fontAssets, OfflineBanner, ThemeProvider, toast, ToastHost, useTheme } from '@/shared/design';
+import { onSessionEnd, signOut, startSession, useSession } from '@/shared/auth/session';
+import { Button, ErrorState, fontAssets, Ground, OfflineBanner, Screen, ThemeProvider, toast, ToastHost, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 import { goToGarage } from '@/shared/navigation/goToGarage';
 
 void SplashScreen.preventAutoHideAsync();
+
+/**
+ * The app opens only once the account says the current terms are accepted. Until then it is covered: by a spinner while the
+ * account loads, by a retry screen when it cannot be reached (never by the app, never by an automatic acceptance).
+ */
+function ConsentGuard({ segments }: { segments: string[] }) {
+  const { gate, retry } = useConsentGate();
+  const onConsent = segments[0] === 'consent';
+  // The terms themselves must stay readable from the gate.
+  const readingLegal = segments[0] === 'account' && segments[1] === 'legal';
+  if (gate === 'open') return onConsent ? <Redirect href="/" /> : null;
+  if (gate === 'loading' || gate === 'error') {
+    return (
+      <View style={StyleSheet.absoluteFill}>
+        {gate === 'loading' ? (
+          <Ground>
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator accessibilityLabel={en.consent.loading} />
+            </View>
+          </Ground>
+        ) : (
+          <Screen>
+            <ErrorState title={en.consent.retryTitle} onRetry={retry} />
+            <Button kind="quiet" title={en.consent.signOut} onPress={() => void signOut()} />
+          </Screen>
+        )}
+      </View>
+    );
+  }
+  return onConsent || readingLegal ? null : <Redirect href="/consent" />;
+}
 
 function Shell() {
   const { colors, scheme } = useTheme();
@@ -37,6 +69,7 @@ function Shell() {
       {/* The side of the app follows the session. Both redirects wait until the session is known. */}
       {status === 'signedOut' && !inAuth ? <Redirect href="/sign-in" /> : null}
       {status === 'signedIn' && inAuth && !resettingPassword ? <Redirect href="/" /> : null}
+      {status === 'signedIn' && !resettingPassword ? <ConsentGuard segments={segments} /> : null}
       <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0 }}>
         <OfflineBanner />
       </View>

@@ -22,5 +22,6 @@ export { OfflineBanner } from './primitives/OfflineBanner';
 export { Screen } from './primitives/Screen';
 export { Skeleton } from './primitives/Skeleton';
 export { SocialButton } from './primitives/SocialButton';
+export { Switch } from './primitives/Switch';
 export { Text } from './primitives/Text';
 export { toast, ToastHost } from './primitives/Toast';

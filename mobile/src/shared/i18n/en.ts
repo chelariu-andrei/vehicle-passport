@@ -64,6 +64,16 @@ export const en = {
     signOut: 'Sign out',
     version: 'Version',
   },
+  consent: {
+    title: 'Before you continue',
+    summary: 'To use Vehicle Passport, please accept our Terms and Privacy Policy. The two choices below are optional and you can change them at any time.',
+    marketing: 'Product news and offers',
+    analytics: 'Share usage analytics to help improve the app',
+    accept: 'Accept and continue',
+    signOut: 'Sign out',
+    loading: 'Checking your account',
+    retryTitle: "We couldn't check your account",
+  },
   legal: {
     title: 'Legal',
     versionLine: (version: string, date: string) => `Version ${version} · effective ${date}`,
@@ -103,6 +113,7 @@ export const en = {
       'attachment-not-found': 'That document no longer exists.',
       'duplicate-document': 'That document is already attached to an entry for this car.',
       'expiry-in-past': 'Choose a date in the future.',
+      'consent-version-outdated': 'The terms were just updated. Review them and accept again.',
     },
   },
   cars: {
