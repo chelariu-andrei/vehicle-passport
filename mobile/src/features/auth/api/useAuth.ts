@@ -12,27 +12,27 @@ import {
   updatePassword,
   type SocialProvider,
 } from '@/shared/auth/session';
-import { en } from '@/shared/i18n/en';
+import type { Strings } from '@/shared/i18n';
 
-export function authErrorMessage(error: unknown): string {
-  if (!(error instanceof AuthFailed)) return en.errors.generic;
+export function authErrorMessage(error: unknown, s: Strings): string {
+  if (!(error instanceof AuthFailed)) return s.errors.generic;
   switch (error.failure) {
     case 'invalid-credentials':
-      return en.auth.invalidCredentials;
+      return s.auth.invalidCredentials;
     case 'email-taken':
-      return en.auth.emailTaken;
+      return s.auth.emailTaken;
     case 'weak-password':
-      return en.auth.weakPassword;
+      return s.auth.weakPassword;
     case 'account-exists-other-provider':
-      return en.auth.accountExistsOtherProvider;
+      return s.auth.accountExistsOtherProvider;
     case 'provider-unavailable':
-      return en.auth.providerUnavailable;
+      return s.auth.providerUnavailable;
     case 'last-identity':
-      return en.auth.lastIdentity;
+      return s.auth.lastIdentity;
     case 'network':
-      return en.errors.network;
+      return s.errors.network;
     default:
-      return en.errors.generic;
+      return s.errors.generic;
   }
 }
 

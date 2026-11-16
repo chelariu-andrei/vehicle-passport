@@ -1,7 +1,7 @@
 import { Pressable, View } from 'react-native';
 
 import { Icon, Text, tokens, useTheme } from '@/shared/design';
-import { en } from '@/shared/i18n/en';
+import { useStrings } from '@/shared/i18n';
 
 import { LegalLink } from './LegalLink';
 
@@ -10,8 +10,9 @@ type Props = { checked: boolean; onChange(checked: boolean): void };
 const BOX = 28;
 
 export function TermsCheckbox({ checked, onChange }: Props) {
+  const s = useStrings();
   const { colors } = useTheme();
-  const label = `${en.auth.termsLabel} ${en.auth.terms} ${en.auth.and} ${en.auth.privacy}`;
+  const label = `${s.auth.termsLabel} ${s.auth.terms} ${s.auth.and} ${s.auth.privacy}`;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.space['space-3'] }}>
       <Pressable
@@ -34,7 +35,7 @@ export function TermsCheckbox({ checked, onChange }: Props) {
         {checked ? <Icon name="check" size={18} color="on-brand" /> : null}
       </Pressable>
       <Text style={{ flex: 1 }}>
-        {en.auth.termsLabel} <LegalLink type="terms" /> {en.auth.and} <LegalLink type="privacy" />
+        {s.auth.termsLabel} <LegalLink type="terms" /> {s.auth.and} <LegalLink type="privacy" />
       </Text>
     </View>
   );

@@ -14,7 +14,8 @@ export function LegalListScreen() {
   const router = useRouter();
   const back = useBack('/account');
   const s = useStrings();
-  const query = useLegalDocuments(useLegalLocale());
+  const locale = useLegalLocale();
+  const query = useLegalDocuments(locale);
   return (
     <Screen scroll header={<AppBar onBack={back} title={s.legal.title} />}>
       {query.isError && !query.data ? (
@@ -30,7 +31,7 @@ export function LegalListScreen() {
             <Card>
               <Text variant="title">{doc.title}</Text>
               <Text variant="caption" color="ink-muted">
-                {versionLine(doc.version, doc.effectiveDate)}
+                {versionLine(locale, doc.version, doc.effectiveDate)}
               </Text>
             </Card>
           </Pressable>

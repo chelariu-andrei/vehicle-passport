@@ -5,6 +5,7 @@ import { View } from 'react-native';
 import { z } from 'zod';
 
 import { Button, Field, tokens } from '@/shared/design';
+import { useStrings, useValidationMessage } from '@/shared/i18n';
 import { en } from '@/shared/i18n/en';
 import { displayNameSchema, emailSchema, passwordSchema } from '@/shared/validation';
 
@@ -35,6 +36,8 @@ type Props = {
 
 /** The fields and the button both auth screens share. Checks run on submit; the email is never cleared. */
 export function CredentialsForm({ mode, pending, serverError, onSubmit, onForgotPassword }: Props) {
+  const s = useStrings();
+  const localized = useValidationMessage();
   const up = mode === 'up';
   const [visible, setVisible] = useState(false);
   const { control, handleSubmit } = useForm<FormValues>({
@@ -52,12 +55,12 @@ export function CredentialsForm({ mode, pending, serverError, onSubmit, onForgot
           name="displayName"
           render={({ field, fieldState }) => (
             <Field
-              label={en.auth.displayName}
+              label={s.auth.displayName}
               value={field.value}
               onChangeText={field.onChange}
               autoComplete="name"
               textContentType="name"
-              error={fieldState.error?.message}
+              error={localized(fieldState.error?.message)}
             />
           )}
         />
@@ -67,7 +70,7 @@ export function CredentialsForm({ mode, pending, serverError, onSubmit, onForgot
         name="email"
         render={({ field, fieldState }) => (
           <Field
-            label={en.auth.email}
+            label={s.auth.email}
             value={field.value}
             onChangeText={field.onChange}
             autoCapitalize="none"
@@ -75,7 +78,7 @@ export function CredentialsForm({ mode, pending, serverError, onSubmit, onForgot
             autoComplete="email"
             keyboardType="email-address"
             textContentType="emailAddress"
-            error={fieldState.error?.message ?? (serverError?.field === 'email' ? serverError.message : undefined)}
+            error={localized(fieldState.error?.message) ?? (serverError?.field === 'email' ? serverError.message : undefined)}
           />
         )}
       />
@@ -84,24 +87,24 @@ export function CredentialsForm({ mode, pending, serverError, onSubmit, onForgot
         name="password"
         render={({ field, fieldState }) => (
           <Field
-            label={en.auth.password}
+            label={s.auth.password}
             value={field.value}
             onChangeText={field.onChange}
             secureTextEntry={!visible}
             autoCapitalize="none"
             autoComplete={up ? 'new-password' : 'current-password'}
             textContentType={up ? 'newPassword' : 'password'}
-            error={fieldState.error?.message ?? (serverError?.field === 'password' ? serverError.message : undefined)}
+            error={localized(fieldState.error?.message) ?? (serverError?.field === 'password' ? serverError.message : undefined)}
           />
         )}
       />
-      <Button kind="quiet" title={visible ? en.auth.hidePassword : en.auth.showPassword} onPress={() => setVisible((shown) => !shown)} />
-      {!up && onForgotPassword ? <Button kind="quiet" title={en.auth.forgotPassword} onPress={onForgotPassword} /> : null}
+      <Button kind="quiet" title={visible ? s.auth.hidePassword : s.auth.showPassword} onPress={() => setVisible((shown) => !shown)} />
+      {!up && onForgotPassword ? <Button kind="quiet" title={s.auth.forgotPassword} onPress={onForgotPassword} /> : null}
       {up ? (
         <Controller control={control} name="termsAccepted" render={({ field }) => <TermsCheckbox checked={field.value} onChange={field.onChange} />} />
       ) : null}
       <Button
-        title={up ? en.auth.signUpAction : en.auth.signInAction}
+        title={up ? s.auth.signUpAction : s.auth.signInAction}
         loading={pending}
         disabled={!ready}
         onPress={() => void handleSubmit((values) => onSubmit({ email: values.email, password: values.password, displayName: values.displayName }))()}

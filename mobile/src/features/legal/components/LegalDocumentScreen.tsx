@@ -25,7 +25,7 @@ export function LegalDocumentScreen() {
       ) : doc ? (
         <View style={{ gap: tokens.space['space-3'] }}>
           <Text variant="caption" color="ink-muted">
-            {versionLine(doc.version, doc.effectiveDate)}
+            {versionLine(locale, doc.version, doc.effectiveDate)}
           </Text>
           <Markdown source={doc.bodyMarkdown} />
         </View>

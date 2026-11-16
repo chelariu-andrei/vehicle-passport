@@ -4,7 +4,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { AppBar, Button, Field, Screen, Text } from '@/shared/design';
-import { en } from '@/shared/i18n/en';
+import { useStrings, useValidationMessage } from '@/shared/i18n';
 import { emailSchema } from '@/shared/validation';
 
 import { authErrorMessage, useSendPasswordReset } from '../api/useAuth';
@@ -12,6 +12,8 @@ import { authErrorMessage, useSendPasswordReset } from '../api/useAuth';
 const schema = z.object({ email: emailSchema });
 
 export function ForgotPasswordScreen() {
+  const s = useStrings();
+  const localized = useValidationMessage();
   const router = useRouter();
   const reset = useSendPasswordReset();
   const { control, handleSubmit } = useForm<{ email: string }>({
@@ -21,15 +23,15 @@ export function ForgotPasswordScreen() {
   return (
     <Screen scroll header={<AppBar onBack={() => router.back()} />}>
       <Text variant="display-xl" accessibilityRole="header">
-        {en.auth.forgotTitle}
+        {s.auth.forgotTitle}
       </Text>
-      <Text color="ink-muted">{en.auth.forgotIntro}</Text>
+      <Text color="ink-muted">{s.auth.forgotIntro}</Text>
       <Controller
         control={control}
         name="email"
         render={({ field, fieldState }) => (
           <Field
-            label={en.auth.email}
+            label={s.auth.email}
             value={field.value}
             onChangeText={field.onChange}
             autoCapitalize="none"
@@ -37,13 +39,13 @@ export function ForgotPasswordScreen() {
             autoComplete="email"
             keyboardType="email-address"
             textContentType="emailAddress"
-            error={fieldState.error?.message ?? (reset.isError ? authErrorMessage(reset.error) : undefined)}
+            error={localized(fieldState.error?.message) ?? (reset.isError ? authErrorMessage(reset.error, s) : undefined)}
           />
         )}
       />
-      {reset.isSuccess ? <Text accessibilityRole="alert">{en.auth.resetSent}</Text> : null}
+      {reset.isSuccess ? <Text accessibilityRole="alert">{s.auth.resetSent}</Text> : null}
       <Button
-        title={en.auth.sendResetLink}
+        title={s.auth.sendResetLink}
         loading={reset.isPending}
         onPress={() => void handleSubmit(({ email }) => reset.mutate(email))()}
       />

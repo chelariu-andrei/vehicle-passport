@@ -7,7 +7,7 @@ import { ro, type DeepPartial } from './ro';
 export type Locale = 'ro' | 'en';
 export type LanguagePreference = 'system' | Locale;
 
-type Strings = typeof en;
+export type Strings = typeof en;
 
 /** Dotted paths to every plain-text entry of `en` (entries that take arguments are read through `useStrings`). */
 type Paths<T, P extends string = ''> = {
