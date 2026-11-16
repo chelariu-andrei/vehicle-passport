@@ -11,3 +11,4 @@ export { AppLockBoundary } from './components/AppLockBoundary';
 export { DeleteAccountScreen } from './components/DeleteAccountScreen';
 export { DeletionBanner } from './components/DeletionBanner';
 export { useScheduledDeletion } from './api/useDeletion';
+export { sweepStaleExport } from './api/useExport';

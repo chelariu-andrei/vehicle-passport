@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { isApiError } from '@/shared/api';
@@ -51,6 +51,8 @@ export function DeleteAccountScreen() {
   const exportData = useExportData();
   const [understood, setUnderstood] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // Set from the first tap until the request settles: a second tap must not ask for biometrics or send again.
+  const inFlight = useRef(false);
 
   const download = () =>
     exportData.mutate(undefined, {
@@ -58,14 +60,20 @@ export function DeleteAccountScreen() {
     });
 
   const confirm = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     // With the app lock on, the person proves it is them before anything is scheduled; a failed check changes nothing.
     if (appLock.get().enabled && !(await authenticate(s.deletion.authPrompt))) {
+      inFlight.current = false;
       setConfirming(false);
       toast(s.deletion.authFailed);
       return;
     }
     schedule.mutate(undefined, {
-      onSettled: () => setConfirming(false),
+      onSettled: () => {
+        inFlight.current = false;
+        setConfirming(false);
+      },
       // A 409 is not a failure: the account is read again and shows the date that already stands.
       onError: (error) => {
         if (!isApiError(error, 'deletion-already-scheduled')) toast(s.deletion.scheduleFailed);
@@ -88,6 +96,7 @@ export function DeleteAccountScreen() {
           {s.deletion.staysTitle}
         </Text>
         <Text color="ink-muted">{s.deletion.staysBody}</Text>
+        <Text color="ink-muted">{s.deletion.keptAnonymous}</Text>
       </Card>
       <Button kind="secondary" icon="share" title={s.deletion.download} loading={exportData.isPending} onPress={download} />
       {scheduledFor === null ? (

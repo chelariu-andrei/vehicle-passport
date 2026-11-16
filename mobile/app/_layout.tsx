@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppLockBoundary, BiometricOfferSheet, useConsentGate } from '@/features/account';
+import { AppLockBoundary, BiometricOfferSheet, sweepStaleExport, useConsentGate } from '@/features/account';
 import { SettingsSync } from '@/features/settings';
 import { autoJourney } from '@/features/vehicle';
 import { createAppQueryClient, forgetVehicle } from '@/shared/api';
@@ -99,6 +99,8 @@ export default function RootLayout() {
   const ready = (loaded || error !== null) && status !== 'loading';
 
   useEffect(() => startSession(), []);
+  // An export left from an earlier run (the app was closed while sharing) is removed as the app opens.
+  useEffect(() => sweepStaleExport(), []);
   // The next account on this phone must start from nothing: whatever ends a session also empties the cache.
   useEffect(
     () =>

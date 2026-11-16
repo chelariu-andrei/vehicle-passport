@@ -85,7 +85,8 @@ jest.mock('expo-file-system', () => {
       return File.sizes.get(this.uri) ?? 0;
     }
     get exists(): boolean {
-      return !File.removed.has(this.uri);
+      // Only what a test put there (`putFile`) or the app wrote exists; a path nobody touched holds nothing.
+      return !File.removed.has(this.uri) && (File.sizes.has(this.uri) || File.written.some((w) => w.uri === this.uri));
     }
     create = jest.fn();
     write = jest.fn(async (data: unknown) => {
