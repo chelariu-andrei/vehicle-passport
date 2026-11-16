@@ -59,7 +59,7 @@ const date = optional((t) => {
   return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== t ? null : t;
 });
 const kilometres = optional((t) => (/^\d{1,9}$/.test(t) ? Number(t) : null));
-const money = optional(parseMoney);
+const money = optional((text) => parseMoney(text));
 const plain = optional((t) => t);
 const partAmount = z.string().transform((raw, ctx): number | null => {
   const trimmed = raw.trim();

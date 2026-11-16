@@ -1,22 +1,27 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import type { z } from 'zod';
 
-import { errorMessage } from '@/shared/api';
+import { errorMessage, qk } from '@/shared/api';
 import { ActionBar, AppBar, ConfirmSheet, ErrorState, Field, Icon, Screen, Skeleton, Text, tokens, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 import { useBack } from '@/shared/navigation/useBack';
 
 import { useAddEvent } from '../api/useAddEvent';
+import { uploadAttachments } from '../api/useUploadAttachments';
 import { useTimeline } from '../api/useTimeline';
 import { useUpdateEvent } from '../api/useUpdateEvent';
 import { EVENT_TYPES, eventFormSchema, formatLocalDate, maxEventDate, toEventRequest } from '../model/eventForm';
 import type { EventForm, EventType } from '../model/eventForm';
 import { eventSummary } from '../model/eventSummary';
+import type { StagedFile } from '../model/stagedFiles';
 import type { EventResponse } from '../model/timeline';
+import { DocumentsSection } from './DocumentsSection';
 
 type FormInput = z.input<ReturnType<typeof eventFormSchema>>;
 type FieldName = 'date' | 'odometerKm' | 'costAmount' | 'currency' | 'notes';
@@ -197,9 +202,38 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
   const close = useBack('/');
   const [checking, setChecking] = useState<EventForm | null>(null);
   const sent = useRef(false);
-  // Task 9 wires the real attached files.
-  const documents = 0;
-  const submit = handleSubmit((values) => setChecking(values));
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [files, setFiles] = useState<StagedFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const documents = files.length;
+  const submit = handleSubmit((values) => {
+    if (!uploading) setChecking(values);
+  });
+
+  /**
+   * The event exists now, so it is kept whatever happens here. The files go one at a time; a refused one (a duplicate,
+   * say) is skipped, and if the run itself breaks (offline, signed out) every file not yet sent counts as failed.
+   */
+  const attach = async (eventId: string) => {
+    let failed = 0;
+    let duplicates = 0;
+    for (const [index, file] of files.entries()) {
+      try {
+        const outcome = await uploadAttachments(vin, eventId, [file]);
+        for (const problem of outcome.failed) {
+          failed += 1;
+          if (problem.code === 'duplicate-document') duplicates += 1;
+        }
+      } catch {
+        failed += files.length - index;
+        break;
+      }
+    }
+    await Promise.all([queryClient.invalidateQueries({ queryKey: qk.timeline(vin) }), queryClient.invalidateQueries({ queryKey: qk.attachments(vin, eventId) })]);
+    if (failed === 0) return close();
+    router.replace({ pathname: '/vehicles/[vin]/events/[eventId]', params: { vin, eventId, failedUploads: String(failed), duplicateUploads: String(duplicates) } });
+  };
   const confirm = () => {
     // A second tap lands before the sheet is gone; only the first may post.
     if (checking === null || sent.current) return;
@@ -207,8 +241,13 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
     const values = checking;
     setChecking(null);
     save.mutate(toEventRequest(original, values), {
-      onSuccess: close,
-      onSettled: () => {
+      onSuccess: (saved) => {
+        if (original || files.length === 0) return close();
+        // `sent` stays set: the event exists, and a second save would add it again.
+        setUploading(true);
+        void attach(saved.id);
+      },
+      onError: () => {
         sent.current = false;
       },
     });
@@ -219,7 +258,7 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
     <Screen
       scroll
       header={<AppBar onBack={close} />}
-      footer={<ActionBar primary={{ title: en.event.save, loading: save.isPending, onPress: submit }} />}
+      footer={<ActionBar primary={{ title: en.event.save, loading: save.isPending || uploading, onPress: submit }} />}
     >
       <Text variant="display-xl" accessibilityRole="header">
         {original ? en.event.editTitle : en.event.addTitle}
@@ -319,6 +358,7 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
           />
         </>
       )}
+      {original ? null : <DocumentsSection files={files} onChange={setFiles} disabled={save.isPending || uploading} />}
       <Controller
         control={control}
         name="notes"

@@ -16,6 +16,6 @@ test('notes and documents join the rows only when there are some', () => {
   const rows = eventSummary({ ...form, notes: 'Oil change' }, 2);
   expect(rows.slice(4)).toEqual([
     { label: 'Notes', value: 'Oil change' },
-    { label: 'Documents', value: '2' },
+    { label: 'Documents', value: '2 files' },
   ]);
 });

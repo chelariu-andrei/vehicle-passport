@@ -18,6 +18,6 @@ export function eventSummary(values: EventForm, documents: number): SummaryRow[]
     { label: en.event.check.cost, value: `${values.costAmount} ${values.currency}` },
   ];
   if (values.notes !== '') rows.push({ label: en.event.check.notes, value: values.notes });
-  if (documents > 0) rows.push({ label: en.event.check.documents, value: String(documents) });
+  if (documents > 0) rows.push({ label: en.event.check.documents, value: en.event.check.files(documents) });
   return rows;
 }

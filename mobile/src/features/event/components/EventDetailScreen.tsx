@@ -25,12 +25,18 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Detail({ vin, event }: { vin: string; event: EventResponse }) {
+function Detail({ vin, event, failedUploads, duplicateUploads }: { vin: string; event: EventResponse; failedUploads: number; duplicateUploads: number }) {
   const document = useEventDocument(vin, event.id, `invoice-${event.id}`);
 
   const parts = event.details?.parts ?? [];
   return (
     <>
+      {failedUploads > 0 ? (
+        <Text color="danger" accessibilityRole="alert">
+          {en.event.documents.failedUploads(failedUploads)}
+          {duplicateUploads > 0 ? ` ${en.event.documents.duplicateUploads(duplicateUploads)}` : ''}
+        </Text>
+      ) : null}
       <View style={{ gap: tokens.space['space-2'] }}>
         <Text variant="display" accessibilityRole="header">
           {eventTitle(event)}
@@ -70,7 +76,18 @@ function Detail({ vin, event }: { vin: string; event: EventResponse }) {
   );
 }
 
-export function EventDetailScreen({ vin, eventId }: { vin: string; eventId: string }) {
+export function EventDetailScreen({
+  vin,
+  eventId,
+  failedUploads = 0,
+  duplicateUploads = 0,
+}: {
+  vin: string;
+  eventId: string;
+  /** Files that could not be attached when the entry was saved. */
+  failedUploads?: number;
+  duplicateUploads?: number;
+}) {
   const router = useRouter();
   const timeline = useTimeline(vin);
   useRefetchOnFocus(timeline.refetch);
@@ -108,7 +125,7 @@ export function EventDetailScreen({ vin, eventId }: { vin: string; eventId: stri
       }
     >
       {event ? (
-        <Detail vin={vin} event={event} />
+        <Detail vin={vin} event={event} failedUploads={failedUploads} duplicateUploads={duplicateUploads} />
       ) : timeline.data ? (
         <Text accessibilityRole="alert">{en.errors.codes['event-not-found']}</Text>
       ) : timeline.isError ? (
