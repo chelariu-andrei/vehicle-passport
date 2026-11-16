@@ -14,7 +14,7 @@ export function eventSummary(values: EventForm, documents: number): SummaryRow[]
   const rows: SummaryRow[] = [
     { label: en.event.check.type, value: en.event.type[values.type] },
     { label: en.event.check.date, value: values.date },
-    { label: en.event.check.odometer, value: `${groupThousands(values.odometerKm)} km`, emphasis: true },
+    { label: en.event.check.odometer, value: en.event.check.kilometres(groupThousands(values.odometerKm)), emphasis: true },
     { label: en.event.check.cost, value: `${values.costAmount} ${values.currency}` },
   ];
   if (values.notes !== '') rows.push({ label: en.event.check.notes, value: values.notes });

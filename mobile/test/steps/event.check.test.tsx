@@ -56,3 +56,11 @@ test('an invalid form shows field errors and no sheet', async () => {
   expect(screen.queryByText(en.event.check.title)).toBeNull();
   expect(fake.callsTo('addEvent')).toHaveLength(0);
 });
+
+test('2000 characters of notes still leave the confirm and dismiss buttons rendered', async () => {
+  await fill('148200', '350');
+  await fireEvent.changeText(screen.getByLabelText(en.event.notes), 'n'.repeat(2000));
+  await save();
+  expect(await screen.findByRole('button', { name: en.event.check.confirm })).toBeTruthy();
+  expect(screen.getByRole('button', { name: en.event.check.back })).toBeTruthy();
+});

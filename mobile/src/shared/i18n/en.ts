@@ -256,6 +256,7 @@ export const en = {
       cost: 'Cost',
       notes: 'Notes',
       documents: 'Documents',
+      kilometres: (grouped: string) => `${grouped} km`,
     },
     documentedNote: 'This entry comes from a scanned invoice, so only its notes can be changed.',
     invalidDate: 'Choose a date that is not in the future.',

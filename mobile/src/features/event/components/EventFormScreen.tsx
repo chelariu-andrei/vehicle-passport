@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Modal, Platform, Pressable, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import type { z } from 'zod';
 
 import { errorMessage } from '@/shared/api';
@@ -351,7 +351,8 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
         onConfirm={confirm}
         onCancel={() => setChecking(null)}
       >
-        <View style={{ gap: tokens.space['space-3'] }}>
+        {/* Long notes scroll here, so the buttons below stay on screen. */}
+        <ScrollView style={{ maxHeight: 280 }} contentContainerStyle={{ gap: tokens.space['space-3'] }}>
           {checking
             ? eventSummary(checking, documents).map((row) => (
                 <View key={row.label} style={{ gap: tokens.space['space-1'] }}>
@@ -362,7 +363,7 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
                 </View>
               ))
             : null}
-        </View>
+        </ScrollView>
       </ConfirmSheet>
     </Screen>
   );
