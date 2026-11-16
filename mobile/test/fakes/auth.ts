@@ -27,6 +27,15 @@ export interface FakeAuth {
   confirmationRequired: boolean;
   /** Accounts the fake knows, by email. `reset` seeds owner@, a@ and b@example.com, all with `PASSWORD`. */
   accounts: Map<string, { id: string; password: string }>;
+  /** Id-token sign-ins and links the fake received, for checking the provider and nonce. */
+  idTokenCalls: { provider: string; token: string; nonce?: string }[];
+  /** When set, id-token sign-ins and links answer with this error. */
+  idTokenError: Failure | null;
+  identities: { provider: string; id: string }[];
+  unlinked: string[];
+  signOutScopes: (string | undefined)[];
+  resetEmails: string[];
+  passwords: string[];
   signInAs(id: string, email: string): void;
   /** Nobody is signed in, and nobody is told; for setting up a test. */
   clear(): void;
@@ -55,6 +64,13 @@ export const fakeAuth: FakeAuth = {
   signOutCalls: 0,
   confirmationRequired: false,
   accounts: new Map(),
+  idTokenCalls: [],
+  idTokenError: null,
+  identities: [],
+  unlinked: [],
+  signOutScopes: [],
+  resetEmails: [],
+  passwords: [],
   port: {
     getAccessToken: async () => fakeAuth.token,
     refresh: async () => {
@@ -89,6 +105,13 @@ export const fakeAuth: FakeAuth = {
     fakeAuth.refreshCalls = 0;
     fakeAuth.signOutCalls = 0;
     fakeAuth.confirmationRequired = false;
+    fakeAuth.idTokenCalls = [];
+    fakeAuth.idTokenError = null;
+    fakeAuth.identities = [{ provider: 'email', id: 'identity-email' }];
+    fakeAuth.unlinked = [];
+    fakeAuth.signOutScopes = [];
+    fakeAuth.resetEmails = [];
+    fakeAuth.passwords = [];
     fakeAuth.accounts = new Map([
       ['owner@example.com', { id: 'user-1', password: PASSWORD }],
       ['a@example.com', { id: 'a', password: PASSWORD }],
@@ -130,9 +153,39 @@ export const supabaseFake = {
       fakeAuth.signInAs(id, email);
       return { data: { session: current() }, error: null };
     },
-    async signOut() {
+    async signOut(options?: { scope?: string }) {
+      fakeAuth.signOutScopes.push(options?.scope);
+      if (options?.scope === 'others') return { error: null };
       await fakeAuth.port.signOutLocal();
       return { error: null };
+    },
+    async signInWithIdToken({ provider, token, nonce }: { provider: string; token: string; nonce?: string }) {
+      fakeAuth.idTokenCalls.push({ provider, token, nonce });
+      if (fakeAuth.idTokenError) return { data: { session: null }, error: fakeAuth.idTokenError };
+      fakeAuth.signInAs(`user-${provider}`, `${provider}@example.com`);
+      return { data: { session: current() }, error: null };
+    },
+    async linkIdentity({ provider, token, nonce }: { provider: string; token: string; nonce?: string }) {
+      fakeAuth.idTokenCalls.push({ provider, token, nonce });
+      if (fakeAuth.idTokenError) return { data: { session: null }, error: fakeAuth.idTokenError };
+      fakeAuth.identities.push({ provider, id: `identity-${provider}` });
+      return { data: { session: current() }, error: null };
+    },
+    async getUserIdentities() {
+      return { data: { identities: fakeAuth.identities.map((i) => ({ provider: i.provider, identity_id: i.id, id: i.id })) }, error: null };
+    },
+    async unlinkIdentity(identity: { identity_id: string }) {
+      fakeAuth.unlinked.push(identity.identity_id);
+      fakeAuth.identities = fakeAuth.identities.filter((i) => i.id !== identity.identity_id);
+      return { data: {}, error: null };
+    },
+    async resetPasswordForEmail(email: string) {
+      fakeAuth.resetEmails.push(email);
+      return { data: {}, error: null };
+    },
+    async updateUser({ password }: { password?: string }) {
+      if (password) fakeAuth.passwords.push(password);
+      return { data: { user: {} }, error: null };
     },
   },
 };
