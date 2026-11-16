@@ -16,6 +16,24 @@ function sources(dir: string): string[] {
 
 type Operation = { method: string; path: string; id: string };
 
+/**
+ * Account operations the server ships before the mobile Account screens (docs/superpowers/plans/2026-11-15-account-mobile.md).
+ * Remove an id here as soon as a feature calls it; the last test fails if a listed operation is already in use.
+ */
+const NOT_YET_CONSUMED = new Set([
+  'getMe',
+  'updateProfile',
+  'getSettings',
+  'updateSettings',
+  'getConsentStatus',
+  'recordConsents',
+  'listConsentHistory',
+  'scheduleDeletion',
+  'cancelDeletion',
+  'exportMyData',
+  'createSupportReport',
+]);
+
 function authenticatedOperations(): Operation[] {
   const contract = parse(readFileSync(join(root, '../contracts/openapi.yaml'), 'utf8')) as {
     paths: Record<string, Record<string, { operationId?: string; security?: unknown[] }>>;
@@ -37,17 +55,26 @@ describe('operations covered', () => {
   const operations = authenticatedOperations();
   const code = sources(join(root, 'src/features')).join('\n');
 
-  it('reads 28 authenticated operations from the contract', () => {
-    expect(operations).toHaveLength(28);
+  it('reads 39 authenticated operations from the contract', () => {
+    expect(operations).toHaveLength(39);
   });
+
+  const isCalled = (op: Operation) =>
+    new RegExp(`api\\.${op.method}\\(\\s*'${op.path.replace(/[{}]/g, '\\$&')}'`).test(code);
 
   it('calls every one of them through the API client', () => {
     // getPassportQr is the exception: expo-image loads the picture from its URL, with auth headers.
     const missing = operations
-      .filter((op) => op.id !== 'getPassportQr')
-      .filter((op) => !new RegExp(`api\\.${op.method}\\(\\s*'${op.path.replace(/[{}]/g, '\\$&')}'`).test(code))
+      .filter((op) => op.id !== 'getPassportQr' && !NOT_YET_CONSUMED.has(op.id))
+      .filter((op) => !isCalled(op))
       .map((op) => `${op.id}: ${op.method} ${op.path}`);
     expect(missing).toEqual([]);
+  });
+
+  it('keeps the not-yet-consumed list honest', () => {
+    const used = operations.filter((op) => NOT_YET_CONSUMED.has(op.id) && isCalled(op)).map((op) => op.id);
+    expect(used).toEqual([]);
+    expect(operations.filter((op) => NOT_YET_CONSUMED.has(op.id))).toHaveLength(NOT_YET_CONSUMED.size);
   });
 
   it('loads the QR image from the /qr URL', () => {

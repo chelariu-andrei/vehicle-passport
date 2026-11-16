@@ -21,17 +21,17 @@ const send = (method: string, path: string, init: { headers?: Record<string, str
 const register = (body: object) => send('POST', '/vehicles', { headers: json, body: JSON.stringify(body) });
 const carBody = { vin: VIN, make: 'Dacia', model: 'Logan', year: 2020, fuel: 'PETROL' };
 
-test('has a handler for all 28 authenticated operations', () => {
+test('has a handler for all 39 authenticated operations', () => {
   const doc = parse(readFileSync(resolve(__dirname, '../../../contracts/openapi.yaml'), 'utf8'));
   const ids: string[] = Object.values<Record<string, any>>(doc.paths)
     .flatMap((item) => ['get', 'put', 'post', 'patch', 'delete'].map((m) => item[m]).filter(Boolean))
     .filter((op) => !(Array.isArray(op.security) && op.security.length === 0))
     .map((op) => op.operationId);
-  expect(ids).toHaveLength(28);
+  expect(ids).toHaveLength(39);
   expect(ids).not.toContain('getPublicPassport');
   expect(ids).not.toContain('getPublicPassportPdf');
   expect(Object.keys(handlers).sort()).toEqual([...ids].sort());
-  expect(operations.filter((o) => o.authenticated)).toHaveLength(28);
+  expect(operations.filter((o) => o.authenticated)).toHaveLength(39);
 });
 
 test('an unknown JSON field answers 400 validation-failed and is recorded in violations', async () => {
@@ -429,5 +429,60 @@ describe('attachments', () => {
     const refused = await send('DELETE', `${base}/${source.id}`, { headers: auth });
     expect(refused.status).toBe(422);
     expect((await refused.json()).code).toBe('attachment-protected');
+  });
+});
+
+describe('account operations', () => {
+  const get = (path: string) => send('GET', path, { headers: auth });
+  const write = (method: string, path: string, body: object) =>
+    send(method, path, { headers: json, body: JSON.stringify(body) });
+
+  test('profile, settings, consents, deletion, export and support answer in line with the contract', async () => {
+    const me = await (await get('/me')).json();
+    expect(me.consent.required).toBe(true);
+
+    const patched = await write('PATCH', '/me', { displayName: '  Ana Pop ', phone: '+40712345678' });
+    expect((await patched.json()).displayName).toBe('Ana Pop');
+    expect((await write('PATCH', '/me', { phone: '0712345678' })).status).toBe(400);
+    api.violations.length = 0;
+    expect((await (await write('PATCH', '/me', { phone: null })).json()).phone).toBeNull();
+
+    const settings = await (await get('/me/settings')).json();
+    const changed = { ...settings, language: 'ro' };
+    expect((await (await write('PUT', '/me/settings', changed)).json()).language).toBe('ro');
+
+    const stale = await write('POST', '/me/consents', {
+      accept: [{ type: 'terms', version: '0.9' }],
+      source: 'sign-up-form',
+    });
+    expect(stale.status).toBe(409);
+    expect((await stale.json()).code).toBe('consent-version-outdated');
+    const accepted = await write('POST', '/me/consents', {
+      accept: [
+        { type: 'terms', version: '1.0' },
+        { type: 'privacy', version: '1.0' },
+      ],
+      marketing: true,
+      source: 'sign-up-form',
+    });
+    expect((await accepted.json()).required).toBe(false);
+    expect((await (await get('/me/consents/history')).json()).items).toHaveLength(3);
+
+    expect((await send('DELETE', '/me/deletion', { headers: auth })).status).toBe(404);
+    expect((await send('POST', '/me/deletion', { headers: auth })).status).toBe(201);
+    expect((await send('POST', '/me/deletion', { headers: auth })).status).toBe(409);
+    expect((await (await get('/me')).json()).deletion.scheduledFor).toEqual(expect.any(String));
+    expect((await send('DELETE', '/me/deletion', { headers: auth })).status).toBe(204);
+
+    const report = await write('POST', '/support/reports', {
+      kind: 'problem',
+      message: 'The scan screen freezes.',
+      includeDiagnostics: false,
+    });
+    expect(report.status).toBe(201);
+    const exported = await (await get('/me/export')).json();
+    expect(exported.supportReports).toHaveLength(1);
+    expect(exported.consents).toHaveLength(3);
+    expect(api.violations).toEqual([]);
   });
 });
