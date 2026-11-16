@@ -1,5 +1,6 @@
 package com.vehiclepassport.server.passport.application.service;
 
+import com.vehiclepassport.server.passport.application.port.in.RevokeAllForOwnerUseCase;
 import com.vehiclepassport.server.passport.application.port.in.CountOwnedByOwnerUseCase;
 import com.vehiclepassport.server.passport.application.port.in.CreatePassportUseCase;
 import com.vehiclepassport.server.passport.application.port.in.GetPassportPdfUseCase;
@@ -35,7 +36,8 @@ import java.util.UUID;
 
 @ApplicationScoped
 public class PassportService implements CreatePassportUseCase, RevokePassportLinkUseCase, ListMyPassportsUseCase,
-        GetPublicPassportUseCase, GetPassportPdfUseCase, GetPassportQrUseCase, CountOwnedByOwnerUseCase {
+        GetPublicPassportUseCase, GetPassportPdfUseCase, GetPassportQrUseCase, CountOwnedByOwnerUseCase,
+        RevokeAllForOwnerUseCase {
 
     private static final String PDF_TYPE = "application/pdf";
     /** One text for unknown, revoked and expired links, so the cause cannot be told apart. */
@@ -144,6 +146,12 @@ public class PassportService implements CreatePassportUseCase, RevokePassportLin
 
     private String publicUrl(String token) {
         return config.publicBaseUrl() + "/public/passports/" + token;
+    }
+
+    @Override
+    @Transactional
+    public int revokeAll(UUID ownerId) {
+        return passports.revokeAllByCreator(ownerId, clock.instant());
     }
 
     @Override

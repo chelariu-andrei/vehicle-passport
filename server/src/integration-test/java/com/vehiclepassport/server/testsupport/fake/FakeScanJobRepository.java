@@ -64,4 +64,9 @@ public class FakeScanJobRepository implements ScanJobRepositoryPort, Resettable 
     public void reset() {
         store.clear();
     }
+
+    /** Not exercised through fakes: the purge runs against real persistence in AccountPurgeIT. */
+    @Override
+    public void detachOwner(UUID ownerId, UUID tombstone) {
+    }
 }

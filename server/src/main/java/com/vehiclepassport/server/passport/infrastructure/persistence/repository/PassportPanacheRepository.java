@@ -77,4 +77,14 @@ public class PassportPanacheRepository implements PassportRepositoryPort {
         return new Passport(e.id, e.vin, e.createdBy, e.createdAt, new Snapshot(e.snapshotJson, e.hash),
                 new PublicLink(e.token, e.expiresAt, e.revokedAt), e.pdfKey);
     }
+
+    @Override
+    public int revokeAllByCreator(UUID userId, java.time.Instant at) {
+        int n = em.createNativeQuery("update vehicle_passport.passport set revoked_at = :at "
+                        + "where created_by = :user and revoked_at is null")
+                .setParameter("at", at.truncatedTo(java.time.temporal.ChronoUnit.MICROS))
+                .setParameter("user", userId).executeUpdate();
+        em.clear();
+        return n;
+    }
 }

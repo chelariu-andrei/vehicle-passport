@@ -141,4 +141,22 @@ public class OwnershipPanacheRepository implements OwnershipRepositoryPort {
         return new OwnershipClaim(e.id, new Vin(e.vin), e.claimantId, ClaimStatus.valueOf(e.status), e.filedAt,
                 e.decidedAt);
     }
+
+    @Override
+    public void detachOwner(UUID ownerId, UUID tombstone, java.time.Instant at) {
+        em.createNativeQuery("update vehicle_passport.ownership_period set owned_to = :at "
+                        + "where owner_id = :owner and owned_to is null")
+                .setParameter("at", at.truncatedTo(java.time.temporal.ChronoUnit.MICROS))
+                .setParameter("owner", ownerId).executeUpdate();
+        em.createNativeQuery("update vehicle_passport.ownership_period set owner_id = :tombstone "
+                        + "where owner_id = :owner")
+                .setParameter("tombstone", tombstone).setParameter("owner", ownerId).executeUpdate();
+        em.createNativeQuery("delete from vehicle_passport.ownership_claim "
+                        + "where claimant_id = :owner and status = 'PENDING'")
+                .setParameter("owner", ownerId).executeUpdate();
+        em.createNativeQuery("update vehicle_passport.ownership_claim set claimant_id = :tombstone "
+                        + "where claimant_id = :owner")
+                .setParameter("tombstone", tombstone).setParameter("owner", ownerId).executeUpdate();
+        em.clear();
+    }
 }

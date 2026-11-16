@@ -421,6 +421,8 @@ class AttachmentServiceTest {
 
         public long countActiveByCreator(UUID userId) { return 0; }
 
+        public void detachCreator(UUID userId, UUID tombstone) { }
+
         public Optional<VehicleEvent> findActive(String vin, UUID id) {
             return Optional.ofNullable(rows.get(id)).filter(e -> e.vin().equals(vin) && e.deletedAt() == null);
         }
@@ -441,6 +443,8 @@ class AttachmentServiceTest {
     static final class FakeAttachments implements AttachmentRepositoryPort {
         final Map<UUID, Attachment> rows = new LinkedHashMap<>();
         RuntimeException failNextSave;
+
+        public void detachCreator(UUID userId, UUID tombstone) { }
 
         public void save(Attachment a) {
             if (failNextSave != null) {

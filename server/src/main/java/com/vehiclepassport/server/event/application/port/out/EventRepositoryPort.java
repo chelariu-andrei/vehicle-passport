@@ -27,4 +27,7 @@ public interface EventRepositoryPort {
 
     /** Non-deleted events recorded by the given user. */
     long countActiveByCreator(UUID userId);
+
+    /** Points every event recorded by the user at {@code tombstone}. Safe to repeat. */
+    void detachCreator(UUID userId, UUID tombstone);
 }

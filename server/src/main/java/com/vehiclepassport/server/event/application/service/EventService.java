@@ -1,5 +1,6 @@
 package com.vehiclepassport.server.event.application.service;
 
+import com.vehiclepassport.server.event.application.port.in.DetachOwnerUseCase;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.CheckOdometerUseCase;
@@ -44,7 +45,8 @@ import java.util.UUID;
 
 @ApplicationScoped
 public class EventService implements AddEventUseCase, GetTimelineUseCase, UpdateEventUseCase, DeleteEventUseCase,
-        SaveConfirmedEventUseCase, CheckOdometerUseCase, ReadVehicleHistoryUseCase, CountOwnedByOwnerUseCase {
+        SaveConfirmedEventUseCase, CheckOdometerUseCase, ReadVehicleHistoryUseCase, CountOwnedByOwnerUseCase,
+        DetachOwnerUseCase {
 
     private static final int MIN_LIMIT = 1;
     private static final int MAX_LIMIT = 100;
@@ -61,6 +63,13 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         this.owners = owners;
         this.attachments = attachments;
         this.clock = clock;
+    }
+
+    @Override
+    @Transactional
+    public void detach(UUID ownerId, UUID tombstone) {
+        events.detachCreator(ownerId, tombstone);
+        attachments.detachCreator(ownerId, tombstone);
     }
 
     @Override

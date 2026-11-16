@@ -93,4 +93,9 @@ public class FakeAttachmentRepository implements AttachmentRepositoryPort, Reset
         return new Attachment(a.id(), a.eventId(), a.vin(), a.sha256(), a.contentType(), a.sizeBytes(),
                 a.storageKey(), a.kind(), a.createdBy(), a.createdAt(), at);
     }
+
+    /** Not exercised through fakes: the purge runs against real persistence in AccountPurgeIT. */
+    @Override
+    public void detachCreator(UUID userId, UUID tombstone) {
+    }
 }

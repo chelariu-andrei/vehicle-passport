@@ -94,4 +94,9 @@ public class FakeEventRepository implements EventRepositoryPort, Resettable {
         return new VehicleEvent(c.id(), null, null, c.date(), 0, null, null, null, null, null, null, null, null,
             null, c.createdAt(), null);
     }
+
+    /** Not exercised through fakes: the purge runs against real persistence in AccountPurgeIT. */
+    @Override
+    public void detachCreator(UUID userId, UUID tombstone) {
+    }
 }

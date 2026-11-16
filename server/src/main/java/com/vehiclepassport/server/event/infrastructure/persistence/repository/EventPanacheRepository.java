@@ -158,4 +158,12 @@ public class EventPanacheRepository implements EventRepositoryPort {
                 e.currency, e.notes, toDomain(e.details), EvidenceLevel.valueOf(e.evidence),
                 EventSource.valueOf(e.source), e.createdBy, e.periodId, e.documentKey, e.createdAt, e.deletedAt);
     }
+
+    @Override
+    public void detachCreator(UUID userId, UUID tombstone) {
+        em.createNativeQuery("update vehicle_passport.vehicle_event set created_by = :tombstone "
+                        + "where created_by = :user")
+                .setParameter("tombstone", tombstone).setParameter("user", userId).executeUpdate();
+        em.clear();
+    }
 }

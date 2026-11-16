@@ -1,5 +1,6 @@
 package com.vehiclepassport.server.vehicle.application.service;
 
+import com.vehiclepassport.server.vehicle.application.port.in.DetachOwnerUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.ActiveOwnership;
 import com.vehiclepassport.server.vehicle.application.port.in.AppearanceView;
 import com.vehiclepassport.server.vehicle.application.port.in.AssertActiveOwnerUseCase;
@@ -37,7 +38,7 @@ import java.util.UUID;
 
 @ApplicationScoped
 public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUseCase, GetVehicleUseCase,
-        UpdateVehicleUseCase, ReleaseVehicleUseCase, AssertActiveOwnerUseCase, CountOwnedByOwnerUseCase {
+        UpdateVehicleUseCase, ReleaseVehicleUseCase, AssertActiveOwnerUseCase, CountOwnedByOwnerUseCase, DetachOwnerUseCase {
 
     private final VehicleRepositoryPort vehicles;
     private final OwnershipRepositoryPort ownerships;
@@ -81,6 +82,12 @@ public class VehicleService implements RegisterVehicleUseCase, ListMyVehiclesUse
     public List<VehicleView> list(UUID userId) {
         List<Vin> vins = ownerships.findOpenByOwner(userId).stream().map(OwnershipPeriod::vin).toList();
         return vehicles.findByVins(vins).stream().map(VehicleService::view).toList();
+    }
+
+    @Override
+    @Transactional
+    public void detach(UUID ownerId, UUID tombstone) {
+        ownerships.detachOwner(ownerId, tombstone, clock.instant());
     }
 
     @Override

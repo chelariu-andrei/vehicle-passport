@@ -28,4 +28,7 @@ public interface AttachmentRepositoryPort {
 
     /** Live attachment counts; events without any are absent from the map. */
     Map<UUID, Integer> countsFor(Collection<UUID> eventIds);
+
+    /** Points every attachment uploaded by the user at {@code tombstone}. Safe to repeat. */
+    void detachCreator(UUID userId, UUID tombstone);
 }

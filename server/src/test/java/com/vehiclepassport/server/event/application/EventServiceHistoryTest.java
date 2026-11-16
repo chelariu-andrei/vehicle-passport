@@ -46,6 +46,7 @@ class EventServiceHistoryTest {
             public List<VehicleEvent> page(String vin, TimelineCursor a, int l) { return List.of(); }
             public List<VehicleEvent> allActive(String vin) { return stored; }
             public long countActiveByCreator(UUID userId) { return 0; }
+            public void detachCreator(UUID userId, UUID tombstone) { }
         };
         ActiveOwnerPort owners = (vin, user) -> new com.vehiclepassport.server.event.application.port.out.OwnedPeriod(vin, UUID.randomUUID());
         EventService service = new EventService(repo, owners, new AttachmentServiceTest.FakeAttachments(),
