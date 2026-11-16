@@ -132,7 +132,8 @@ test('the picker only offers the room that is left', async () => {
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce(picked(anAsset(), anAsset(), anAsset()));
   await press(en.event.documents.choosePhoto);
   expect(jest.mocked(ImagePicker.launchImageLibraryAsync).mock.calls.at(-1)?.[0]).toMatchObject({ selectionLimit: 2 });
-  expect(await screen.findByText(en.event.documents.limit)).toBeTruthy();
+  // The notice is set after the picked photos are prepared (async); CI runners need more than the 1 s default.
+  expect(await screen.findByText(en.event.documents.limit, {}, { timeout: 5000 })).toBeTruthy();
 });
 
 test('a manual entry with an upload shows no separate View invoice button', async () => {
