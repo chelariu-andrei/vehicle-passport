@@ -65,3 +65,11 @@ test('unwrap throws an ApiError carrying status and code, and returns data other
   expect(unwrap({ data: { a: 1 }, response: new Response('{}', { status: 200 }) })).toEqual({ a: 1 });
   expect(() => unwrap({ error: '', response: new Response(null, { status: 500 }) })).toThrow(ApiError);
 });
+
+test('attachment error codes have their own copy, and file copy does not say photo', () => {
+  for (const code of ['attachment-limit', 'attachment-protected', 'attachment-not-found', 'duplicate-document', 'file-too-large', 'unsupported-file']) {
+    expect(errorMessage(new ApiError(422, code))).not.toBe(GENERIC);
+  }
+  expect(errorMessage(new ApiError(413, 'file-too-large'))).not.toMatch(/photo/i);
+  expect(errorMessage(new ApiError(415, 'unsupported-file'))).not.toMatch(/photo/i);
+});

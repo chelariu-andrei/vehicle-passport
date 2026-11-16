@@ -5,7 +5,6 @@ import com.vehiclepassport.server.event.api.dto.EventResponse;
 import com.vehiclepassport.server.event.api.mapper.EventDtoMapper;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.DeleteEventUseCase;
-import com.vehiclepassport.server.event.application.port.in.EventDocument;
 import com.vehiclepassport.server.event.application.port.in.GetEventDocumentUseCase;
 import com.vehiclepassport.server.event.application.port.in.UpdateEventUseCase;
 import com.vehiclepassport.server.shared.security.CurrentUser;
@@ -22,8 +21,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.StreamingOutput;
-import java.io.InputStream;
 import java.util.UUID;
 
 @Path("/vehicles/{vin}/events")
@@ -66,15 +63,10 @@ public class EventResource {
         return Response.noContent().build();
     }
 
+    /** Deprecated alias: the event's first attachment. */
     @GET
     @Path("{eventId}/document")
     public Response document(@PathParam("vin") String vin, @PathParam("eventId") UUID eventId) {
-        EventDocument document = documents.get(currentUser.id(), vin, eventId);
-        StreamingOutput stream = out -> {
-            try (InputStream in = document.content()) {
-                in.transferTo(out);
-            }
-        };
-        return Response.ok(stream, document.contentType()).build();
+        return DocumentResponses.stream(documents.get(currentUser.id(), vin, eventId));
     }
 }

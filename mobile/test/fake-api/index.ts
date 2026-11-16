@@ -63,6 +63,7 @@ export function installFakeApi(): FakeApi {
     otherOwnerVins: new Set(),
     scans: {},
     passports: [],
+    attachments: {},
   };
   const scanVins = new Map<string, string>();
   const decidedClaims = new Set<string>();

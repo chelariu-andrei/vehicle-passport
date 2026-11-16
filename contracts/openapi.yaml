@@ -301,7 +301,8 @@ paths:
     get:
       tags: [events]
       operationId: getEventDocument
-      summary: Original invoice file (only the owner of the period that created the event)
+      deprecated: true
+      summary: Deprecated alias for the event's first attachment (use `getAttachment`)
       responses:
         '200':
           description: The original file.
@@ -316,6 +317,127 @@ paths:
               schema: { $ref: '#/components/schemas/Problem' }
         '404':
           description: Code `vehicle-not-found` or `event-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /vehicles/{vin}/events/{eventId}/attachments:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+      - $ref: '#/components/parameters/EventId'
+    post:
+      tags: [events]
+      operationId: addAttachment
+      summary: Attach a file (image/jpeg, image/png, application/pdf, up to 10 MB; at most 10 per event)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: Attachment stored with kind UPLOAD.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AttachmentResponse' }
+        '400':
+          description: Code `validation-failed` (the `file` part is missing).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '403':
+          description: Code `event-from-prior-owner` (event was created in a previous ownership period).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `vehicle-not-found` or `event-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '409':
+          description: Code `duplicate-document` (the same file is already attached to an event of this vehicle).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422':
+          description: Code `attachment-limit` (the event already has 10 attachments).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    get:
+      tags: [events]
+      operationId: listAttachments
+      summary: Attachments of an event (only the owner of the period that created the event)
+      responses:
+        '200':
+          description: The attachments, oldest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AttachmentResponse' }
+        '403':
+          description: Code `document-restricted` (restricted to the owner of the creating period).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `vehicle-not-found` or `event-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /vehicles/{vin}/events/{eventId}/attachments/{attachmentId}:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+      - $ref: '#/components/parameters/EventId'
+      - $ref: '#/components/parameters/AttachmentId'
+    get:
+      tags: [events]
+      operationId: getAttachment
+      summary: The attached file (only the owner of the period that created the event)
+      responses:
+        '200':
+          description: The file.
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            application/pdf: { schema: { type: string, format: binary } }
+        '403':
+          description: Code `document-restricted` (restricted to the owner of the creating period).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `vehicle-not-found`, `event-not-found` or `attachment-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    delete:
+      tags: [events]
+      operationId: deleteAttachment
+      summary: Remove an attachment (only the owner of the period that created the event)
+      responses:
+        '204': { description: Deleted. }
+        '403':
+          description: Code `event-from-prior-owner` (event was created in a previous ownership period).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `vehicle-not-found`, `event-not-found` or `attachment-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: Code `attachment-protected` (the attachment may not be removed).
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -650,6 +772,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    AttachmentId:
+      name: attachmentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     JobId:
       name: jobId
       in: path
@@ -837,7 +964,7 @@ components:
     EventResponse:
       type: object
       description: Carries no creator or ownership-period information.
-      required: [id, type, date, odometerKm, costAmount, currency, evidence, source, documentPresent]
+      required: [id, type, date, odometerKm, costAmount, currency, evidence, source, documentPresent, attachmentCount]
       properties:
         id: { type: string, format: uuid }
         type: { $ref: '#/components/schemas/EventType' }
@@ -855,6 +982,23 @@ components:
         evidence: { $ref: '#/components/schemas/Evidence' }
         source: { $ref: '#/components/schemas/EventSource' }
         documentPresent: { type: boolean }
+        attachmentCount: { type: integer, minimum: 0 }
+
+    AttachmentResponse:
+      type: object
+      required: [id, contentType, sizeBytes, sha256, kind, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        contentType: { type: string }
+        sizeBytes: { type: integer }
+        sha256:
+          type: [string, 'null']
+          description: Hex SHA-256 of the raw bytes. Null for source documents of scans confirmed before hashing existed.
+        kind:
+          type: string
+          description: SCAN_SOURCE is the invoice a scan was confirmed from; UPLOAD was added by the user.
+          enum: [SCAN_SOURCE, UPLOAD]
+        createdAt: { type: string, format: date-time }
 
     TimelinePage:
       type: object

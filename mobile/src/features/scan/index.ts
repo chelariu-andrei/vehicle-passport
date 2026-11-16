@@ -6,7 +6,5 @@ export { InboxScreen } from './components/InboxScreen';
 export { ReviewScreen } from './components/ReviewScreen';
 export { inboxRow } from './model/inboxRow';
 export { nextPollDelay } from './model/polling';
-export { MAX_LONG_EDGE, MAX_PHOTOS, MAX_UPLOAD_BYTES, PhotoUnusableError, preparePhoto } from './model/preparePhoto';
-export type { PreparedPhoto } from './model/preparePhoto';
 export { scanJobStore } from './model/scanJobStore';
 export type { LocalScanJob } from './model/scanJobStore';

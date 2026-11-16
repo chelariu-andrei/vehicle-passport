@@ -7,10 +7,10 @@ import { useActiveCar } from '@/features/vehicle';
 import { errorMessage } from '@/shared/api';
 import { ActionBar, AppBar, Button, EmptyState, ErrorState, Screen, Skeleton, Text, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
+import { MAX_PHOTOS } from '@/shared/media';
 import { useBack } from '@/shared/navigation/useBack';
 
 import { PhotoProblem, useUploadScans } from '../api/uploadScans';
-import { MAX_PHOTOS } from '../model/preparePhoto';
 
 type Photo = { uri: string; width: number; height: number };
 

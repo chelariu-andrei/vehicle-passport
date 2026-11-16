@@ -96,7 +96,8 @@ public class EditDeleteSteps {
     public void vHasADocumentedEvent(int km) {
         registerAs(world.me());
         UUID id = saveConfirmed.save(new SaveConfirmedEventCommand(world.me(), VIN, "SERVICE",
-            LocalDate.parse("2025-03-01"), km, new BigDecimal("450.00"), "RON", "scan", null, "docs/key.pdf"));
+            LocalDate.parse("2025-03-01"), km, new BigDecimal("450.00"), "RON", "scan", null, "docs/key.pdf",
+            "application/pdf", null, 0));
         world.put(E_KEY, id);
     }
 
@@ -115,7 +116,7 @@ public class EditDeleteSteps {
         registerAs(alice);
         UUID id = saveConfirmed.save(new SaveConfirmedEventCommand(alice, VIN, "SERVICE",
             LocalDate.parse("2025-03-01"), 120000, new BigDecimal("450.00"), "RON", "scan", null,
-            "docs/alice.pdf"));
+            "docs/alice.pdf", "application/pdf", null, 0));
         world.put(E_KEY, id);
         release.release(VIN, alice);
         registerAs(world.me());

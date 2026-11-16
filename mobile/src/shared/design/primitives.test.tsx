@@ -72,6 +72,16 @@ describe('ConfirmSheet', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
+
+  it('renders children between body and buttons', async () => {
+    await render(
+      <ConfirmSheet visible title="Verify?" body="Body" confirmLabel="Confirm" dismissLabel="Later" onConfirm={jest.fn()} onCancel={jest.fn()}>
+        <RNText>row</RNText>
+      </ConfirmSheet>,
+    );
+    expect(screen.getByText('row')).toBeTruthy();
+    expect(within(screen.getAllByRole('button')[0]).getByText('Confirm')).toBeTruthy();
+  });
 });
 
 describe('AsyncList', () => {

@@ -175,7 +175,8 @@ public class PassportSteps {
                 List.of(new PartView("Oil filter", new BigDecimal("1.50"), new BigDecimal("30"))),
                 new BigDecimal("100"));
         saveConfirmed.save(new SaveConfirmedEventCommand(world.me(), VIN, "SERVICE", LocalDate.parse("2025-03-01"),
-                120000, new BigDecimal("450.00"), "RON", "from receipt", details, "docs/receipt.pdf"));
+                120000, new BigDecimal("450.00"), "RON", "from receipt", details, "docs/receipt.pdf",
+                "application/pdf", null, 0));
     }
 
     @Given("a passport P1 created while event E existed")

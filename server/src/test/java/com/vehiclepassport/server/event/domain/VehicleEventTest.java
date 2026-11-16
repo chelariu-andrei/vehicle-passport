@@ -89,7 +89,7 @@ class VehicleEventTest {
 
     private static VehicleEvent documented(int km) {
         return VehicleEvent.documented("WVWZZZ1JZXW000001", EventType.SERVICE, LocalDate.parse("2025-03-01"), km,
-                new BigDecimal("450.00"), "RON", "n", null, "doc-key", USER, PERIOD, CLOCK);
+                new BigDecimal("450.00"), "RON", "n", null, USER, PERIOD, CLOCK);
     }
 
     @Test
@@ -97,7 +97,7 @@ class VehicleEventTest {
         VehicleEvent e = documented(120000);
         assertEquals(EvidenceLevel.DOCUMENTED, e.evidence());
         assertEquals(EventSource.SCAN, e.source());
-        assertEquals("doc-key", e.documentKey());
+        assertNull(e.documentKey()); // the document is a SCAN_SOURCE attachment now
     }
 
     @Test
