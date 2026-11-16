@@ -98,6 +98,7 @@ defineFeature(feature, (test) => {
     and('the request resends the original type, date, odometer, cost and currency', async () => {
       await fireEvent.changeText(screen.getByLabelText(en.event.notes), 'Changed note');
       await press(en.event.save);
+      await press(en.event.check.confirm);
       await waitFor(() => expect(fake.callsTo('updateEvent')).toHaveLength(1));
       const original = documented();
       expect(fake.callsTo('updateEvent')[0].body).toEqual({
@@ -118,6 +119,7 @@ defineFeature(feature, (test) => {
       await fireEvent.changeText(await screen.findByLabelText(en.event.notes), 'Try');
       fake.failNext('updateEvent', 403, code);
       await press(en.event.save);
+      await press(en.event.check.confirm);
     });
     then('I am told a previous owner added it', async () => {
       expect(await screen.findByText(en.errors.codes['event-from-prior-owner'])).toBeTruthy();
@@ -134,6 +136,7 @@ defineFeature(feature, (test) => {
     when('I add an event with default currency', async () => {
       await startAddEvent('350');
       await press(en.event.save);
+      await press(en.event.check.confirm);
     });
     then(/^the request has currency "(.*)"$/, async (currency: string) => {
       await waitFor(() => expect(fake.callsTo('addEvent')).toHaveLength(1));
@@ -150,6 +153,7 @@ defineFeature(feature, (test) => {
     when(/^I add an event costing "(.*)"$/, async (cost: string) => {
       await startAddEvent(cost);
       await press(en.event.save);
+      await press(en.event.check.confirm);
     });
     then(/^the request has costAmount (.*)$/, async (amount: string) => {
       await waitFor(() => expect(fake.callsTo('addEvent')).toHaveLength(1));
@@ -212,6 +216,7 @@ defineFeature(feature, (test) => {
       await startAddEvent('350');
       fake.failNext('addEvent', 422, code);
       await press(en.event.save);
+      await press(en.event.check.confirm);
     });
     then(/^I am told "(.*)"$/, async (message: string) => {
       expect(await screen.findByText(message)).toBeTruthy();

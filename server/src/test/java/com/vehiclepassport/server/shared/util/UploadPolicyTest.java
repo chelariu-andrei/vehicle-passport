@@ -1,17 +1,16 @@
-package com.vehiclepassport.server.scan.domain;
+package com.vehiclepassport.server.shared.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.vehiclepassport.server.scan.domain.exception.BatchTooLargeException;
-import com.vehiclepassport.server.scan.domain.exception.FileTooLargeException;
-import com.vehiclepassport.server.scan.domain.exception.UnsupportedFileException;
-import com.vehiclepassport.server.scan.domain.model.ScanFilePolicy;
+import com.vehiclepassport.server.shared.error.BatchTooLargeException;
+import com.vehiclepassport.server.shared.error.FileTooLargeException;
+import com.vehiclepassport.server.shared.error.UnsupportedFileException;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
-class ScanFilePolicyTest {
+class UploadPolicyTest {
 
     private static final byte[] JPEG_HEAD = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0x00, 0x10};
     private static final byte[] PNG_HEAD = {
@@ -21,20 +20,20 @@ class ScanFilePolicyTest {
 
     @Test
     void accepts_jpeg_png_pdf() {
-        assertDoesNotThrow(() -> ScanFilePolicy.check("image/jpeg", 100, JPEG_HEAD));
-        assertDoesNotThrow(() -> ScanFilePolicy.check("image/png", 100, PNG_HEAD));
-        assertDoesNotThrow(() -> ScanFilePolicy.check("application/pdf", 100, PDF_HEAD));
+        assertDoesNotThrow(() -> UploadPolicy.check("image/jpeg", 100, JPEG_HEAD));
+        assertDoesNotThrow(() -> UploadPolicy.check("image/png", 100, PNG_HEAD));
+        assertDoesNotThrow(() -> UploadPolicy.check("application/pdf", 100, PDF_HEAD));
     }
 
     @Test
     void exactly_10MB_passes() {
-        assertDoesNotThrow(() -> ScanFilePolicy.check("image/jpeg", ScanFilePolicy.MAX_BYTES, JPEG_HEAD));
+        assertDoesNotThrow(() -> UploadPolicy.check("image/jpeg", UploadPolicy.MAX_BYTES, JPEG_HEAD));
     }
 
     @Test
     void one_byte_over_throws_file_too_large() {
         FileTooLargeException ex = assertThrows(FileTooLargeException.class,
-                () -> ScanFilePolicy.check("image/jpeg", ScanFilePolicy.MAX_BYTES + 1, JPEG_HEAD));
+                () -> UploadPolicy.check("image/jpeg", UploadPolicy.MAX_BYTES + 1, JPEG_HEAD));
 
         assertEquals("file-too-large", ex.code());
         assertEquals(com.vehiclepassport.server.shared.error.ErrorKind.TOO_LARGE, ex.kind());
@@ -43,7 +42,7 @@ class ScanFilePolicyTest {
     @Test
     void declared_gif_throws() {
         UnsupportedFileException ex = assertThrows(UnsupportedFileException.class,
-                () -> ScanFilePolicy.check("image/gif", 100, GIF_HEAD));
+                () -> UploadPolicy.check("image/gif", 100, GIF_HEAD));
 
         assertEquals("unsupported-file", ex.code());
         assertEquals(com.vehiclepassport.server.shared.error.ErrorKind.UNSUPPORTED_MEDIA, ex.kind());
@@ -52,24 +51,36 @@ class ScanFilePolicyTest {
     @Test
     void declared_png_with_pdf_bytes_throws() {
         assertThrows(UnsupportedFileException.class,
-                () -> ScanFilePolicy.check("image/png", 100, PDF_HEAD));
+                () -> UploadPolicy.check("image/png", 100, PDF_HEAD));
     }
 
     @Test
     void empty_head_throws() {
         assertThrows(UnsupportedFileException.class,
-                () -> ScanFilePolicy.check("image/png", 0, new byte[0]));
+                () -> UploadPolicy.check("image/png", 0, new byte[0]));
+    }
+
+    @Test
+    void rejectsEmptyFile() {
+        assertThrows(UnsupportedFileException.class,
+                () -> UploadPolicy.check("image/jpeg", 0, new byte[0]));
+    }
+
+    @Test
+    void rejectsPdfDeclaredAsJpeg() {
+        assertThrows(UnsupportedFileException.class,
+                () -> UploadPolicy.check("image/jpeg", 100, PDF_HEAD));
     }
 
     @Test
     void batch_20_passes() {
-        assertDoesNotThrow(() -> ScanFilePolicy.checkBatchSize(20));
+        assertDoesNotThrow(() -> UploadPolicy.checkBatchSize(20));
     }
 
     @Test
     void batch_21_throws() {
         BatchTooLargeException ex = assertThrows(BatchTooLargeException.class,
-                () -> ScanFilePolicy.checkBatchSize(21));
+                () -> UploadPolicy.checkBatchSize(21));
 
         assertEquals("batch-too-large", ex.code());
         assertEquals(com.vehiclepassport.server.shared.error.ErrorKind.UNPROCESSABLE, ex.kind());
@@ -77,6 +88,6 @@ class ScanFilePolicyTest {
 
     @Test
     void batch_0_throws() {
-        assertThrows(BatchTooLargeException.class, () -> ScanFilePolicy.checkBatchSize(0));
+        assertThrows(BatchTooLargeException.class, () -> UploadPolicy.checkBatchSize(0));
     }
 }

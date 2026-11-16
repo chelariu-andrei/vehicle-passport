@@ -20,6 +20,8 @@ public final class ScanJob {
     private final UUID periodId;
     private final String documentKey;
     private final String contentType;
+    private final String sha256;
+    private final long sizeBytes;
     private final Instant createdAt;
 
     private ScanStatus status;
@@ -29,8 +31,9 @@ public final class ScanJob {
     private List<ScanWarning> warnings = List.of();
     private String failureReason;
 
+    /** sha256 is the hex SHA-256 of the stored bytes; null (and sizeBytes 0) for jobs from before hashing. */
     public ScanJob(UUID id, UUID batchId, String vin, UUID ownerId, UUID periodId,
-            String documentKey, String contentType, Instant createdAt) {
+            String documentKey, String contentType, String sha256, long sizeBytes, Instant createdAt) {
         this.id = id;
         this.batchId = batchId;
         this.vin = vin;
@@ -38,6 +41,8 @@ public final class ScanJob {
         this.periodId = periodId;
         this.documentKey = documentKey;
         this.contentType = contentType;
+        this.sha256 = sha256;
+        this.sizeBytes = sizeBytes;
         this.createdAt = createdAt;
         this.status = ScanStatus.PENDING;
     }
@@ -88,10 +93,11 @@ public final class ScanJob {
 
     /** Rebuilds a stored job with every persisted field, unvalidated. For persistence adapters only. */
     public static ScanJob restore(UUID id, UUID batchId, String vin, UUID ownerId, UUID periodId,
-            String documentKey, String contentType, ScanStatus status, int attempts,
+            String documentKey, String contentType, String sha256, long sizeBytes, ScanStatus status, int attempts,
             Instant processingStartedAt, ScanResult result, List<ScanWarning> warnings,
             String failureReason, Instant createdAt) {
-        ScanJob job = new ScanJob(id, batchId, vin, ownerId, periodId, documentKey, contentType, createdAt);
+        ScanJob job = new ScanJob(id, batchId, vin, ownerId, periodId, documentKey, contentType, sha256, sizeBytes,
+                createdAt);
         job.status = status;
         job.attempts = attempts;
         job.processingStartedAt = processingStartedAt;
@@ -127,6 +133,14 @@ public final class ScanJob {
 
     public String contentType() {
         return contentType;
+    }
+
+    public String sha256() {
+        return sha256;
+    }
+
+    public long sizeBytes() {
+        return sizeBytes;
     }
 
     public ScanStatus status() {

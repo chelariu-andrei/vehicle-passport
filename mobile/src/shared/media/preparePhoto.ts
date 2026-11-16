@@ -2,7 +2,7 @@ import { randomUUID } from 'expo-crypto';
 import { File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
-import { deleteKeptFile } from './scanJobStore';
+import { deleteKeptFile } from './deleteKeptFile';
 
 export const MAX_UPLOAD_BYTES = 10_485_760;
 export const MAX_LONG_EDGE = 4096;

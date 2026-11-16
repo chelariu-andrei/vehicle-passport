@@ -1,7 +1,4 @@
-package com.vehiclepassport.server.scan.domain.exception;
-
-import com.vehiclepassport.server.shared.error.DomainException;
-import com.vehiclepassport.server.shared.error.ErrorKind;
+package com.vehiclepassport.server.shared.error;
 
 public class FileTooLargeException extends DomainException {
 

@@ -30,6 +30,7 @@ test('a picked date is the one sent', async () => {
   await fireEvent.changeText(screen.getByLabelText(en.event.odometer), '1000');
   await fireEvent.changeText(screen.getByLabelText(en.event.cost), '10');
   await fireEvent.press(screen.getByRole('button', { name: en.event.save }));
+  await fireEvent.press(await screen.findByRole('button', { name: en.event.check.confirm }));
   await waitFor(() => expect(fake.callsTo('addEvent')).toHaveLength(1));
   expect(fake.callsTo('addEvent')[0].body).toMatchObject({ date: '2024-03-09' });
 });
@@ -43,6 +44,14 @@ test('a date past the limit is pulled back to it, never sent', async () => {
   await fireEvent.changeText(screen.getByLabelText(en.event.odometer), '1000');
   await fireEvent.changeText(screen.getByLabelText(en.event.cost), '10');
   await fireEvent.press(screen.getByRole('button', { name: en.event.save }));
+  await fireEvent.press(await screen.findByRole('button', { name: en.event.check.confirm }));
   await waitFor(() => expect(fake.callsTo('addEvent')).toHaveLength(1));
   expect(fake.callsTo('addEvent')[0].body).toMatchObject({ date: maxEventDate(new Date()) });
+});
+
+test('picking a date closes the picker', async () => {
+  await openApp(newEventUrl, { seed });
+  const picker = await openPicker();
+  await fireEvent(picker, 'onChange', { type: 'set', nativeEvent: {} }, new Date(2024, 2, 9, 12));
+  await waitFor(() => expect(screen.queryByTestId('event-date-picker')).toBeNull());
 });

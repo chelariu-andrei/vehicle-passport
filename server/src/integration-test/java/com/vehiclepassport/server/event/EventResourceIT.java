@@ -91,7 +91,8 @@ class EventResourceIT {
 
     private UUID documented(String user, String vin, int km, String key) {
         return savingConfirmed.save(new SaveConfirmedEventCommand(UUID.fromString(user), vin, "SERVICE",
-                LocalDate.parse("2025-03-01"), km, new BigDecimal("450.00"), "RON", "scan", null, key));
+                LocalDate.parse("2025-03-01"), km, new BigDecimal("450.00"), "RON", "scan", null, key,
+                "application/pdf", null, 0));
     }
 
     @Test

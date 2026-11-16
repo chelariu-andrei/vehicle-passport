@@ -13,6 +13,7 @@ import com.vehiclepassport.server.scan.application.port.in.SubmitScanUseCase;
 import com.vehiclepassport.server.scan.application.port.in.UploadedFile;
 import com.vehiclepassport.server.scan.domain.exception.MissingFileException;
 import com.vehiclepassport.server.shared.security.CurrentUser;
+import com.vehiclepassport.server.shared.util.UploadPolicy;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -25,7 +26,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
@@ -96,15 +96,6 @@ public class ScanResource {
 
     /** The client file name is never read: only the content type and the size measured on the received file. */
     private static UploadedFile uploaded(FileUpload upload) {
-        return new UploadedFile(upload.uploadedFile(), declaredType(upload.contentType()), upload.size());
-    }
-
-    private static String declaredType(String contentType) {
-        if (contentType == null) {
-            return null;
-        }
-        int semicolon = contentType.indexOf(';');
-        String bare = semicolon < 0 ? contentType : contentType.substring(0, semicolon);
-        return bare.trim().toLowerCase(Locale.ROOT);
+        return new UploadedFile(upload.uploadedFile(), UploadPolicy.bareType(upload.contentType()), upload.size());
     }
 }

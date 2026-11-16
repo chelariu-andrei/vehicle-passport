@@ -6,6 +6,7 @@ export type EventResponse = components['schemas']['EventResponse'];
 export type PendingClaimResponse = components['schemas']['PendingClaimResponse'];
 export type PassportResponse = components['schemas']['PassportResponse'];
 export type ScanJobResponse = components['schemas']['ScanJobResponse'];
+export type AttachmentResponse = components['schemas']['AttachmentResponse'];
 
 export const SAMPLE_VIN = 'WVWZZZ1JZXW000001';
 
@@ -38,6 +39,7 @@ export function anEvent(o: Partial<EventResponse> = {}): EventResponse {
     evidence: 'USER_CONFIRMED',
     source: 'MANUAL',
     documentPresent: false,
+    attachmentCount: 0,
     ...o,
   };
 }
@@ -62,4 +64,16 @@ export function aPassport(o: Partial<PassportResponse> = {}): PassportResponse {
 
 export function aScanJob(o: Partial<ScanJobResponse> = {}): ScanJobResponse {
   return { id: uuid(), status: 'PENDING', fields: null, warnings: [], ...o };
+}
+
+export function anAttachment(o: Partial<AttachmentResponse> = {}): AttachmentResponse {
+  return {
+    id: uuid(),
+    contentType: 'image/jpeg',
+    sizeBytes: 150_000,
+    sha256: uuid().replaceAll('-', '').repeat(2),
+    kind: 'UPLOAD',
+    createdAt: '2025-01-15T10:00:00Z',
+    ...o,
+  };
 }

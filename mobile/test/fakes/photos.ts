@@ -1,5 +1,6 @@
 /* Scriptable stand-ins for the camera, the photo library and the image manipulator. Wired in by nativeModules.ts. */
 /* eslint-disable @typescript-eslint/no-require-imports -- the mocked modules are read lazily so this file can be loaded by the mock factories */
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 
 type Resize = { width?: number; height?: number };
@@ -69,6 +70,11 @@ export function anAsset(o: Partial<PickedAsset> = {}): PickedAsset {
 /** The next camera or library launch returns these photos. */
 export const picked = (...assets: PickedAsset[]) => ({ canceled: false as const, assets });
 
+export type PickedDocument = { uri: string; name: string; size?: number; mimeType?: string };
+
+/** The next PDF pick returns these documents (the picker has already copied them to the cache, as the real one does). */
+export const pickedDocuments = (...assets: PickedDocument[]) => ({ canceled: false as const, assets: assets as DocumentPicker.DocumentPickerAsset[] });
+
 const cancelled = { canceled: true as const, assets: null };
 const granted = { granted: true, canAskAgain: true, status: 'granted' as ImagePicker.PermissionStatus, expires: 'never' as const };
 
@@ -81,6 +87,8 @@ export function resetPhotoFakes(): void {
     ImagePicker.requestCameraPermissionsAsync,
   ] as jest.Mock[];
   mocks.forEach((mock) => mock.mockReset());
+  (DocumentPicker.getDocumentAsync as jest.Mock).mockReset();
+  (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue(cancelled);
   jest.mocked(ImagePicker.launchCameraAsync).mockResolvedValue(cancelled);
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue(cancelled);
   jest.mocked(ImagePicker.requestCameraPermissionsAsync).mockResolvedValue(granted);

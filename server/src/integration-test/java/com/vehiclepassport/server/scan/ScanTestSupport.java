@@ -51,7 +51,7 @@ public class ScanTestSupport {
     public ScanJob pending(Fixture f, Instant createdAt) {
         UUID id = UUID.randomUUID();
         ScanJob job = new ScanJob(id, UUID.randomUUID(), f.vin(), f.owner(), f.period(), "scans/" + f.vin() + "/" + id,
-                "image/png", createdAt);
+                "image/png", "ab".repeat(32), 10, createdAt);
         save(job);
         return job;
     }

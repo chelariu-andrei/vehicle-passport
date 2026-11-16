@@ -40,13 +40,16 @@ public record VehicleEvent(
                 clock.instant(), null);
     }
 
-    /** An event extracted from a scanned document and confirmed by the user: backed by the document. */
+    /**
+     * An event extracted from a scanned document and confirmed by the user: backed by the document, which is
+     * kept as the event's SCAN_SOURCE attachment. The legacy document key is never written any more.
+     */
     public static VehicleEvent documented(String vin, EventType type, LocalDate date, int odometerKm,
-            BigDecimal costAmount, String currency, String notes, EventDetails details, String documentKey,
-            UUID createdBy, UUID periodId, Clock clock) {
+            BigDecimal costAmount, String currency, String notes, EventDetails details, UUID createdBy,
+            UUID periodId, Clock clock) {
         String normalised = validate(type, date, odometerKm, costAmount, currency, clock);
         return new VehicleEvent(UUID.randomUUID(), vin, type, date, odometerKm, costAmount, normalised,
-                notes, details, EvidenceLevel.DOCUMENTED, EventSource.SCAN, createdBy, periodId, documentKey,
+                notes, details, EvidenceLevel.DOCUMENTED, EventSource.SCAN, createdBy, periodId, null,
                 clock.instant(), null);
     }
 

@@ -28,7 +28,8 @@ public class EventDtoMapper {
 
     public EventResponse toResponse(EventView v) {
         return new EventResponse(v.id(), v.type(), v.date(), v.odometerKm(), v.costAmount(), v.currency(),
-                v.notes(), toResponse(v.details()), v.evidence(), v.source(), v.documentPresent());
+                v.notes(), toResponse(v.details()), v.evidence(), v.source(), v.documentPresent(),
+                v.attachmentCount());
     }
 
     public TimelinePageResponse toResponse(TimelinePage page) {

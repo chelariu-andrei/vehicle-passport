@@ -16,9 +16,9 @@
 - Providers: **Apple (iOS only, native id token) + Google (iOS and Android)**; email/password stays. Supabase needs the Apple provider enabled for id-token exchange but no web redirect flow for Apple. Provider sign-in lives entirely in Supabase; the server never sees provider tokens.
 - Identity list / link / unlink / change password / sign-out-others are Supabase-client operations → **no server endpoint**.
 - App lock (Face ID / fingerprint) is device-local → not persisted server-side.
-- Legal text is persisted (`legal_document`, versioned, per locale) and served by the API; the seed text in V8 is **placeholder and needs legal review before release**.
+- Legal text is persisted (`legal_document`, versioned, per locale) and served by the API; the seed text in V9 is **placeholder and needs legal review before release**.
 - Deletion: 30-day grace, then purge. Technical history stays with each car, de-linked from the owner (matches the artifact's "Stays with each car").
-- Migration numbers: event-attachments already claims `V6`; this plan uses `V7`, `V8`. If attachments merges after this, renumber on rebase.
+- Migration numbers: event-attachments claims `V6` and scan-job-sha256 `V7` (both on master); this plan uses `V8`, `V9`. If attachments merges after this, renumber on rebase.
 
 ## Global Constraints
 
@@ -60,7 +60,7 @@ Server (`server/src/main/java/com/vehiclepassport/server/account/`):
 - `infrastructure/adapter/OwnerStatsAdapter.java`, `OwnerDataEraserAdapter.java` — call other features' `port/in`
 - Modified: `vehicle|event|passport/application/port/in` — add `CountOwnedByOwnerUseCase`, `DetachOwnerUseCase` (+ passport `RevokeAllForOwnerUseCase`)
 
-Other: `server/src/main/resources/db/migration/V7__account.sql`, `V8__legal_seed.sql`; `contracts/openapi.yaml`; `infra/supabase/config.toml`, `infra/SUPABASE-LOCAL.md`; tests under `src/test/java/.../account/**`, `src/integration-test/java/.../account/**`, `src/integration-test/resources/features/account/*.feature`.
+Other: `server/src/main/resources/db/migration/V8__account.sql`, `V9__legal_seed.sql`; `contracts/openapi.yaml`; `infra/supabase/config.toml`, `infra/SUPABASE-LOCAL.md`; tests under `src/test/java/.../account/**`, `src/integration-test/java/.../account/**`, `src/integration-test/resources/features/account/*.feature`.
 
 ---
 
@@ -93,15 +93,15 @@ Other: `server/src/main/resources/db/migration/V7__account.sql`, `V8__legal_seed
 ### Task 2: Migrations
 
 **Files:**
-- Create: `server/src/main/resources/db/migration/V7__account.sql`, `V8__legal_seed.sql`
+- Create: `server/src/main/resources/db/migration/V8__account.sql`, `V9__legal_seed.sql`
 - Test: `server/src/integration-test/java/com/vehiclepassport/server/account/AccountMigrationIT.java`
 
 **Interfaces:**
 - Produces tables in schema `vehicle_passport`: `user_profile(id uuid pk, email text null, display_name text null, phone text null, created_at timestamptz, deletion_scheduled_for timestamptz null)`; `user_settings(user_id uuid pk, language, appearance, distance_unit, currency, notif_document_deadlines bool, notif_reminder_days smallint[], notif_scans bool, notif_passport_views bool, notif_transfers bool, notif_product_news bool default false)`; `legal_document(type, locale, version, title, body_markdown, effective_date, is_current bool, pk(type, locale, version))` with a partial unique index on `(type, locale) where is_current`; `consent_record(id uuid pk, user_id uuid null, subject_hash text null, type, version null, granted bool, source, created_at)` append-only; `support_report(id uuid pk, user_id uuid null, kind, message, diagnostics jsonb null, created_at)`. CHECK constraints mirror the enums in Global Constraints.
 
-- [ ] **Step 1:** Write `AccountMigrationIT` asserting: tables exist; inserting `phone='0712'` violates the phone CHECK; two `is_current` rows for the same `(type, locale)` fail; V8 seeds `terms`, `privacy`, `data-sharing` in `ro` and `en`, version `1.0`, exactly one current each.
+- [ ] **Step 1:** Write `AccountMigrationIT` asserting: tables exist; inserting `phone='0712'` violates the phone CHECK; two `is_current` rows for the same `(type, locale)` fail; V9 seeds `terms`, `privacy`, `data-sharing` in `ro` and `en`, version `1.0`, exactly one current each.
 - [ ] **Step 2:** Run it → FAIL (tables missing).
-- [ ] **Step 3:** Write V7 (DDL + CHECKs) and V8 (seed, body marked `PLACEHOLDER — legal review required`).
+- [ ] **Step 3:** Write V8 (DDL + CHECKs) and V9 (seed, body marked `PLACEHOLDER — legal review required`).
 - [ ] **Step 4:** Run `AccountMigrationIT` and the full suite → PASS.
 - [ ] **Step 5:** Commit `feat(server): account schema and legal seed`.
 

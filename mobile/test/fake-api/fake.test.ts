@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
-import { aClaim, aPassport, aScanJob, aVehicle, anEvent, handlers, installFakeApi, operations } from '.';
+import { aClaim, anAttachment, aPassport, aScanJob, aVehicle, anEvent, handlers, installFakeApi, operations } from '.';
 import type { FakeApi } from '.';
 
 const BASE = 'http://api.test';
@@ -21,17 +21,17 @@ const send = (method: string, path: string, init: { headers?: Record<string, str
 const register = (body: object) => send('POST', '/vehicles', { headers: json, body: JSON.stringify(body) });
 const carBody = { vin: VIN, make: 'Dacia', model: 'Logan', year: 2020, fuel: 'PETROL' };
 
-test('has a handler for all 24 authenticated operations', () => {
+test('has a handler for all 28 authenticated operations', () => {
   const doc = parse(readFileSync(resolve(__dirname, '../../../contracts/openapi.yaml'), 'utf8'));
   const ids: string[] = Object.values<Record<string, any>>(doc.paths)
     .flatMap((item) => ['get', 'put', 'post', 'patch', 'delete'].map((m) => item[m]).filter(Boolean))
     .filter((op) => !(Array.isArray(op.security) && op.security.length === 0))
     .map((op) => op.operationId);
-  expect(ids).toHaveLength(24);
+  expect(ids).toHaveLength(28);
   expect(ids).not.toContain('getPublicPassport');
   expect(ids).not.toContain('getPublicPassportPdf');
   expect(Object.keys(handlers).sort()).toEqual([...ids].sort());
-  expect(operations.filter((o) => o.authenticated)).toHaveLength(24);
+  expect(operations.filter((o) => o.authenticated)).toHaveLength(28);
 });
 
 test('an unknown JSON field answers 400 validation-failed and is recorded in violations', async () => {
@@ -363,5 +363,71 @@ describe('vehicle plate and appearance', () => {
     const body = await res.json();
     expect(body.plate).toBeNull();
     expect(body.appearance).toBeNull();
+  });
+});
+
+describe('attachments', () => {
+  const upload = (eventId: string, bytes: number[], type = 'image/jpeg') => {
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(bytes)], { type }), 'scan.jpg');
+    return send('POST', `/vehicles/${VIN}/events/${eventId}/attachments`, { headers: auth, body: form });
+  };
+  const setup = () => {
+    api.state.vehicles.push(aVehicle({ vin: VIN }));
+    const event = anEvent();
+    api.state.events[VIN] = [event];
+    return event;
+  };
+
+  test('addAttachment answers 201 with an UPLOAD attachment and counts it on the event', async () => {
+    const event = setup();
+    const res = await upload(event.id, [1, 2, 3]);
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body).toMatchObject({ contentType: 'image/jpeg', sizeBytes: 3, kind: 'UPLOAD' });
+    expect(body.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(event.attachmentCount).toBe(1);
+    const list = await send('GET', `/vehicles/${VIN}/events/${event.id}/attachments`, { headers: auth });
+    expect(await list.json()).toEqual([body]);
+    const file = await send('GET', `/vehicles/${VIN}/events/${event.id}/attachments/${body.id}`, { headers: auth });
+    expect(file.status).toBe(200);
+    expect(file.headers.get('content-type')).toBe('image/jpeg');
+  });
+
+  test('the same bytes twice answer 409 duplicate-document', async () => {
+    const event = setup();
+    expect((await upload(event.id, [1, 2, 3])).status).toBe(201);
+    const again = await upload(event.id, [1, 2, 3]);
+    expect(again.status).toBe(409);
+    expect((await again.json()).code).toBe('duplicate-document');
+  });
+
+  test('the 11th attachment answers 422 attachment-limit', async () => {
+    const event = setup();
+    for (let i = 0; i < 10; i++) expect((await upload(event.id, [i])).status).toBe(201);
+    const res = await upload(event.id, [99]);
+    expect(res.status).toBe(422);
+    expect((await res.json()).code).toBe('attachment-limit');
+  });
+
+  test('an unsupported type answers 415', async () => {
+    const event = setup();
+    expect((await upload(event.id, [1], 'text/plain')).status).toBe(415);
+  });
+
+  test('delete removes an UPLOAD, refuses a SCAN_SOURCE with 422, and 404s an unknown id', async () => {
+    const event = setup();
+    const added = await (await upload(event.id, [1])).json();
+    const base = `/vehicles/${VIN}/events/${event.id}/attachments`;
+    expect((await send('DELETE', `${base}/${added.id}`, { headers: auth })).status).toBe(204);
+    expect(event.attachmentCount).toBe(0);
+    const missing = await send('DELETE', `${base}/${added.id}`, { headers: auth });
+    expect(missing.status).toBe(404);
+    expect((await missing.json()).code).toBe('attachment-not-found');
+    const source = anAttachment({ kind: 'SCAN_SOURCE', sha256: null });
+    api.state.attachments[event.id] = [source];
+    const refused = await send('DELETE', `${base}/${source.id}`, { headers: auth });
+    expect(refused.status).toBe(422);
+    expect((await refused.json()).code).toBe('attachment-protected');
   });
 });

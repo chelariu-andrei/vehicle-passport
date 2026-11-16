@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Modal, Pressable, View } from 'react-native';
 
 import { en } from '../../i18n/en';
@@ -10,6 +11,8 @@ type Props = {
   visible: boolean;
   title: string;
   body: string;
+  /** Extra content between the body and the buttons. */
+  children?: ReactNode;
   confirmLabel: string;
   /** What declining reads as, in the caller's words (never a generic label). */
   dismissLabel: string;
@@ -23,7 +26,7 @@ type Props = {
   onDismiss?: () => void;
 };
 
-export function ConfirmSheet({ visible, title, body, confirmLabel, dismissLabel, danger = false, onConfirm, onCancel, onClose = onCancel, onDismiss }: Props) {
+export function ConfirmSheet({ visible, title, body, children, confirmLabel, dismissLabel, danger = false, onConfirm, onCancel, onClose = onCancel, onDismiss }: Props) {
   const { colors, scheme } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={onDismiss}>
@@ -46,6 +49,7 @@ export function ConfirmSheet({ visible, title, body, confirmLabel, dismissLabel,
           <Text variant="body-lg" color="ink-muted">
             {body}
           </Text>
+          {children}
           <Button kind={danger ? 'danger' : 'primary'} title={confirmLabel} onPress={onConfirm} />
           <Button kind="quiet" title={dismissLabel} onPress={onCancel} />
         </View>
