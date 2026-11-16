@@ -1,6 +1,7 @@
 target/
 .idea/
 .env*
+!.env.example
 infra/supabase/.temp/
 infra/supabase/.branches/
 .superpowers/
