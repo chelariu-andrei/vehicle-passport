@@ -193,4 +193,47 @@ defineFeature(feature, (test) => {
       expect(within(deleteGroup).getByRole('button', { name: en.account.deleteAccount })).toBeTruthy();
     });
   });
+
+  const noName = () =>
+    seed((api) => {
+      api.state.account.displayName = null;
+    });
+  const openNamelessProfile = async () => {
+    await open('/account/profile');
+    await screen.findByText(en.profile.namePrompt);
+  };
+
+  test('Name-less account saves only a phone number', ({ given, when, then }) => {
+    given('my profile has no name', noName);
+    when(/^I save the phone "(.*)" on the name-less Profile$/, async (phone: string) => {
+      await openNamelessProfile();
+      await fireEvent.changeText(phoneField(), phone);
+      await save();
+    });
+    then(/^only the phone is sent as "(.*)"$/, async (phone: string) => {
+      await waitFor(() => expect(sentBody()).toEqual({ phone }));
+      expect(fake.state.account.displayName).toBeNull();
+    });
+  });
+
+  test('Name-less account still sees the name prompt', ({ given, when, then }) => {
+    given('my profile has no name', noName);
+    when('I open the name-less Profile', async () => {
+      await openNamelessProfile();
+    });
+    then('I see the name prompt and no name error', () => {
+      expect(screen.getByText(en.profile.namePrompt)).toBeTruthy();
+      expect(screen.queryByText(en.validation.displayNameRequired)).toBeNull();
+    });
+  });
+
+  test('Clearing an existing name is still refused', ({ when, then }) => {
+    when('I clear the name on Profile and save', async () => {
+      await changeName('');
+    });
+    then('I see the name required error and nothing is sent', async () => {
+      expect(await screen.findByText(en.validation.displayNameRequired)).toBeTruthy();
+      expect(fake.callsTo('updateProfile')).toHaveLength(0);
+    });
+  });
 });

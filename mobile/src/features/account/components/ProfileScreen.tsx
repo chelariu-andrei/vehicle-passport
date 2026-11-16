@@ -37,8 +37,10 @@ function ProfileForm({ account, header, back }: { account: Me; header: React.Rea
 
   const submit = () => {
     const nextErrors: Errors = {};
+    // A name-less account (an Apple user who shared none) is only prompted, so an empty name is left alone.
+    const nameOptional = name.trim() === '' && !account.displayName?.trim();
     const parsedName = displayNameSchema.safeParse(name);
-    if (!parsedName.success) nextErrors.name = parsedName.error.issues[0]?.message;
+    if (!parsedName.success && !nameOptional) nextErrors.name = parsedName.error.issues[0]?.message;
     const normalized = normalizePhone(phone);
     const parsedPhone = phoneSchema.safeParse(normalized);
     if (!parsedPhone.success) nextErrors.phone = parsedPhone.error.issues[0]?.message;

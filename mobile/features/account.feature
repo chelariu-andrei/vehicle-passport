@@ -43,3 +43,17 @@ Feature: Account
   Scenario: Sign out is separate from delete
     When I open Account
     Then Sign out and Delete account are different rows in different groups
+
+  Scenario: Name-less account saves only a phone number
+    Given my profile has no name
+    When I save the phone "+40 712 345 678" on the name-less Profile
+    Then only the phone is sent as "+40712345678"
+
+  Scenario: Name-less account still sees the name prompt
+    Given my profile has no name
+    When I open the name-less Profile
+    Then I see the name prompt and no name error
+
+  Scenario: Clearing an existing name is still refused
+    When I clear the name on Profile and save
+    Then I see the name required error and nothing is sent
