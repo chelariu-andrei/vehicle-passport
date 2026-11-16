@@ -107,3 +107,30 @@ test('a restricted list answer also falls back to the count', async () => {
   await screen.findByText(en.event.documents.count(1));
   expect(screen.getByText(en.errors.codes['document-restricted'])).toBeTruthy();
 });
+
+test('a partial retry keeps the remainder in the banner', async () => {
+  const fake = await openApp(`${detailUrl}?failedUploads=3&totalUploads=5&duplicateUploads=0`, { seed: seedWith() });
+  await press(en.event.documents.retry);
+  jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce(picked(anAsset()));
+  await press(en.event.documents.choosePhoto);
+  await waitFor(() => expect(fake.callsTo('addAttachment')).toHaveLength(1));
+  expect(await screen.findByText(en.event.documents.failedUploads(2, 5))).toBeTruthy();
+});
+
+test('a failed retry does not shrink the total', async () => {
+  const fake = await openApp(`${detailUrl}?failedUploads=3&totalUploads=5&duplicateUploads=0`, { seed: seedWith() });
+  await press(en.event.documents.retry);
+  fake.failNext('addAttachment', 500, null);
+  jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce(picked(anAsset()));
+  await press(en.event.documents.choosePhoto);
+  expect(await screen.findByText(en.event.documents.failedUploads(4, 5))).toBeTruthy();
+});
+
+test('the picker only offers the room that is left', async () => {
+  await openApp(detailUrl, { seed: seedWith(Array.from({ length: 8 }, () => anAttachment())) });
+  await press(en.event.documents.add);
+  jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce(picked(anAsset(), anAsset(), anAsset()));
+  await press(en.event.documents.choosePhoto);
+  expect(jest.mocked(ImagePicker.launchImageLibraryAsync).mock.calls.at(-1)?.[0]).toMatchObject({ selectionLimit: 2 });
+  expect(await screen.findByText(en.event.documents.limit)).toBeTruthy();
+});

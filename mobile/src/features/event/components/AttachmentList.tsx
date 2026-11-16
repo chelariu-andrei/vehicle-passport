@@ -92,11 +92,14 @@ export function AttachmentList({ vin, eventId, count, initialFailure }: { vin: s
     upload.mutate(files, {
       onSuccess: (outcome) => {
         const duplicates = outcome.failed.filter((f) => f.code === 'duplicate-document').length;
-        setFailure(outcome.failed.length > 0 ? { failed: outcome.failed.length, total: files.length, duplicates } : null);
+        const succeeded = files.length - outcome.failed.length;
+        // The banner counts what is still missing out of what was meant to go, across retries.
+        const failed = Math.max(0, (failure?.failed ?? 0) - succeeded) + outcome.failed.length;
+        setFailure(failed > 0 ? { failed, total: failure?.total ?? files.length, duplicates: (failure?.duplicates ?? 0) + duplicates } : null);
         setAdding(false);
       },
       onError: (error) => {
-        setFailure({ failed: files.length, total: files.length, duplicates: 0 });
+        setFailure(failure ?? { failed: files.length, total: files.length, duplicates: 0 });
         toast(errorMessage(error));
       },
     });
@@ -142,7 +145,7 @@ export function AttachmentList({ vin, eventId, count, initialFailure }: { vin: s
           onDelete={attachment.kind === 'UPLOAD' ? () => setDeleting({ id: attachment.id, name: names[index] }) : undefined}
         />
       ))}
-      {adding ? <DocumentsSection files={[]} onChange={send} disabled={upload.isPending} /> : !full ? <Button kind="secondary" title={en.event.documents.add} onPress={() => setAdding(true)} /> : null}
+      {adding ? <DocumentsSection files={[]} onChange={send} disabled={upload.isPending} capacity={MAX_STAGED - attachments.length} /> : list.isSuccess && !full ? <Button kind="secondary" title={en.event.documents.add} onPress={() => setAdding(true)} /> : null}
       <ConfirmSheet
         visible={deleting !== null}
         title={en.event.documents.deleteTitle}

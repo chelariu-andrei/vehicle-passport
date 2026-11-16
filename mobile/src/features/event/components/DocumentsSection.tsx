@@ -23,12 +23,12 @@ function withPdfExtension(uri: string): string {
 }
 
 /** Photos and PDFs for an event that is not saved yet. They stay on the device until the event exists. */
-export function DocumentsSection({ files, onChange, disabled = false }: { files: StagedFile[]; onChange(files: StagedFile[]): void; disabled?: boolean }) {
+export function DocumentsSection({ files, onChange, disabled = false, capacity = MAX_STAGED }: { files: StagedFile[]; onChange(files: StagedFile[]): void; disabled?: boolean; /** How many files fit in all; less than the limit when the event already has some. */ capacity?: number }) {
   const [notice, setNotice] = useState<string | null>(null);
-  const room = MAX_STAGED - files.length;
+  const room = capacity - files.length;
 
   const stage = (picked: StagedFile[], problem: string | null = null) => {
-    const result = addStaged(files, picked);
+    const result = addStaged(files, picked, capacity);
     onChange(result.list);
     setNotice(result.overflow ? en.event.documents.limit : problem);
   };
