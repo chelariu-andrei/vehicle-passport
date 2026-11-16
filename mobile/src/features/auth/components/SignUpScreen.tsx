@@ -3,8 +3,10 @@ import { useRouter } from 'expo-router';
 import { Button, Screen, Text } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 
-import { authErrorMessage, useSignUp } from '../api/useAuth';
+import { authErrorField, authErrorMessage, useSignUp } from '../api/useAuth';
+import { rememberPendingConsent } from '../model/pendingConsent';
 import { CredentialsForm } from './CredentialsForm';
+import { ProvidersBlock } from './ProvidersBlock';
 
 export function SignUpScreen() {
   const router = useRouter();
@@ -18,13 +20,22 @@ export function SignUpScreen() {
       {needsConfirmation ? (
         <Text accessibilityRole="alert">{en.auth.confirmationRequired}</Text>
       ) : (
-        <CredentialsForm
-          action={en.auth.signUpAction}
-          newPassword
-          pending={signUp.isPending}
-          error={signUp.isError ? authErrorMessage(signUp.error) : null}
-          onSubmit={(email, password) => signUp.mutate({ email, password })}
-        />
+        <>
+          <ProvidersBlock mode="up" />
+          <CredentialsForm
+            mode="up"
+            pending={signUp.isPending}
+            serverError={signUp.isError ? { field: authErrorField(signUp.error), message: authErrorMessage(signUp.error) } : null}
+            onSubmit={(values) =>
+              signUp.mutate(values, {
+                // The terms were accepted in this form; the first signed-in session records them (Task 6 reads this).
+                onSuccess: (result) => {
+                  if (result === 'confirmationRequired') void rememberPendingConsent();
+                },
+              })
+            }
+          />
+        </>
       )}
       <Button kind="secondary" title={en.auth.toSignIn} onPress={() => router.back()} />
     </Screen>

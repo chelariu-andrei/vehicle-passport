@@ -15,6 +15,8 @@ type Listener = (event: string, session: FakeSession | null) => void;
 type Failure = { code: string; name: string; message: string };
 
 export const PASSWORD = 'correct-horse-battery';
+/** The code the fake accepts from a password-reset link. */
+export const RECOVERY_CODE = 'recovery-code';
 
 export interface FakeAuth {
   readonly port: AuthPort;
@@ -182,6 +184,11 @@ export const supabaseFake = {
     async resetPasswordForEmail(email: string) {
       fakeAuth.resetEmails.push(email);
       return { data: {}, error: null };
+    },
+    async exchangeCodeForSession(code: string) {
+      if (code !== RECOVERY_CODE) return { data: { session: null }, error: failure('flow_state_not_found', 'Invalid flow state') };
+      fakeAuth.signInAs('user-1', 'owner@example.com');
+      return { data: { session: current() }, error: null };
     },
     async updateUser({ password }: { password?: string }) {
       if (password) fakeAuth.passwords.push(password);

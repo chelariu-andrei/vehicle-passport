@@ -123,8 +123,10 @@ export async function signIn(email: string, password: string): Promise<void> {
 }
 
 /** Resolves 'confirmationRequired' when the project asks for email confirmation and so returned no session. */
-export async function signUp(email: string, password: string): Promise<'signedIn' | 'confirmationRequired'> {
-  const { data } = await attempt(() => supabase.auth.signUp({ email, password }));
+export async function signUp(email: string, password: string, displayName?: string): Promise<'signedIn' | 'confirmationRequired'> {
+  const { data } = await attempt(() =>
+    supabase.auth.signUp({ email, password, options: displayName ? { data: { display_name: displayName } } : undefined }),
+  );
   return data.session ? 'signedIn' : 'confirmationRequired';
 }
 
@@ -219,8 +221,16 @@ export async function unlinkIdentity(id: string): Promise<void> {
   await attempt(() => supabase.auth.unlinkIdentity(identity));
 }
 
+/** The deep link the reset email opens; the reset-password screen reads the recovery code from it. */
+export const PASSWORD_RESET_REDIRECT = 'vehiclepassport://reset-password';
+
 export async function sendPasswordReset(email: string): Promise<void> {
-  await attempt(() => supabase.auth.resetPasswordForEmail(email));
+  await attempt(() => supabase.auth.resetPasswordForEmail(email, { redirectTo: PASSWORD_RESET_REDIRECT }));
+}
+
+/** Turns the code from the reset link into a (recovery) session, so the new password can be set. */
+export async function startPasswordRecovery(code: string): Promise<void> {
+  await attempt(() => supabase.auth.exchangeCodeForSession(code));
 }
 
 export async function updatePassword(newPassword: string): Promise<void> {

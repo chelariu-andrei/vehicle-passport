@@ -1,3 +1,5 @@
 export { AccountScreen } from './components/AccountScreen';
 export { SignInScreen } from './components/SignInScreen';
 export { SignUpScreen } from './components/SignUpScreen';
+export { ForgotPasswordScreen } from './components/ForgotPasswordScreen';
+export { ResetPasswordScreen } from './components/ResetPasswordScreen';

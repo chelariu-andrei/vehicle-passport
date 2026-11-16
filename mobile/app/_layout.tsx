@@ -19,7 +19,10 @@ function Shell() {
   const { colors, scheme } = useTheme();
   const { status } = useSession();
   const insets = useSafeAreaInsets();
-  const inAuth = useSegments()[0] === '(auth)';
+  const segments: string[] = useSegments();
+  const inAuth = segments[0] === '(auth)';
+  // The reset link signs the person in (a recovery session); they stay here until the new password is set.
+  const resettingPassword = inAuth && segments[1] === 'reset-password';
   return (
     <View style={{ flex: 1 }}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
@@ -33,7 +36,7 @@ function Shell() {
       </Stack>
       {/* The side of the app follows the session. Both redirects wait until the session is known. */}
       {status === 'signedOut' && !inAuth ? <Redirect href="/sign-in" /> : null}
-      {status === 'signedIn' && inAuth ? <Redirect href="/" /> : null}
+      {status === 'signedIn' && inAuth && !resettingPassword ? <Redirect href="/" /> : null}
       <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0 }}>
         <OfflineBanner />
       </View>

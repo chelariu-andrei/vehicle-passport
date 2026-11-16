@@ -7,8 +7,10 @@ import { openApp } from './harness';
 
 async function submitSignUp(email: string) {
   await openApp('/sign-up', { as: null });
+  await fireEvent.changeText(await screen.findByLabelText(en.auth.displayName), 'Ana');
   await fireEvent.changeText(await screen.findByLabelText(en.auth.email), email);
   await fireEvent.changeText(screen.getByLabelText(en.auth.password), PASSWORD);
+  await fireEvent.press(screen.getByRole('checkbox', { name: new RegExp(en.auth.termsLabel) }));
   await fireEvent.press(screen.getByRole('button', { name: en.auth.signUpAction }));
 }
 

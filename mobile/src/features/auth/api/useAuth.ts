@@ -1,6 +1,17 @@
 import { useMutation } from '@tanstack/react-query';
 
-import { AuthFailed, signIn, signOut, signUp } from '@/shared/auth/session';
+import {
+  AuthFailed,
+  sendPasswordReset,
+  signIn,
+  signInWithApple,
+  signInWithGoogle,
+  signOut,
+  signUp,
+  startPasswordRecovery,
+  updatePassword,
+  type SocialProvider,
+} from '@/shared/auth/session';
 import { en } from '@/shared/i18n/en';
 
 export function authErrorMessage(error: unknown): string {
@@ -12,11 +23,22 @@ export function authErrorMessage(error: unknown): string {
       return en.auth.emailTaken;
     case 'weak-password':
       return en.auth.weakPassword;
+    case 'account-exists-other-provider':
+      return en.auth.accountExistsOtherProvider;
+    case 'provider-unavailable':
+      return en.auth.providerUnavailable;
+    case 'last-identity':
+      return en.auth.lastIdentity;
     case 'network':
       return en.errors.network;
     default:
       return en.errors.generic;
   }
+}
+
+/** Which field a failure belongs under. */
+export function authErrorField(error: unknown): 'email' | 'password' {
+  return error instanceof AuthFailed && error.failure === 'email-taken' ? 'email' : 'password';
 }
 
 type Credentials = { email: string; password: string };
@@ -30,5 +52,25 @@ export function useSignOut() {
 }
 
 export function useSignUp() {
-  return useMutation({ mutationFn: ({ email, password }: Credentials) => signUp(email, password) });
+  return useMutation({
+    mutationFn: ({ email, password, displayName }: Credentials & { displayName: string }) => signUp(email, password, displayName),
+  });
+}
+
+export function useSocialSignIn() {
+  return useMutation({
+    mutationFn: (provider: SocialProvider) => (provider === 'apple' ? signInWithApple() : signInWithGoogle()),
+  });
+}
+
+export function useSendPasswordReset() {
+  return useMutation({ mutationFn: (email: string) => sendPasswordReset(email) });
+}
+
+export function useStartRecovery() {
+  return useMutation({ mutationFn: (code: string) => startPasswordRecovery(code) });
+}
+
+export function useUpdatePassword() {
+  return useMutation({ mutationFn: (password: string) => updatePassword(password) });
 }

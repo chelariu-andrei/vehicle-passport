@@ -12,6 +12,8 @@ export const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL ?? '',
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // The password-reset link carries a one-time code (not tokens in the URL fragment), which the app exchanges itself.
+    flowType: 'pkce',
   },
 });
 
