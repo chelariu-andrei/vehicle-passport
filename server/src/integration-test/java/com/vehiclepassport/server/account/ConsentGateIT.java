@@ -21,6 +21,7 @@ class ConsentGateIT {
     static final String BLOCKED = "00000000-0000-0000-0000-0000000000d1";
     static final String OPEN = "00000000-0000-0000-0000-0000000000d2";
     static final String BUMPED = "00000000-0000-0000-0000-0000000000d3";
+    static final String SUPPORT = "00000000-0000-0000-0000-0000000000d4";
 
     static final String ACCEPT_CURRENT = "{\"accept\":[{\"type\":\"terms\",\"version\":\"1.0\"},"
             + "{\"type\":\"privacy\",\"version\":\"1.0\"}],\"source\":\"sign-up-form\"}";
@@ -49,6 +50,16 @@ class ConsentGateIT {
         given().when().get("/me/settings").then().statusCode(200);
         given().when().get("/me/consents").then().statusCode(200);
         given().when().get("/public/legal/documents").then().statusCode(200);
+    }
+
+    @Test
+    @TestSecurity(user = "d4")
+    @OidcSecurity(claims = @Claim(key = "sub", value = SUPPORT))
+    void supportWorksWhileConsentIsRequired() {
+        given().contentType(ContentType.JSON)
+                .body("{\"kind\":\"question\",\"message\":\"How do I accept the new terms?\","
+                        + "\"includeDiagnostics\":false}")
+                .when().post("/support/reports").then().statusCode(201);
     }
 
     @Test
