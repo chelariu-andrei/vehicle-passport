@@ -986,7 +986,9 @@ components:
         id: { type: string, format: uuid }
         contentType: { type: string }
         sizeBytes: { type: integer }
-        sha256: { type: string }
+        sha256:
+          type: [string, 'null']
+          description: Hex SHA-256 of the raw bytes. Null for source documents of scans confirmed before hashing existed.
         kind:
           type: string
           description: SCAN_SOURCE is the invoice a scan was confirmed from; UPLOAD was added by the user.

@@ -621,7 +621,8 @@ export interface components {
             id: string;
             contentType: string;
             sizeBytes: number;
-            sha256: string;
+            /** @description Hex SHA-256 of the raw bytes. Null for source documents of scans confirmed before hashing existed. */
+            sha256: string | null;
             /**
              * @description SCAN_SOURCE is the invoice a scan was confirmed from; UPLOAD was added by the user.
              * @enum {string}
