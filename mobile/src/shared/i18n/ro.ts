@@ -120,6 +120,7 @@ export const ro: DeepPartial<Widen<typeof en>> = {
     noHardware: 'Acest telefon nu poate verifica fața sau amprenta.',
     notEnrolled: 'Configurează mai întâi Face ID sau o amprentă în setările telefonului.',
     authFailed: 'Nu am putut confirma că ești tu, așa că blocarea rămâne oprită.',
+    authFailedOff: 'Nu am putut confirma că ești tu, așa că blocarea rămâne pornită.',
     timeoutLabel: 'Blochează aplicația',
     timeout: { immediately: 'Imediat', '1m': 'După 1 minut', '5m': 'După 5 minute' },
     devicesGroup: 'Dispozitive',

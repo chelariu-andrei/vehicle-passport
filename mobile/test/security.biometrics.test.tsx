@@ -54,3 +54,33 @@ test('a phone with nothing enrolled says so', async () => {
   expect(await screen.findByText(en.security.notEnrolled)).toBeTruthy();
   expect(appLock.get().enabled).toBe(false);
 });
+
+describe('turning the lock off', () => {
+  const openOn = async () => {
+    await appLock.update({ enabled: true });
+    const toggle = await open();
+    await waitFor(() => expect(toggle.props.value).toBe(true));
+    return toggle;
+  };
+
+  test('asks for the check first and switches off when it passes', async () => {
+    await fireEvent(await openOn(), 'valueChange', false);
+    await waitFor(() => expect(appLock.get().enabled).toBe(false));
+    expect(authenticate).toHaveBeenCalled();
+  });
+
+  test('a failed check keeps the lock on', async () => {
+    authenticate.mockResolvedValue({ success: false });
+    await fireEvent(await openOn(), 'valueChange', false);
+    await waitFor(() => expect(authenticate).toHaveBeenCalled());
+    expect(await screen.findByText(en.security.authFailedOff)).toBeTruthy();
+    expect(appLock.get().enabled).toBe(true);
+  });
+
+  test('with nothing enrolled any more it can still be switched off', async () => {
+    isEnrolled.mockResolvedValue(false);
+    await fireEvent(await openOn(), 'valueChange', false);
+    await waitFor(() => expect(appLock.get().enabled).toBe(false));
+    expect(authenticate).not.toHaveBeenCalled();
+  });
+});

@@ -63,6 +63,13 @@ export function SecurityScreen() {
   const toggle = async (on: boolean) => {
     setNote(undefined);
     if (!on) {
+      // Anyone holding the unlocked phone could otherwise switch the lock off. A phone that can no longer check anything
+      // (the fingerprint was removed) must not trap the person behind the lock, so it may be switched off without.
+      const canCheck = (await biometricCapability()) === 'available';
+      if (canCheck && !(await authenticate(s.security.promptMessage))) {
+        setNote(s.security.authFailedOff);
+        return;
+      }
       await appLock.update({ enabled: false });
       return;
     }

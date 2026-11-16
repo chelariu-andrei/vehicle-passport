@@ -1,13 +1,28 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { AppState, StyleSheet, View } from 'react-native';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { AppState, Modal, StyleSheet, View } from "react-native";
 
-import { useSession } from '@/shared/auth/session';
-import { Button, Ground, Icon, Text, tokens } from '@/shared/design';
-import { useStrings } from '@/shared/i18n';
+import { useSession } from "@/shared/auth/session";
+import { Button, Ground, Icon, Text, tokens } from "@/shared/design";
+import { useStrings } from "@/shared/i18n";
 
-import { appLock, authenticate, checkingIdentity, shouldLock, useAppLock } from '../model/appLock';
+import {
+  appLock,
+  authenticate,
+  checkingIdentity,
+  shouldLock,
+  useAppLock,
+} from "../model/appLock";
 
-/** Opaque, above everything (toasts and the consent gate included): nothing of the app shows or can be touched until it is unlocked. */
+/**
+ * Opaque, above everything: nothing of the app shows or can be touched until it is unlocked. It is a Modal of its own, because a
+ * sheet or a native-stack modal that was open when the app went away is presented above the root view and would stay reachable.
+ */
 function LockScreen({ ready }: { ready: boolean }) {
   const s = useStrings();
   const [failed, setFailed] = useState(false);
@@ -33,27 +48,50 @@ function LockScreen({ ready }: { ready: boolean }) {
   }, [ready]);
 
   return (
-    <View style={StyleSheet.absoluteFill} accessibilityViewIsModal>
-      <Ground>
-        {ready ? (
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: tokens.space['space-4'], padding: tokens.space['space-6'] }}>
-            <Icon name="shield" size={40} color="brand" />
-            <Text variant="title-lg" accessibilityRole="header" style={{ textAlign: 'center' }}>
-              {s.appLock.title}
-            </Text>
-            <Text color="ink-muted" style={{ textAlign: 'center' }}>
-              {s.appLock.body}
-            </Text>
-            {failed ? (
-              <Text accessibilityRole="alert" color="danger" style={{ textAlign: 'center' }}>
-                {s.appLock.failed}
+    <Modal
+      visible
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={() => {}}
+    >
+      <View style={StyleSheet.absoluteFill} accessibilityViewIsModal>
+        <Ground>
+          {ready ? (
+            <View
+              style={{
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center",
+                gap: tokens.space["space-4"],
+                padding: tokens.space["space-6"],
+              }}
+            >
+              <Icon name="shield" size={40} color="brand" />
+              <Text
+                variant="title-lg"
+                accessibilityRole="header"
+                style={{ textAlign: "center" }}
+              >
+                {s.appLock.title}
               </Text>
-            ) : null}
-            <Button title={s.appLock.unlock} onPress={() => void unlock()} />
-          </View>
-        ) : null}
-      </Ground>
-    </View>
+              <Text color="ink-muted" style={{ textAlign: "center" }}>
+                {s.appLock.body}
+              </Text>
+              {failed ? (
+                <Text
+                  accessibilityRole="alert"
+                  color="danger"
+                  style={{ textAlign: "center" }}
+                >
+                  {s.appLock.failed}
+                </Text>
+              ) : null}
+              <Button title={s.appLock.unlock} onPress={() => void unlock()} />
+            </View>
+          ) : null}
+        </Ground>
+      </View>
+    </Modal>
   );
 }
 
@@ -64,26 +102,34 @@ function LockScreen({ ready }: { ready: boolean }) {
 export function AppLockBoundary({ children }: { children: ReactNode }) {
   const { status } = useSession();
   const { enabled, timeout, locked, loaded } = useAppLock();
-  const signedIn = status === 'signedIn';
+  const signedIn = status === "signedIn";
   const timeoutRef = useRef(timeout);
+  const activeRef = useRef(false);
   const leftAt = useRef<number | null>(null);
 
+  const armed = enabled && signedIn;
   useEffect(() => {
     timeoutRef.current = timeout;
-  }, [timeout]);
+    activeRef.current = armed;
+  }, [timeout, armed]);
 
   useEffect(() => {
     // Whoever signs in next is not behind the previous person's lock.
-    if (status === 'signedOut') appLock.setLocked(false);
-  }, [status]);
+    if (status === "signedOut" && locked) appLock.setLocked(false);
+  }, [status, locked]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (next) => {
-      if (next === 'active') {
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next === "active") {
         const away = leftAt.current;
         leftAt.current = null;
         // The system's own prompt (Face ID) also passes through "inactive"; it is not leaving the app.
-        if (!checkingIdentity() && shouldLock(away, Date.now(), timeoutRef.current)) appLock.setLocked(true);
+        if (
+          activeRef.current &&
+          !checkingIdentity() &&
+          shouldLock(away, Date.now(), timeoutRef.current)
+        )
+          appLock.setLocked(true);
       } else if (leftAt.current === null) {
         leftAt.current = Date.now();
       }
@@ -98,7 +144,7 @@ export function AppLockBoundary({ children }: { children: ReactNode }) {
       <View
         style={{ flex: 1 }}
         accessibilityElementsHidden={covered}
-        importantForAccessibility={covered ? 'no-hide-descendants' : 'auto'}
+        importantForAccessibility={covered ? "no-hide-descendants" : "auto"}
       >
         {children}
       </View>

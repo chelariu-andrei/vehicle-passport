@@ -118,6 +118,7 @@ export const en = {
     noHardware: "This phone can't check a face or fingerprint.",
     notEnrolled: 'Set up Face ID or a fingerprint in your phone settings first.',
     authFailed: "We couldn't confirm it's you, so the lock stays off.",
+    authFailedOff: "We couldn't confirm it's you, so the lock stays on.",
     timeoutLabel: 'Lock the app',
     timeout: { immediately: 'Immediately', '1m': 'After 1 minute', '5m': 'After 5 minutes' },
     devicesGroup: 'Devices',
