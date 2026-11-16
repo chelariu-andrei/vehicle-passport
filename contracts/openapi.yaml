@@ -1582,7 +1582,14 @@ components:
           items: { $ref: '#/components/schemas/VehicleResponse' }
         events:
           type: array
-          items: { $ref: '#/components/schemas/EventResponse' }
+          description: Events of every car in the caller's garage; `vin` says which car.
+          items:
+            allOf:
+              - $ref: '#/components/schemas/EventResponse'
+              - type: object
+                required: [vin]
+                properties:
+                  vin: { $ref: '#/components/schemas/Vin' }
         passports:
           type: array
           items: { $ref: '#/components/schemas/PassportResponse' }
