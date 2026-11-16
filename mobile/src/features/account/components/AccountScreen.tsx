@@ -8,6 +8,7 @@ import { Avatar, Card, Icon, Screen, SettingsGroup, SettingsRow, Text, tokens } 
 import { useStrings, useT } from '@/shared/i18n';
 
 import { useMe } from '../api/useMe';
+import { DeletionBanner } from './DeletionBanner';
 
 function Stat({ text }: { text: string }) {
   return (
@@ -51,9 +52,6 @@ function ProfileCard() {
   );
 }
 
-/** Rows whose screens arrive in a later task already point at their path. */
-const go = (path: string) => () => router.push(path as never);
-
 export function AccountScreen() {
   const t = useT();
   const s = useStrings();
@@ -63,6 +61,7 @@ export function AccountScreen() {
       <Text variant="display" accessibilityRole="header">
         {t('tabs.account')}
       </Text>
+      <DeletionBanner />
       <ProfileCard />
       <SettingsGroup title={t('account.groups.account')}>
         <SettingsRow label={t('account.signInMethods')} onPress={() => router.push('/account/sign-in-methods')} />
@@ -87,7 +86,7 @@ export function AccountScreen() {
         <SettingsRow label={t('account.signOut')} chevron={false} disabled={signOut.isPending} onPress={() => signOut.mutate()} />
       </SettingsGroup>
       <SettingsGroup testID="group-delete">
-        <SettingsRow label={t('account.deleteAccount')} danger onPress={go('/account/delete')} />
+        <SettingsRow label={t('account.deleteAccount')} danger onPress={() => router.push('/account/delete')} />
       </SettingsGroup>
       <Text variant="caption" color="ink-muted" style={{ textAlign: 'center' }}>
         {s.account.versionLine(Constants.expoConfig?.version ?? '')}

@@ -8,3 +8,6 @@ export { SignInMethodsScreen } from './components/SignInMethodsScreen';
 export { SecurityScreen } from './components/SecurityScreen';
 export { BiometricOfferSheet } from './components/BiometricOfferSheet';
 export { AppLockBoundary } from './components/AppLockBoundary';
+export { DeleteAccountScreen } from './components/DeleteAccountScreen';
+export { DeletionBanner } from './components/DeletionBanner';
+export { useScheduledDeletion } from './api/useDeletion';

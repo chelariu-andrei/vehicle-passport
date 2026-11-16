@@ -23,9 +23,6 @@ type Operation = { method: string; path: string; id: string };
 const NOT_YET_CONSUMED = new Set([
   'getConsentStatus',
   'listConsentHistory',
-  'scheduleDeletion',
-  'cancelDeletion',
-  'exportMyData',
 ]);
 
 function authenticatedOperations(): Operation[] {

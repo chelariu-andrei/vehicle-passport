@@ -1,0 +1,40 @@
+import { useMutation } from '@tanstack/react-query';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+
+import { api, unwrap } from '@/shared/api';
+
+export const EXPORT_FILE_NAME = 'vehicle-passport-data.json';
+
+/** The share sheet cannot be opened on this device, so nothing was downloaded. */
+export class SharingUnavailableError extends Error {
+  constructor() {
+    super('Sharing is not available on this device');
+    this.name = 'SharingUnavailableError';
+  }
+}
+
+/** GET /me/export, kept in the cache directory (never the documents one) and handed to the share sheet. */
+export function useExportData() {
+  return useMutation({
+    mutationFn: async () => {
+      // Asked first: a device that cannot share must not download (or keep) anything.
+      if (!(await Sharing.isAvailableAsync())) throw new SharingUnavailableError();
+      const data = unwrap(await api.GET('/me/export'));
+      const file = new File(Paths.cache, EXPORT_FILE_NAME);
+      try {
+        file.create({ overwrite: true });
+        await file.write(JSON.stringify(data, null, 2));
+        await Sharing.shareAsync(file.uri, { mimeType: 'application/json', UTI: 'public.json', dialogTitle: EXPORT_FILE_NAME });
+      } catch (error) {
+        // No half-written file stays on the phone.
+        try {
+          if (file.exists) file.delete();
+        } catch {
+          /* already gone */
+        }
+        throw error;
+      }
+    },
+  });
+}

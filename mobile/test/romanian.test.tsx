@@ -68,3 +68,15 @@ test('the acknowledgements are in Romanian', async () => {
   await openApp('/account/acknowledgements', { routes: inertTabs });
   expect(await screen.findByText(ro.acknowledgements!.intro!)).toBeTruthy();
 });
+
+test('the delete account screen and the export are in Romanian', async () => {
+  await openApp('/account/delete', { routes: inertTabs });
+  expect(await screen.findByText(ro.deletion!.deletedTitle!)).toBeTruthy();
+  expect(screen.getByText(ro.deletion!.staysTitle!)).toBeTruthy();
+  expect(screen.getByRole('button', { name: ro.deletion!.download! })).toBeTruthy();
+  await fireEvent.press(screen.getByRole('checkbox', { name: ro.deletion!.understand! }));
+  await fireEvent.press(screen.getByRole('button', { name: ro.deletion!.action! }));
+  await fireEvent.press(await screen.findByRole('button', { name: ro.deletion!.sheetConfirm! }));
+  expect(await screen.findByText(ro.deletion!.scheduledTitle!)).toBeTruthy();
+  expect(screen.getByRole('button', { name: ro.deletion!.cancel! })).toBeTruthy();
+});

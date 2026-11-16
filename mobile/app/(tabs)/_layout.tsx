@@ -1,11 +1,14 @@
 import { NativeTabs } from 'expo-router/native-tabs';
 
+import { useMe } from '@/features/account';
 import { useTheme } from '@/shared/design';
 import { useT } from '@/shared/i18n';
 
 export default function TabsLayout() {
   const { colors } = useTheme();
   const t = useT();
+  // A scheduled deletion is server state on the account; the dot follows it.
+  const deletionScheduled = useMe().data?.deletion != null;
   return (
     <NativeTabs
       tintColor={colors.brand}
@@ -29,6 +32,8 @@ export default function TabsLayout() {
       <NativeTabs.Trigger name="account">
         <NativeTabs.Trigger.Label>{t('tabs.account')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="person.crop.circle" md="account_circle" />
+        {/* No value: the empty badge, which the platform draws as a dot. */}
+        <NativeTabs.Trigger.Badge hidden={!deletionScheduled} />
       </NativeTabs.Trigger>
     </NativeTabs>
   );
