@@ -1,5 +1,4 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { View } from 'react-native';
 import { z } from 'zod';
@@ -39,7 +38,6 @@ export function CredentialsForm({ mode, pending, serverError, onSubmit, onForgot
   const s = useStrings();
   const localized = useValidationMessage();
   const up = mode === 'up';
-  const [visible, setVisible] = useState(false);
   const { control, handleSubmit } = useForm<FormValues>({
     resolver: zodResolver(up ? signUpSchema : signInSchema) as never,
     defaultValues: { displayName: '', email: '', password: '', termsAccepted: false },
@@ -90,7 +88,7 @@ export function CredentialsForm({ mode, pending, serverError, onSubmit, onForgot
             label={s.auth.password}
             value={field.value}
             onChangeText={field.onChange}
-            secureTextEntry={!visible}
+            secureTextEntry
             autoCapitalize="none"
             autoComplete={up ? 'new-password' : 'current-password'}
             textContentType={up ? 'newPassword' : 'password'}
@@ -98,7 +96,6 @@ export function CredentialsForm({ mode, pending, serverError, onSubmit, onForgot
           />
         )}
       />
-      <Button kind="quiet" title={visible ? s.auth.hidePassword : s.auth.showPassword} onPress={() => setVisible((shown) => !shown)} />
       {!up && onForgotPassword ? <Button kind="quiet" title={s.auth.forgotPassword} onPress={onForgotPassword} /> : null}
       {up ? (
         <Controller control={control} name="termsAccepted" render={({ field }) => <TermsCheckbox checked={field.value} onChange={field.onChange} />} />

@@ -3,6 +3,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { MAX_PHOTOS, preparePhoto } from '@/shared/media';
@@ -22,8 +23,22 @@ function withPdfExtension(uri: string): string {
   return copy.uri;
 }
 
-/** Photos and PDFs for an event that is not saved yet. They stay on the device until the event exists. */
-export function DocumentsSection({ files, onChange, disabled = false, capacity = MAX_STAGED }: { files: StagedFile[]; onChange(files: StagedFile[]): void; disabled?: boolean; /** How many files fit in all; less than the limit when the event already has some. */ capacity?: number }) {
+/** Photos and PDFs picked in the event form. They stay on the device until Save sends them. */
+export function DocumentsSection({
+  files,
+  onChange,
+  disabled = false,
+  capacity = MAX_STAGED,
+  children,
+}: {
+  files: StagedFile[];
+  onChange(files: StagedFile[]): void;
+  disabled?: boolean;
+  /** How many files fit in all; less than the limit when the event already has some. */
+  capacity?: number;
+  /** The documents the event already has, shown above the pickers. */
+  children?: ReactNode;
+}) {
   const [notice, setNotice] = useState<string | null>(null);
   const room = capacity - files.length;
 
@@ -94,6 +109,7 @@ export function DocumentsSection({ files, onChange, disabled = false, capacity =
       <Text variant="caption" color="ink-muted">
         {en.event.documents.caption}
       </Text>
+      {children}
       <View style={{ gap: tokens.space['space-2'] }}>
         <Button kind="secondary" title={en.event.documents.takePhoto} disabled={disabled} onPress={() => void takePhoto()} />
         <Button kind="secondary" title={en.event.documents.choosePhoto} disabled={disabled} onPress={() => void choosePhotos()} />

@@ -1,14 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigation, usePreventRemove, useRouter } from 'expo-router';
+import { useNavigation, usePreventRemove } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import type { z } from 'zod';
 
 import { errorMessage, qk } from '@/shared/api';
-import { ActionBar, AppBar, ConfirmSheet, ErrorState, Field, Icon, Screen, Skeleton, Text, tokens, useTheme } from '@/shared/design';
+import { ActionBar, AppBar, ConfirmSheet, ErrorState, Field, Icon, Screen, Skeleton, Text, toast, tokens, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 import { useBack } from '@/shared/navigation/useBack';
 
@@ -19,8 +19,10 @@ import { useUpdateEvent } from '../api/useUpdateEvent';
 import { EVENT_TYPES, eventFormSchema, formatLocalDate, maxEventDate, toEventRequest } from '../model/eventForm';
 import type { EventForm, EventType } from '../model/eventForm';
 import { eventSummary } from '../model/eventSummary';
+import { MAX_STAGED } from '../model/stagedFiles';
 import type { StagedFile } from '../model/stagedFiles';
 import type { EventResponse } from '../model/timeline';
+import { AttachmentList } from './AttachmentList';
 import { DocumentsSection } from './DocumentsSection';
 
 type FormInput = z.input<ReturnType<typeof eventFormSchema>>;
@@ -202,7 +204,6 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
   const close = useBack('/');
   const [checking, setChecking] = useState<EventForm | null>(null);
   const sent = useRef(false);
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [files, setFiles] = useState<StagedFile[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -235,8 +236,9 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
   });
 
   /**
-   * The event exists now, so it is kept whatever happens here. The files go one at a time; a refused one (a duplicate,
+   * The event is saved now, so it is kept whatever happens here. The files go one at a time; a refused one (a duplicate,
    * say) is skipped, and if the run itself breaks (offline, signed out) every file not yet sent counts as failed.
+   * The form closes either way, and a toast says what did not upload.
    */
   const attach = async (eventId: string) => {
     let failed = 0;
@@ -259,11 +261,11 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
       if (mounted.current) setUploading(false);
     }
     if (!mounted.current) return;
-    if (failed === 0) return setExit({ go: close });
-    setExit({
-      go: () =>
-        router.replace({ pathname: '/vehicles/[vin]/events/[eventId]', params: { vin, eventId, failedUploads: String(failed), totalUploads: String(files.length), duplicateUploads: String(duplicates) } }),
-    });
+    if (failed > 0) {
+      const { failedUploads, duplicateUploads } = en.event.documents;
+      toast(duplicates > 0 ? `${failedUploads(failed, files.length)} ${duplicateUploads(duplicates)}` : failedUploads(failed, files.length));
+    }
+    setExit({ go: close });
   };
   const confirm = () => {
     // A second tap lands before the sheet is gone; only the first may post.
@@ -273,7 +275,7 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
     setChecking(null);
     save.mutate(toEventRequest(original, values), {
       onSuccess: (saved) => {
-        if (original || files.length === 0) return setExit({ go: close });
+        if (files.length === 0) return setExit({ go: close });
         // `sent` stays set: the event exists, and a second save would add it again.
         setUploading(true);
         void attach(saved.id);
@@ -389,7 +391,9 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
           />
         </>
       )}
-      {original ? null : <DocumentsSection files={files} onChange={setFiles} disabled={save.isPending || uploading} />}
+      <DocumentsSection files={files} onChange={setFiles} disabled={busy} capacity={MAX_STAGED - (original?.attachmentCount ?? 0)}>
+        {original ? <AttachmentList vin={vin} eventId={original.id} count={original.attachmentCount} editable bare /> : null}
+      </DocumentsSection>
       <Controller
         control={control}
         name="notes"

@@ -12,6 +12,7 @@ import { openApp } from '../harness';
 
 const EVENT_ID = '3f0c2f6e-5b0a-4d58-9d0e-1c7f2a9b4e11';
 const detailUrl = `/vehicles/${SAMPLE_VIN}/events/${EVENT_ID}`;
+const editUrl = `${detailUrl}/edit`;
 
 const seedWith =
   (attachments = [anAttachment({ contentType: 'image/jpeg' })], event: Partial<ReturnType<typeof anEvent>> = {}) =>
@@ -24,6 +25,10 @@ const seedWith =
 beforeEach(() => lockedEvents.clear());
 
 const press = async (name: string) => fireEvent.press(await screen.findByRole('button', { name }));
+const saveAndConfirm = async () => {
+  await press(en.event.save);
+  await press(en.event.check.confirm);
+};
 
 test('detail lists attachments and opens one', async () => {
   const fake = await openApp(detailUrl, { seed: seedWith() });
@@ -32,8 +37,29 @@ test('detail lists attachments and opens one', async () => {
   expect(fake.callsTo('getAttachment')).toHaveLength(1);
 });
 
-test('delete asks first and removes it', async () => {
-  const fake = await openApp(detailUrl, { seed: seedWith() });
+test('detail hints that documents can be viewed or downloaded', async () => {
+  await openApp(detailUrl, { seed: seedWith() });
+  expect(await screen.findByText(en.event.documents.openHint)).toBeTruthy();
+  expect(screen.queryByText(en.event.documents.empty)).toBeNull();
+});
+
+test('detail without documents says so', async () => {
+  await openApp(detailUrl, { seed: seedWith([]) });
+  expect(await screen.findByText(en.event.documents.empty)).toBeTruthy();
+  expect(screen.queryByText(en.event.documents.openHint)).toBeNull();
+});
+
+test('detail is read-only: no add, delete or retry', async () => {
+  await openApp(detailUrl, { seed: seedWith() });
+  await screen.findByRole('button', { name: en.event.documents.photo(1) });
+  expect(screen.queryByRole('button', { name: en.event.documents.deleteDocument(en.event.documents.photo(1)) })).toBeNull();
+  expect(screen.queryByRole('button', { name: en.event.documents.choosePhoto })).toBeNull();
+  expect(screen.queryByRole('button', { name: en.event.documents.takePhoto })).toBeNull();
+  expect(screen.queryByRole('button', { name: en.event.documents.choosePdf })).toBeNull();
+});
+
+test('edit: delete asks first and removes it', async () => {
+  const fake = await openApp(editUrl, { seed: seedWith() });
   await press(en.event.documents.deleteDocument(en.event.documents.photo(1)));
   expect(fake.callsTo('deleteAttachment')).toHaveLength(0);
   await press(en.event.documents.deleteConfirm);
@@ -41,37 +67,40 @@ test('delete asks first and removes it', async () => {
   await waitFor(() => expect(screen.queryByText(en.event.documents.photo(1))).toBeNull());
 });
 
-test('keeping a document closes the sheet without deleting', async () => {
-  const fake = await openApp(detailUrl, { seed: seedWith() });
+test('edit: keeping a document closes the sheet without deleting', async () => {
+  const fake = await openApp(editUrl, { seed: seedWith() });
   await press(en.event.documents.deleteDocument(en.event.documents.photo(1)));
   await press(en.event.documents.deleteKeep);
   expect(fake.callsTo('deleteAttachment')).toHaveLength(0);
 });
 
-test('scan source has no delete', async () => {
-  await openApp(detailUrl, { seed: seedWith([anAttachment({ kind: 'SCAN_SOURCE', sha256: null, contentType: 'application/pdf' })]) });
+test('edit: scan source has no delete', async () => {
+  await openApp(editUrl, { seed: seedWith([anAttachment({ kind: 'SCAN_SOURCE', sha256: null, contentType: 'application/pdf' })]) });
   await screen.findByRole('button', { name: en.event.documents.scanSource });
   expect(screen.queryByRole('button', { name: en.event.documents.deleteDocument(en.event.documents.scanSource) })).toBeNull();
 });
 
-test('add document uploads the picked photo and the list grows', async () => {
-  const fake = await openApp(detailUrl, { seed: seedWith([]) });
-  await press(en.event.documents.add);
+test('edit: a picked photo waits for Save, then uploads', async () => {
+  const fake = await openApp(editUrl, { seed: seedWith([]) });
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce(picked(anAsset()));
   await press(en.event.documents.choosePhoto);
+  await screen.findByText(en.event.documents.photo(1));
+  expect(fake.callsTo('addAttachment')).toHaveLength(0);
+  await saveAndConfirm();
   await waitFor(() => expect(fake.callsTo('addAttachment')).toHaveLength(1));
-  expect(await screen.findByRole('button', { name: en.event.documents.photo(1) })).toBeTruthy();
+  expect(fake.callsTo('updateEvent')).toHaveLength(1);
+  await waitFor(() => expect(screen.queryByText(en.event.editTitle)).toBeNull());
 });
 
-test('failed upload banner retries through the add document picker', async () => {
-  const fake = await openApp(`${detailUrl}?failedUploads=1&totalUploads=2&duplicateUploads=0`, { seed: seedWith() });
-  expect(await screen.findByText(en.event.documents.failedUploads(1, 2))).toBeTruthy();
-  expect(screen.getByText('1 of 2 documents did not upload')).toBeTruthy();
-  await press(en.event.documents.retry);
+test('edit: a failed upload is reported on Save and the update is kept', async () => {
+  const fake = await openApp(editUrl, { seed: seedWith([]) });
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce(picked(anAsset()));
   await press(en.event.documents.choosePhoto);
-  await waitFor(() => expect(fake.callsTo('addAttachment')).toHaveLength(1));
-  await waitFor(() => expect(screen.queryByText(en.event.documents.failedUploads(1, 2))).toBeNull());
+  await screen.findByText(en.event.documents.photo(1));
+  fake.failNext('addAttachment', 500, null);
+  await saveAndConfirm();
+  expect(await screen.findByText(en.event.documents.failedUploads(1, 1))).toBeTruthy();
+  expect(fake.callsTo('updateEvent')).toHaveLength(1);
 });
 
 test('timeline shows paperclip with count', async () => {
@@ -93,7 +122,6 @@ test('later owner sees count but no list', async () => {
   expect(await screen.findByText(en.event.documents.count(2))).toBeTruthy();
   expect(screen.getByText(en.errors.codes['document-restricted'])).toBeTruthy();
   expect(fake.callsTo('listAttachments')).toHaveLength(0);
-  expect(screen.queryByRole('button', { name: en.event.documents.add })).toBeNull();
 });
 
 test('a restricted list answer also falls back to the count', async () => {
@@ -108,52 +136,12 @@ test('a restricted list answer also falls back to the count', async () => {
   expect(screen.getByText(en.errors.codes['document-restricted'])).toBeTruthy();
 });
 
-test('a partial retry keeps the remainder in the banner', async () => {
-  const fake = await openApp(`${detailUrl}?failedUploads=3&totalUploads=5&duplicateUploads=0`, { seed: seedWith() });
-  await press(en.event.documents.retry);
-  jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce(picked(anAsset()));
-  await press(en.event.documents.choosePhoto);
-  await waitFor(() => expect(fake.callsTo('addAttachment')).toHaveLength(1));
-  expect(await screen.findByText(en.event.documents.failedUploads(2, 5))).toBeTruthy();
-});
-
-test('a failed retry does not shrink the total', async () => {
-  const fake = await openApp(`${detailUrl}?failedUploads=3&totalUploads=5&duplicateUploads=0`, { seed: seedWith() });
-  await press(en.event.documents.retry);
-  fake.failNext('addAttachment', 500, null);
-  jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce(picked(anAsset()));
-  await press(en.event.documents.choosePhoto);
-  expect(await screen.findByText(en.event.documents.failedUploads(4, 5))).toBeTruthy();
-});
-
-/** Holds every attachment request until `release` is called. */
-function holdAttachmentRequests() {
-  const online = globalThis.fetch;
-  let release = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  globalThis.fetch = (async (...args: Parameters<typeof fetch>) => {
-    if ((args[0] as Request).url.includes('/attachments')) await gate;
-    return online(...args);
-  }) as typeof fetch;
-  return { release, restore: () => (globalThis.fetch = online) };
-}
-
-test('the picker only offers the room that is left', async () => {
-  await openApp(detailUrl, { seed: seedWith(Array.from({ length: 8 }, () => anAttachment())) });
-  await press(en.event.documents.add);
+test('edit: the picker only offers the room that is left', async () => {
+  await openApp(editUrl, { seed: seedWith(Array.from({ length: 8 }, () => anAttachment())) });
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce(picked(anAsset(), anAsset(), anAsset()));
-  // The picker closes as soon as the upload finishes; hold the upload so the notice stays on screen to be asserted.
-  const held = holdAttachmentRequests();
-  try {
-    await press(en.event.documents.choosePhoto);
-    expect(jest.mocked(ImagePicker.launchImageLibraryAsync).mock.calls.at(-1)?.[0]).toMatchObject({ selectionLimit: 2 });
-    expect(await screen.findByText(en.event.documents.limit)).toBeTruthy();
-  } finally {
-    held.release();
-    held.restore();
-  }
+  await press(en.event.documents.choosePhoto);
+  expect(jest.mocked(ImagePicker.launchImageLibraryAsync).mock.calls.at(-1)?.[0]).toMatchObject({ selectionLimit: 2 });
+  expect(await screen.findByText(en.event.documents.limit)).toBeTruthy();
 });
 
 test('a manual entry with an upload shows no separate View invoice button', async () => {

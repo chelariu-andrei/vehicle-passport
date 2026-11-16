@@ -1,0 +1,357 @@
+' Extended timeline — see docs/superpowers/specs/2026-11-16-timeline-extended-design.md
+
+@startuml timeline-extended-components
+title event — extended timeline (components)
+skinparam componentStyle rectangle
+
+package "event" {
+  package "api" {
+    [EventResource]
+    [TimelineResource]
+    package "dto" {
+      [EventRequest / EventResponse]
+      [EventDetailsInput / EventDetailsOutput]
+      [TimelineSummaryResponse]
+    }
+  }
+  package "application" {
+    interface AddEventUseCase
+    interface UpdateEventUseCase
+    interface GetTimelineUseCase
+    interface GetTimelineSummaryUseCase
+    interface ReadVehicleHistoryUseCase
+    [EventService]
+    interface EventRepositoryPort
+  }
+  package "domain" {
+    [VehicleEvent]
+    [EventType\n(per-type rules)]
+    [EventDetails\n«sealed»]
+    [ScanDetails]
+    [InsuranceDetails]
+    [RovinietaDetails]
+    [ItpDetails]
+    [SafetyEquipmentDetails]
+    [Validity\n(rovinietă end date)]
+    [ValidityStatusPolicy]
+    [Component]
+    [CustomField]
+    [OdometerPolicy]
+    [TimelineCursor\n(+ order)]
+  }
+  package "infrastructure" {
+    [EventPanacheRepository]
+    [VehicleEventEntity]
+  }
+}
+
+package "passport" {
+  [SnapshotSourceAdapter]
+  [Snapshot]
+  [PdfRendererAdapter]
+}
+package "account" {
+  [OwnerDataExportAdapter]
+}
+package "scan" {
+  [EventFeatureAdapter]
+}
+
+[EventResource] --> AddEventUseCase
+[EventResource] --> UpdateEventUseCase
+[TimelineResource] --> GetTimelineUseCase
+[TimelineResource] --> GetTimelineSummaryUseCase
+AddEventUseCase <|.. [EventService]
+UpdateEventUseCase <|.. [EventService]
+GetTimelineUseCase <|.. [EventService]
+GetTimelineSummaryUseCase <|.. [EventService]
+ReadVehicleHistoryUseCase <|.. [EventService]
+[EventService] --> [VehicleEvent]
+[EventService] --> [ValidityStatusPolicy]
+[EventService] --> [OdometerPolicy]
+[EventService] --> EventRepositoryPort
+[VehicleEvent] --> [EventType\n(per-type rules)]
+[VehicleEvent] --> [EventDetails\n«sealed»]
+[VehicleEvent] --> [Validity\n(rovinietă end date)]
+[VehicleEvent] --> [Component]
+[VehicleEvent] --> [CustomField]
+[EventDetails\n«sealed»] <|-- [ScanDetails]
+[EventDetails\n«sealed»] <|-- [InsuranceDetails]
+[EventDetails\n«sealed»] <|-- [RovinietaDetails]
+[EventDetails\n«sealed»] <|-- [ItpDetails]
+EventRepositoryPort <|.. [EventPanacheRepository]
+[EventPanacheRepository] --> [VehicleEventEntity]
+[SnapshotSourceAdapter] ..> ReadVehicleHistoryUseCase : port/in
+[OwnerDataExportAdapter] ..> ReadVehicleHistoryUseCase : port/in
+[EventFeatureAdapter] ..> AddEventUseCase : SaveConfirmedEventUseCase (port/in)
+@enduml
+
+@startuml timeline-extended-domain
+title event — domain model after the change
+hide empty members
+
+class VehicleEvent <<record>> {
+  id : UUID
+  vin : String
+  type : EventType
+  date : LocalDate
+  odometerKm : Integer [0..1]
+  costAmount : BigDecimal
+  currency : String
+  notes : String [0..1]
+  customLabel : String [0..1]
+  validity : Validity [0..1]
+  details : EventDetails [0..1]
+  components : Set<Component>
+  customFields : List<CustomField>
+  evidence : EvidenceLevel
+  source : EventSource
+}
+enum EventType {
+  SERVICE
+  REPAIR
+  TIRES
+  ITP
+  ROVINIETA
+  INSURANCE
+  SAFETY_EQUIPMENT
+  OTHER
+  --
+  rule() : TypeRule
+}
+class TypeRule <<record>> {
+  odometer : REQUIRED | OPTIONAL
+  validity : NONE | UNTIL_OPTIONAL | UNTIL_REQUIRED | COMPUTED | RANGE
+  detailsKind : DetailsKind [0..1]
+  detailsRequired : boolean
+  customLabelRequired : boolean
+}
+class Validity <<record>> {
+  validFrom : LocalDate
+  validUntil : LocalDate [0..1]
+  {static} rovinieta(from, duration) : Validity
+}
+interface EventDetails <<sealed>> {
+  kind() : DetailsKind
+}
+class ScanDetails <<record>> {
+  serviceName
+  parts : List<PartLine>
+  labor
+}
+class InsuranceDetails <<record>> {
+  coverage : RCA | CASCO
+  insurer : String
+  policyNumber : String [0..1]
+}
+class RovinietaDetails <<record>> {
+  duration : RovinietaDuration
+}
+class ItpDetails <<record>> {
+  station : String [0..1]
+  result : ItpResult [0..1]
+}
+class SafetyEquipmentDetails <<record>> {
+  item : FIRE_EXTINGUISHER | FIRST_AID_KIT
+}
+note bottom of ScanDetails
+  scanned SERVICE/REPAIR/TIRES only;
+  a scanned ITP gets ItpDetails
+  (station = serviceName) + validUntil
+end note
+class CustomField <<record>> {
+  label : String (1..40)
+  value : String (1..200)
+}
+enum Component {
+  ENGINE
+  TRANSMISSION
+  BRAKES
+  SUSPENSION
+  STEERING
+  TIRES_WHEELS
+  ELECTRICAL
+  CLIMATE
+  BODY
+  EXHAUST
+  INTERIOR
+  FLUIDS
+  OTHER
+}
+class ValidityStatusPolicy {
+  {static} status(event, currentIdOfGroup, today) : ValidityStatus
+  {static} group(event) : ValidityGroup [0..1]
+}
+enum ValidityStatus {
+  VALID
+  EXPIRING
+  EXPIRED
+  SUPERSEDED
+  UNKNOWN
+}
+
+VehicleEvent --> EventType
+EventType --> TypeRule
+VehicleEvent --> "0..1" Validity
+VehicleEvent --> "0..1" EventDetails
+VehicleEvent --> "*" Component
+VehicleEvent --> "0..10" CustomField
+EventDetails <|.. ScanDetails
+EventDetails <|.. InsuranceDetails
+EventDetails <|.. RovinietaDetails
+EventDetails <|.. ItpDetails
+EventDetails <|.. SafetyEquipmentDetails
+ValidityStatusPolicy ..> VehicleEvent
+ValidityStatusPolicy ..> ValidityStatus
+@enduml
+
+@startuml timeline-extended-query-seq
+title GET /vehicles/{vin}/timeline (filtered, desc)
+actor Owner
+participant TimelineResource
+participant EventService
+participant EventRepositoryPort
+participant ValidityStatusPolicy
+Owner -> TimelineResource : GET ?type=INSURANCE&component=..&from&to&order=desc&cursor
+TimelineResource -> TimelineResource : validate enums, dates, from <= to
+TimelineResource -> EventService : get(TimelineQuery)
+EventService -> EventService : assert consent / visibility
+EventService -> EventService : decode cursor (order must match)
+alt cursor order mismatch / malformed
+  TimelineResource --> Owner : 400 invalid-cursor
+end
+EventService -> EventRepositoryPort : page(filter, order, after, limit+1)
+EventService -> EventRepositoryPort : currentValidityEntries(vin)
+loop each event
+  EventService -> ValidityStatusPolicy : status(event, currentIdOfGroup, today)
+end
+EventService --> TimelineResource : TimelinePage(items, nextCursor)
+TimelineResource --> Owner : 200 TimelinePage
+@enduml
+
+@startuml timeline-extended-summary-seq
+title GET /vehicles/{vin}/timeline/summary
+actor Owner
+participant TimelineResource
+participant EventService
+participant EventRepositoryPort
+Owner -> TimelineResource : GET ?type&component&from&to
+TimelineResource -> EventService : summary(TimelineFilter)
+EventService -> EventRepositoryPort : summary(filter)
+note right of EventRepositoryPort
+  SQL aggregates:
+  * count, count by type        (all filters)
+  * sum(cost) by currency       (all filters)
+  * toKm   = last km in period  (period only)
+  * fromKm = last km before from,
+             else first km in period
+  * years  = distinct years     (no filters)
+end note
+EventService -> EventService : km = toKm - fromKm, or null if < 2 readings
+TimelineResource --> Owner : 200 TimelineSummary
+@enduml
+
+@startuml timeline-extended-add-seq
+title Add event (new types)
+actor Owner
+participant EventResource
+participant EventService
+participant VehicleEvent
+participant OdometerPolicy
+participant EventRepositoryPort
+Owner -> EventResource : POST /vehicles/{vin}/events {type, details, validity, components, customFields}
+EventResource -> EventService : add(cmd)
+EventService -> VehicleEvent : manual(params)
+VehicleEvent -> VehicleEvent : TypeRule checks\n(odometer, validity, details kind, customLabel)
+alt ROVINIETA
+  VehicleEvent -> VehicleEvent : validUntil = Validity.rovinieta(validFrom, duration)
+end
+alt rule broken
+  EventResource --> Owner : 400 validation-failed
+end
+opt odometerKm present
+  EventService -> EventRepositoryPort : neighbours(vin, date) (km-bearing only)
+  EventService -> OdometerPolicy : check(prev, km, next)
+end
+EventService -> EventRepositoryPort : save
+EventResource --> Owner : 201 EventResponse (+ validityStatus)
+@enduml
+
+@startuml timeline-extended-mobile
+title mobile — screens and registries
+skinparam componentStyle rectangle
+
+package "car screen" {
+  [HistoryList (compact)]
+  [TimelineItem]
+}
+package "app/vehicles/[vin]/timeline.tsx" {
+  [TimelineScreen]
+  [YearChips]
+  [FilterBar]
+  [SummaryCard]
+  [TimelineRail]
+}
+package "event/model" {
+  [eventTypes.ts\nEVENT_TYPE_CONFIG]
+  [components.ts\nCOMPONENT_CONFIG]
+  [validity.ts]
+  [eventForm.ts]
+}
+package "event/api" {
+  [useTimeline (full, desc)]
+  [useTimelinePages (filtered)]
+  [useTimelineSummary]
+}
+package "event/components/details" {
+  [InsuranceDetailsView/Fields]
+  [RovinietaDetailsView/Fields]
+  [ItpDetailsView/Fields]
+  [ScanDetailsView]
+  [CustomFieldsView/Editor]
+}
+package "shared/design" {
+  [FilterChip]
+  [SelectSheet]
+}
+
+[HistoryList (compact)] --> [useTimeline (full, desc)]
+[HistoryList (compact)] --> [TimelineItem]
+[HistoryList (compact)] ..> [TimelineScreen] : expand icon
+[TimelineScreen] --> [YearChips]
+[TimelineScreen] --> [FilterBar]
+[TimelineScreen] --> [SummaryCard]
+[TimelineScreen] --> [TimelineRail]
+[YearChips] --> [useTimelineSummary] : years
+[SummaryCard] --> [useTimelineSummary]
+[TimelineRail] --> [useTimelinePages (filtered)]
+[FilterBar] --> [FilterChip]
+[FilterBar] --> [SelectSheet]
+[TimelineItem] --> [eventTypes.ts\nEVENT_TYPE_CONFIG]
+[TimelineRail] --> [eventTypes.ts\nEVENT_TYPE_CONFIG]
+[FilterBar] --> [components.ts\nCOMPONENT_CONFIG]
+[eventTypes.ts\nEVENT_TYPE_CONFIG] --> [InsuranceDetailsView/Fields]
+[eventTypes.ts\nEVENT_TYPE_CONFIG] --> [RovinietaDetailsView/Fields]
+[eventTypes.ts\nEVENT_TYPE_CONFIG] --> [ItpDetailsView/Fields]
+[eventTypes.ts\nEVENT_TYPE_CONFIG] --> [ScanDetailsView]
+[eventForm.ts] --> [eventTypes.ts\nEVENT_TYPE_CONFIG]
+[eventForm.ts] --> [validity.ts]
+@enduml
+
+@startuml timeline-extended-validity-state
+title Validity status of one entry (computed at read time)
+[*] --> SUPERSEDED : a newer entry exists in its group
+note top of SUPERSEDED
+  groups: RCA, CASCO, ROVINIETA, ITP,
+  EXTINGUISHER, FIRST_AID
+end note
+[*] --> UNKNOWN : current, ITP without validUntil
+[*] --> VALID : current, validUntil - today > 30d
+VALID --> EXPIRING : validUntil - today <= 30d
+EXPIRING --> EXPIRED : today > validUntil
+VALID --> SUPERSEDED : newer entry added
+EXPIRING --> SUPERSEDED : newer entry added
+EXPIRED --> SUPERSEDED : newer entry added
+UNKNOWN --> SUPERSEDED : newer entry added
+SUPERSEDED --> VALID : newer entry deleted
+@enduml

@@ -1,21 +1,15 @@
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { errorMessage, isApiError } from '@/shared/api';
-import { Button, ConfirmSheet, Text, toast, tokens } from '@/shared/design';
+import { ConfirmSheet, Icon, Text, toast, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 
 import { useAttachments } from '../api/useAttachments';
 import type { AttachmentResponse } from '../api/useAttachments';
 import { useDeleteAttachment } from '../api/useDeleteAttachment';
 import { useOpenAttachment } from '../api/useOpenAttachment';
-import { useUploadAttachments } from '../api/useUploadAttachments';
 import { useIsLocked } from '../model/lockedEvents';
-import type { PreparedFile } from '../model/preparedFile';
-import { MAX_STAGED } from '../model/stagedFiles';
-import { DocumentsSection } from './DocumentsSection';
-
-export type UploadFailure = { failed: number; total: number; duplicates: number };
 
 /** What a row is called: photos and PDFs are numbered in list order, a scan's source is named for what it is. */
 function rowNames(attachments: AttachmentResponse[]): string[] {
@@ -36,9 +30,14 @@ function Row({ vin, eventId, attachment, name, onDelete }: { vin: string; eventI
         accessibilityLabel={name}
         disabled={open.isPending}
         onPress={() => open.mutate(undefined, { onError: (error) => toast(errorMessage(error)) })}
-        style={{ flex: 1, minHeight: 48, justifyContent: 'center' }}
+        accessibilityHint={en.event.documents.openAction}
+        style={{ flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: tokens.space['space-2'] }}
       >
-        <Text variant="body-lg">{name}</Text>
+        <Icon name="doc" color="ink-muted" />
+        <Text variant="body-lg" style={{ flex: 1 }}>
+          {name}
+        </Text>
+        {open.isPending ? <ActivityIndicator /> : <Icon name="share" color="ink-muted" size={20} />}
       </Pressable>
       {onDelete ? (
         <Pressable
@@ -58,25 +57,26 @@ function Row({ vin, eventId, attachment, name, onDelete }: { vin: string; eventI
  * The documents of one saved event. A later owner cannot list them, so they get the count and the restricted copy;
  * the list is not even asked for once the event is known to be locked.
  *
- * Retry cannot resend the files that failed (they are gone once the form closes), so it opens the same picker as
- * "Add document" and the person chooses them again.
+ * The detail screen only lists and opens them. The edit form passes `editable` to allow deleting, and `bare` because
+ * it shows them under its own "Documents" heading; new files are added there and sent on Save.
  */
-export function AttachmentList({ vin, eventId, count, initialFailure }: { vin: string; eventId: string; count: number; initialFailure: UploadFailure | null }) {
+export function AttachmentList({ vin, eventId, count, editable = false, bare = false }: { vin: string; eventId: string; count: number; editable?: boolean; bare?: boolean }) {
   const locked = useIsLocked(eventId);
   const list = useAttachments(vin, eventId, !locked);
   const remove = useDeleteAttachment(vin, eventId);
-  const upload = useUploadAttachments(vin, eventId);
-  const [adding, setAdding] = useState(false);
-  const [failure, setFailure] = useState<UploadFailure | null>(initialFailure);
   const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
+
+  const heading = bare ? null : (
+    <Text variant="label" color="ink-muted">
+      {en.event.documents.title}
+    </Text>
+  );
 
   const restricted = locked || (list.isError && isApiError(list.error, 'document-restricted'));
   if (restricted) {
     return (
       <View style={{ gap: tokens.space['space-1'] }}>
-        <Text variant="label" color="ink-muted">
-          {en.event.documents.title}
-        </Text>
+        {heading}
         <Text variant="body-lg">{en.event.documents.count(count)}</Text>
         <Text color="ink-muted">{en.errors.codes['document-restricted']}</Text>
       </View>
@@ -85,25 +85,6 @@ export function AttachmentList({ vin, eventId, count, initialFailure }: { vin: s
 
   const attachments = list.data ?? [];
   const names = rowNames(attachments);
-  const full = attachments.length >= MAX_STAGED;
-
-  const send = (files: PreparedFile[]) => {
-    if (files.length === 0 || upload.isPending) return;
-    upload.mutate(files, {
-      onSuccess: (outcome) => {
-        const duplicates = outcome.failed.filter((f) => f.code === 'duplicate-document').length;
-        const succeeded = files.length - outcome.failed.length;
-        // The banner counts what is still missing out of what was meant to go, across retries.
-        const failed = Math.max(0, (failure?.failed ?? 0) - succeeded) + outcome.failed.length;
-        setFailure(failed > 0 ? { failed, total: failure?.total ?? files.length, duplicates: (failure?.duplicates ?? 0) + duplicates } : null);
-        setAdding(false);
-      },
-      onError: (error) => {
-        setFailure(failure ?? { failed: files.length, total: files.length, duplicates: 0 });
-        toast(errorMessage(error));
-      },
-    });
-  };
 
   const confirmDelete = () => {
     if (!deleting || remove.isPending) return;
@@ -118,21 +99,16 @@ export function AttachmentList({ vin, eventId, count, initialFailure }: { vin: s
 
   return (
     <View style={{ gap: tokens.space['space-2'] }}>
-      <Text variant="label" color="ink-muted">
-        {en.event.documents.title}
-      </Text>
-      {failure ? (
-        <View style={{ gap: tokens.space['space-2'] }}>
-          <Text color="danger" accessibilityRole="alert">
-            {en.event.documents.failedUploads(failure.failed, failure.total)}
-            {failure.duplicates > 0 ? ` ${en.event.documents.duplicateUploads(failure.duplicates)}` : ''}
-          </Text>
-          <Button kind="secondary" title={en.event.documents.retry} onPress={() => setAdding(true)} />
-        </View>
-      ) : null}
+      {heading}
       {list.isError ? (
         <Text color="danger" accessibilityRole="alert">
           {en.event.documents.loadFailed}
+        </Text>
+      ) : null}
+      {!bare && list.isSuccess && attachments.length === 0 ? <Text color="ink-muted">{en.event.documents.empty}</Text> : null}
+      {!bare && attachments.length > 0 ? (
+        <Text variant="caption" color="ink-muted">
+          {en.event.documents.openHint}
         </Text>
       ) : null}
       {attachments.map((attachment, index) => (
@@ -142,10 +118,9 @@ export function AttachmentList({ vin, eventId, count, initialFailure }: { vin: s
           eventId={eventId}
           attachment={attachment}
           name={names[index]}
-          onDelete={attachment.kind === 'UPLOAD' ? () => setDeleting({ id: attachment.id, name: names[index] }) : undefined}
+          onDelete={editable && attachment.kind === 'UPLOAD' ? () => setDeleting({ id: attachment.id, name: names[index] }) : undefined}
         />
       ))}
-      {adding ? <DocumentsSection files={[]} onChange={send} disabled={upload.isPending} capacity={MAX_STAGED - attachments.length} /> : list.isSuccess && !full ? <Button kind="secondary" title={en.event.documents.add} onPress={() => setAdding(true)} /> : null}
       <ConfirmSheet
         visible={deleting !== null}
         title={en.event.documents.deleteTitle}
