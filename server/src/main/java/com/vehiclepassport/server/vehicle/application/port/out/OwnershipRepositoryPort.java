@@ -17,6 +17,8 @@ public interface OwnershipRepositoryPort {
 
     List<OwnershipPeriod> findOpenByOwner(UUID ownerId);
 
+    long countOpenByOwner(UUID ownerId);
+
     void save(OwnershipPeriod period);
 
     Optional<OwnershipClaim> findClaim(UUID id);
@@ -26,4 +28,10 @@ public interface OwnershipRepositoryPort {
     List<OwnershipClaim> findPendingClaims(Vin vin);
 
     void save(OwnershipClaim claim);
+
+    /**
+     * Points every period and claim the owner holds at {@code tombstone} and drops their own pending claims. Open
+     * periods are closed by the caller first, through the normal release path. Safe to repeat.
+     */
+    void detachOwner(UUID ownerId, UUID tombstone);
 }

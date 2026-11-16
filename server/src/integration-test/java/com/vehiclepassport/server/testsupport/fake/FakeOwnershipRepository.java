@@ -41,6 +41,11 @@ public class FakeOwnershipRepository implements OwnershipRepositoryPort, Resetta
     }
 
     @Override
+    public long countOpenByOwner(UUID ownerId) {
+        return findOpenByOwner(ownerId).size();
+    }
+
+    @Override
     public void save(OwnershipPeriod period) {
         store.put(period.id(), period);
     }
@@ -71,5 +76,10 @@ public class FakeOwnershipRepository implements OwnershipRepositoryPort, Resetta
     public void reset() {
         store.clear();
         claims.clear();
+    }
+
+    /** Not exercised through fakes: the purge runs against real persistence in AccountPurgeIT. */
+    @Override
+    public void detachOwner(UUID ownerId, UUID tombstone) {
     }
 }

@@ -1,8 +1,11 @@
 package com.vehiclepassport.server.event.application.service;
 
+import com.vehiclepassport.server.event.application.port.in.DetachOwnerUseCase;
+import com.vehiclepassport.server.event.application.port.in.ListEventsByCreatorUseCase;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.CheckOdometerUseCase;
+import com.vehiclepassport.server.event.application.port.in.CountOwnedByOwnerUseCase;
 import com.vehiclepassport.server.event.application.port.in.DeleteEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.ReadVehicleHistoryUseCase;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventCommand;
@@ -43,7 +46,8 @@ import java.util.UUID;
 
 @ApplicationScoped
 public class EventService implements AddEventUseCase, GetTimelineUseCase, UpdateEventUseCase, DeleteEventUseCase,
-        SaveConfirmedEventUseCase, CheckOdometerUseCase, ReadVehicleHistoryUseCase {
+        SaveConfirmedEventUseCase, CheckOdometerUseCase, ReadVehicleHistoryUseCase, CountOwnedByOwnerUseCase,
+        DetachOwnerUseCase, ListEventsByCreatorUseCase {
 
     private static final int MIN_LIMIT = 1;
     private static final int MAX_LIMIT = 100;
@@ -60,6 +64,27 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         this.owners = owners;
         this.attachments = attachments;
         this.clock = clock;
+    }
+
+    @Override
+    @Transactional
+    public void detach(UUID ownerId, UUID tombstone) {
+        events.detachCreator(ownerId, tombstone);
+        attachments.detachCreator(ownerId, tombstone);
+    }
+
+    @Override
+    public long count(UUID ownerId) {
+        return events.countActiveByCreator(ownerId);
+    }
+
+    @Override
+    @Transactional
+    public List<CreatedEventView> listByCreator(UUID userId) {
+        List<VehicleEvent> created = events.activeByCreator(userId);
+        List<EventView> views = toViews(created);
+        return java.util.stream.IntStream.range(0, created.size())
+                .mapToObj(i -> new CreatedEventView(created.get(i).vin(), views.get(i))).toList();
     }
 
     @Override

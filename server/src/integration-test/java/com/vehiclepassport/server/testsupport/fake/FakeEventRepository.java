@@ -72,6 +72,17 @@ public class FakeEventRepository implements EventRepositoryPort, Resettable {
     }
 
     @Override
+    public long countActiveByCreator(UUID userId) {
+        return store.stream().filter(e -> e.deletedAt() == null && e.createdBy().equals(userId)).count();
+    }
+
+    @Override
+    public List<VehicleEvent> activeByCreator(UUID userId) {
+        return store.stream().filter(e -> e.deletedAt() == null && e.createdBy().equals(userId))
+            .sorted(Comparator.comparing(VehicleEvent::vin).thenComparing(ORDER)).toList();
+    }
+
+    @Override
     public void reset() {
         store.clear();
     }
@@ -88,5 +99,10 @@ public class FakeEventRepository implements EventRepositoryPort, Resettable {
     private static VehicleEvent cursorEvent(TimelineCursor c) {
         return new VehicleEvent(c.id(), null, null, c.date(), 0, null, null, null, null, null, null, null, null,
             null, c.createdAt(), null);
+    }
+
+    /** Not exercised through fakes: the purge runs against real persistence in AccountPurgeIT. */
+    @Override
+    public void detachCreator(UUID userId, UUID tombstone) {
     }
 }

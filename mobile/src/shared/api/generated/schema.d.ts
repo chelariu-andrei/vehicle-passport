@@ -479,6 +479,162 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/public/legal/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current version of every legal document, in the requested locale */
+        get: operations["listLegalDocuments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/legal/documents/{type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type: components["parameters"]["LegalDocumentTypePath"];
+            };
+            cookie?: never;
+        };
+        /** Current version of one legal document, in the requested locale */
+        get: operations["getLegalDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's profile, usage stats, pending deletion and consent status */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update display name and/or phone */
+        patch: operations["updateProfile"];
+        trace?: never;
+    };
+    "/me/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSettings"];
+        /** Replace the caller's settings */
+        put: operations["updateSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getConsentStatus"];
+        put?: never;
+        /** Accept legal documents and/or set the marketing and analytics choices */
+        post: operations["recordConsents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/consents/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listConsentHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Schedule account deletion after the grace period */
+        post: operations["scheduleDeletion"];
+        /** Cancel a scheduled deletion */
+        delete: operations["cancelDeletion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download everything stored about the caller */
+        get: operations["exportMyData"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/support/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a problem report or question to support */
+        post: operations["createSupportReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -723,8 +879,176 @@ export interface components {
             /** @enum {string} */
             algorithm: "SHA-256";
         };
+        /** @enum {string} */
+        LegalDocumentType: "terms" | "privacy" | "data-sharing";
+        /** @enum {string} */
+        LegalLocale: "ro" | "en";
+        LegalDocumentSummary: {
+            type: components["schemas"]["LegalDocumentType"];
+            version: string;
+            locale: components["schemas"]["LegalLocale"];
+            title: string;
+            /** Format: date */
+            effectiveDate: string;
+        };
+        LegalDocumentsResponse: {
+            documents: components["schemas"]["LegalDocumentSummary"][];
+        };
+        LegalDocument: {
+            type: components["schemas"]["LegalDocumentType"];
+            version: string;
+            locale: components["schemas"]["LegalLocale"];
+            title: string;
+            bodyMarkdown: string;
+            /** Format: date */
+            effectiveDate: string;
+        };
+        /** @description Trimmed by the server; 1 to 80 characters, no control characters. */
+        DisplayName: string;
+        /** @description E.164. */
+        PhoneNumber: string;
+        /** @description Partial update. Omitted fields are unchanged; null clears the field. */
+        ProfilePatch: {
+            displayName?: components["schemas"]["DisplayName"] | null;
+            phone?: components["schemas"]["PhoneNumber"] | null;
+        };
+        AccountStats: {
+            vehicles: number;
+            events: number;
+            passports: number;
+        };
+        DeletionStatus: {
+            /**
+             * Format: date-time
+             * @description When the account will be purged.
+             */
+            scheduledFor: string;
+        };
+        ConsentVersionState: {
+            currentVersion: string;
+            acceptedVersion: string | null;
+        };
+        ConsentStatus: {
+            /** @description True when the current terms or privacy version is not accepted. */
+            required: boolean;
+            terms: components["schemas"]["ConsentVersionState"];
+            privacy: components["schemas"]["ConsentVersionState"];
+            marketing: boolean;
+            analytics: boolean;
+        };
+        MeResponse: {
+            /** Format: uuid */
+            id: string;
+            email: string | null;
+            emailVerified: boolean;
+            displayName: string | null;
+            phone: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            stats: components["schemas"]["AccountStats"];
+            /** @description Present while a deletion is scheduled. */
+            deletion: components["schemas"]["DeletionStatus"] | null;
+            consent: components["schemas"]["ConsentStatus"];
+        };
+        SettingsDto: {
+            /** @enum {string} */
+            language: "system" | "ro" | "en";
+            /** @enum {string} */
+            appearance: "system" | "dark" | "light";
+            units: {
+                /** @enum {string} */
+                distance: "km" | "mi";
+                /** @enum {string} */
+                currency: "RON" | "EUR" | "USD";
+            };
+            notifications: {
+                documentDeadlines: boolean;
+                reminderDays: (30 | 7 | 1)[];
+                activityScans: boolean;
+                activityPassportViews: boolean;
+                activityTransfers: boolean;
+                productNews: boolean;
+            };
+        };
+        /** @enum {string} */
+        ConsentSource: "sign-up-form" | "social-sign-up" | "re-consent" | "settings";
+        ConsentAcceptance: {
+            /** @enum {string} */
+            type: "terms" | "privacy";
+            version: string;
+        };
+        ConsentUpdate: {
+            accept?: components["schemas"]["ConsentAcceptance"][];
+            marketing?: boolean;
+            analytics?: boolean;
+            source: components["schemas"]["ConsentSource"];
+        };
+        ConsentEvent: {
+            /** @enum {string} */
+            type: "terms" | "privacy" | "marketing" | "analytics";
+            /** @description Null for marketing and analytics. */
+            version: string | null;
+            granted: boolean;
+            source: components["schemas"]["ConsentSource"];
+            /** Format: date-time */
+            at: string;
+        };
+        ConsentHistoryResponse: {
+            items: components["schemas"]["ConsentEvent"][];
+        };
+        /** @description Everything stored about the caller, delivered as an attachment download (Content-Disposition attachment). */
+        AccountExport: {
+            /** Format: date-time */
+            exportedAt: string;
+            profile: components["schemas"]["MeResponse"];
+            settings: components["schemas"]["SettingsDto"];
+            consents: components["schemas"]["ConsentEvent"][];
+            vehicles: components["schemas"]["VehicleResponse"][];
+            /** @description Every event the caller recorded, also on cars sold since (never those of the car's other owners); `vin` says which car. */
+            events: (components["schemas"]["EventResponse"] & {
+                vin: components["schemas"]["Vin"];
+            })[];
+            passports: components["schemas"]["PassportResponse"][];
+            /** @description Support reports the caller sent, oldest first. */
+            supportReports: components["schemas"]["SupportReportExport"][];
+        };
+        SupportReportExport: {
+            /** @enum {string} */
+            kind: "problem" | "question";
+            message: string;
+            /** @description Present when the caller chose to send diagnostics. */
+            diagnostics: components["schemas"]["SupportDiagnostics"] | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        SupportDiagnostics: {
+            appVersion: string;
+            platform: string;
+            osVersion: string;
+            deviceModel: string;
+        };
+        SupportReportRequest: {
+            /** @enum {string} */
+            kind: "problem" | "question";
+            message: string;
+            includeDiagnostics: boolean;
+            diagnostics?: components["schemas"]["SupportDiagnostics"];
+        };
+        SupportReportResponse: {
+            /** Format: uuid */
+            id: string;
+        };
     };
     responses: {
+        /** @description The caller has not accepted the current terms and privacy policy. Code `consent-required`. Accept them through `POST /me/consents`. */
+        ConsentRequired: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description File larger than 10 MB. Code `file-too-large`. */
         PayloadTooLarge: {
             headers: {
@@ -752,6 +1076,9 @@ export interface components {
         JobId: string;
         PassportId: string;
         Token: string;
+        /** @description Falls back to `en` when the requested locale has no text. */
+        Locale: "ro" | "en";
+        LegalDocumentTypePath: components["schemas"]["LegalDocumentType"];
     };
     requestBodies: never;
     headers: never;
@@ -777,6 +1104,7 @@ export interface operations {
                     "application/json": components["schemas"]["VehicleResponse"][];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
         };
     };
     registerVehicle: {
@@ -819,6 +1147,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Conflict. Code `already-owner` (caller already owns it) or `ownership-conflict`. */
             409: {
                 headers: {
@@ -850,6 +1179,7 @@ export interface operations {
                     "application/json": components["schemas"]["VehicleResponse"];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
             404: {
                 headers: {
@@ -894,6 +1224,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
             404: {
                 headers: {
@@ -923,6 +1254,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
             404: {
                 headers: {
@@ -954,6 +1286,7 @@ export interface operations {
                     "application/json": components["schemas"]["PendingClaimResponse"][];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
             404: {
                 headers: {
@@ -984,6 +1317,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `vehicle-not-found` or `claim-not-found`. */
             404: {
                 headers: {
@@ -1023,6 +1357,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `vehicle-not-found` or `claim-not-found`. */
             404: {
                 headers: {
@@ -1061,6 +1396,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `claim-not-found`. */
             404: {
                 headers: {
@@ -1114,6 +1450,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
             404: {
                 headers: {
@@ -1168,7 +1505,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Code `event-from-prior-owner` (event was created in a previous ownership period). */
+            /** @description Code `event-from-prior-owner` (event was created in a previous ownership period) or `consent-required`. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -1216,7 +1553,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Code `event-from-prior-owner` (event was created in a previous ownership period). */
+            /** @description Code `event-from-prior-owner` (event was created in a previous ownership period) or `consent-required`. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -1259,7 +1596,7 @@ export interface operations {
                     "application/pdf": string;
                 };
             };
-            /** @description Document restricted to the owner of the creating period. Code `document-restricted`. */
+            /** @description Document restricted to the owner of the creating period (code `document-restricted`), or code `consent-required`. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -1523,6 +1860,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
             404: {
                 headers: {
@@ -1561,6 +1899,7 @@ export interface operations {
                     "application/json": components["schemas"]["ScanJobResponse"];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
             404: {
                 headers: {
@@ -1600,6 +1939,7 @@ export interface operations {
                     "application/json": components["schemas"]["ScanBatchResponse"];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
             404: {
                 headers: {
@@ -1642,6 +1982,7 @@ export interface operations {
                     "application/json": components["schemas"]["ScanJobResponse"];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `scan-not-found`. */
             404: {
                 headers: {
@@ -1686,6 +2027,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `scan-not-found`. */
             404: {
                 headers: {
@@ -1733,6 +2075,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `scan-not-found`. */
             404: {
                 headers: {
@@ -1777,6 +2120,7 @@ export interface operations {
                     "application/json": components["schemas"]["PassportResponse"];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
             404: {
                 headers: {
@@ -1815,6 +2159,7 @@ export interface operations {
                     "application/json": components["schemas"]["PassportResponse"][];
                 };
             };
+            403: components["responses"]["ConsentRequired"];
         };
     };
     revokePassport: {
@@ -1835,6 +2180,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `passport-not-found`. */
             404: {
                 headers: {
@@ -1866,6 +2212,7 @@ export interface operations {
                     "application/pdf": string;
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `passport-not-found`. */
             404: {
                 headers: {
@@ -1897,6 +2244,7 @@ export interface operations {
                     "image/png": string;
                 };
             };
+            403: components["responses"]["ConsentRequired"];
             /** @description Code `passport-not-found`. */
             404: {
                 headers: {
@@ -1961,6 +2309,362 @@ export interface operations {
             };
             /** @description Code `passport-not-found` (unknown, revoked or expired token; identical response). */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listLegalDocuments: {
+        parameters: {
+            query?: {
+                /** @description Falls back to `en` when the requested locale has no text. */
+                locale?: components["parameters"]["Locale"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One summary per document type. Falls back to `en` when the locale has no text. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentsResponse"];
+                };
+            };
+        };
+    };
+    getLegalDocument: {
+        parameters: {
+            query?: {
+                /** @description Falls back to `en` when the requested locale has no text. */
+                locale?: components["parameters"]["Locale"];
+            };
+            header?: never;
+            path: {
+                type: components["parameters"]["LegalDocumentTypePath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The document. Falls back to `en` when the locale has no text. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocument"];
+                };
+            };
+            /** @description Code `legal-document-not-found`. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+        };
+    };
+    updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfilePatch"];
+            };
+        };
+        responses: {
+            /** @description The updated account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description Code `validation-failed`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's settings (defaults when never saved). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsDto"];
+                };
+            };
+        };
+    };
+    updateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsDto"];
+            };
+        };
+        responses: {
+            /** @description The saved settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsDto"];
+                };
+            };
+            /** @description Code `validation-failed`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getConsentStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current consent status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentStatus"];
+                };
+            };
+        };
+    };
+    recordConsents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsentUpdate"];
+            };
+        };
+        responses: {
+            /** @description The resulting consent status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentStatus"];
+                };
+            };
+            /** @description Code `validation-failed`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Code `consent-version-outdated` (an accepted version is no longer the current one). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listConsentHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Consent events, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentHistoryResponse"];
+                };
+            };
+        };
+    };
+    scheduleDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deletion scheduled. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletionStatus"];
+                };
+            };
+            /** @description Code `deletion-already-scheduled`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    cancelDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deletion cancelled. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Code `deletion-not-scheduled`. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    exportMyData: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The export, as a file download. */
+            200: {
+                headers: {
+                    /** @description `attachment`, with a filename. */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountExport"];
+                };
+            };
+        };
+    };
+    createSupportReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportReportRequest"];
+            };
+        };
+        responses: {
+            /** @description Report received. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportReportResponse"];
+                };
+            };
+            /** @description Code `validation-failed`. */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

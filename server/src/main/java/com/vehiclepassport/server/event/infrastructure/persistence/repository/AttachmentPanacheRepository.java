@@ -162,4 +162,12 @@ public class AttachmentPanacheRepository implements AttachmentRepositoryPort {
         return new Attachment(e.id, e.eventId, e.vin, e.sha256 == null ? null : e.sha256.strip(), e.contentType,
                 e.sizeBytes, e.storageKey, AttachmentKind.valueOf(e.kind), e.createdBy, e.createdAt, e.deletedAt);
     }
+
+    @Override
+    public void detachCreator(UUID userId, UUID tombstone) {
+        em.createNativeQuery("update vehicle_passport.event_attachment set created_by = :tombstone "
+                        + "where created_by = :user")
+                .setParameter("tombstone", tombstone).setParameter("user", userId).executeUpdate();
+        em.clear();
+    }
 }

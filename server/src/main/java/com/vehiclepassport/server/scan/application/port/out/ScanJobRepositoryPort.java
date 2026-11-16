@@ -22,4 +22,7 @@ public interface ScanJobRepositoryPort {
 
     /** PENDING or EXTRACTED jobs. */
     List<ScanJob> findOpen(int limit);
+
+    /** Points every scan job of the owner at {@code tombstone}. Safe to repeat. */
+    void detachOwner(UUID ownerId, UUID tombstone);
 }

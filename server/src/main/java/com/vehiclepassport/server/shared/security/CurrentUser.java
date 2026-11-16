@@ -25,6 +25,20 @@ public class CurrentUser {
         }
     }
 
+    /** The token's email claim; null when absent or blank (e.g. an Apple private relay without email). */
+    public String email() {
+        Object claim = jwt.getClaim("email");
+        return claim instanceof String s && !s.isBlank() ? s : null;
+    }
+
+    public boolean emailVerified() {
+        Object claim = jwt.getClaim("email_verified");
+        if (claim instanceof Boolean b) {
+            return b;
+        }
+        return claim != null && Boolean.parseBoolean(claim.toString());
+    }
+
     private static NotAuthorizedException unauthorized() {
         return new NotAuthorizedException("Bearer");
     }

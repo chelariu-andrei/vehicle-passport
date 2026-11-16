@@ -50,7 +50,7 @@ class ContractConformanceIT {
     }
 
     @Test
-    void publicRoutesAreOnlyTheTwoPassportOnes() throws IOException {
+    void publicRoutesAreOnlyThePassportAndLegalOnes() throws IOException {
         Set<String> contract = routes(new YAMLMapper().readTree(contractFile()));
         Set<String> publicPaths = new TreeSet<>();
         for (String r : contract) {
@@ -59,8 +59,8 @@ class ContractConformanceIT {
                 publicPaths.add(path);
             }
         }
-        assertEquals(Set.of("/public/passports/{token}", "/public/passports/{token}/pdf"),
-                publicPaths);
+        assertEquals(Set.of("/public/passports/{token}", "/public/passports/{token}/pdf",
+                "/public/legal/documents", "/public/legal/documents/{type}"), publicPaths);
     }
 
     private static File contractFile() {

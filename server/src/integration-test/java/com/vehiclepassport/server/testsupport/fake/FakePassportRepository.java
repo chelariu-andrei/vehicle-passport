@@ -38,7 +38,18 @@ public class FakePassportRepository implements PassportRepositoryPort, Resettabl
     }
 
     @Override
+    public long countByCreator(UUID userId) {
+        return findByCreator(userId).size();
+    }
+
+    @Override
     public void reset() {
         store.clear();
+    }
+
+    /** Not exercised through fakes: the purge runs against real persistence in AccountPurgeIT. */
+    @Override
+    public int revokeAllByCreator(UUID userId, java.time.Instant at) {
+        return 0;
     }
 }

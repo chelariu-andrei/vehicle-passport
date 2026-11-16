@@ -120,6 +120,21 @@ public class EventPanacheRepository implements EventRepositoryPort {
                 .getResultList().stream().map(EventPanacheRepository::toDomain).toList();
     }
 
+    @Override
+    public long countActiveByCreator(UUID userId) {
+        return em.createQuery("select count(e) from VehicleEventEntity e where e.createdBy = :user "
+                        + "and e.deletedAt is null", Long.class)
+                .setParameter("user", userId).getSingleResult();
+    }
+
+    @Override
+    public List<VehicleEvent> activeByCreator(UUID userId) {
+        return em.createQuery("from VehicleEventEntity e where e.createdBy = :user and e.deletedAt is null "
+                        + "order by e.vin, e.eventDate, e.createdAt, e.id", VehicleEventEntity.class)
+                .setParameter("user", userId)
+                .getResultList().stream().map(EventPanacheRepository::toDomain).toList();
+    }
+
     private static Integer firstKm(TypedQuery<VehicleEventEntity> query) {
         return query.setMaxResults(1).getResultStream().findFirst().map(e -> e.odometerKm).orElse(null);
     }
@@ -150,5 +165,13 @@ public class EventPanacheRepository implements EventRepositoryPort {
         return new VehicleEvent(e.id, e.vin, EventType.valueOf(e.type), e.eventDate, e.odometerKm, e.costAmount,
                 e.currency, e.notes, toDomain(e.details), EvidenceLevel.valueOf(e.evidence),
                 EventSource.valueOf(e.source), e.createdBy, e.periodId, e.documentKey, e.createdAt, e.deletedAt);
+    }
+
+    @Override
+    public void detachCreator(UUID userId, UUID tombstone) {
+        em.createNativeQuery("update vehicle_passport.vehicle_event set created_by = :tombstone "
+                        + "where created_by = :user")
+                .setParameter("tombstone", tombstone).setParameter("user", userId).executeUpdate();
+        em.clear();
     }
 }

@@ -62,6 +62,12 @@ public class PassportPanacheRepository implements PassportRepositoryPort {
                 .toList();
     }
 
+    @Override
+    public long countByCreator(UUID userId) {
+        return em.createQuery("select count(p) from PassportEntity p where p.createdBy = :user", Long.class)
+                .setParameter("user", userId).getSingleResult();
+    }
+
     /** Postgres keeps microseconds; truncating keeps values identical in memory and in the table. */
     private static Instant micros(Instant instant) {
         return instant == null ? null : instant.truncatedTo(ChronoUnit.MICROS);
@@ -70,5 +76,15 @@ public class PassportPanacheRepository implements PassportRepositoryPort {
     private static Passport toDomain(PassportEntity e) {
         return new Passport(e.id, e.vin, e.createdBy, e.createdAt, new Snapshot(e.snapshotJson, e.hash),
                 new PublicLink(e.token, e.expiresAt, e.revokedAt), e.pdfKey);
+    }
+
+    @Override
+    public int revokeAllByCreator(UUID userId, java.time.Instant at) {
+        int n = em.createNativeQuery("update vehicle_passport.passport set revoked_at = :at "
+                        + "where created_by = :user and revoked_at is null")
+                .setParameter("at", at.truncatedTo(java.time.temporal.ChronoUnit.MICROS))
+                .setParameter("user", userId).executeUpdate();
+        em.clear();
+        return n;
     }
 }

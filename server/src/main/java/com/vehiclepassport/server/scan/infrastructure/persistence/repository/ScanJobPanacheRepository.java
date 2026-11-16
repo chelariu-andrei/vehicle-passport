@@ -158,4 +158,11 @@ public class ScanJobPanacheRepository implements ScanJobRepositoryPort {
                 ScanStatus.valueOf(e.status), e.attempts, e.processingStartedAt, toDomain(e.result), warnings,
                 e.failureReason, e.createdAt);
     }
+
+    @Override
+    public void detachOwner(UUID ownerId, UUID tombstone) {
+        em.createNativeQuery("update vehicle_passport.scan_job set owner_id = :tombstone where owner_id = :owner")
+                .setParameter("tombstone", tombstone).setParameter("owner", ownerId).executeUpdate();
+        em.clear();
+    }
 }

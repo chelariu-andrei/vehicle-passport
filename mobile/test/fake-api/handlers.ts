@@ -1,5 +1,6 @@
 /* One handler per authenticated operation, mirroring the server behaviour the integration spec marks (server). */
 import type { components } from '@/shared/api/generated/schema';
+import { accountHandlers, type AccountState } from './account';
 import type { AttachmentResponse, EventResponse, PassportResponse, PendingClaimResponse, ScanJobResponse, VehicleResponse } from './builders';
 
 type Schemas = components['schemas'];
@@ -13,6 +14,7 @@ export interface FakeState {
   passports: PassportResponse[];
   /** Attachments by event id. */
   attachments: Record<string, AttachmentResponse[]>;
+  account: AccountState;
 }
 
 export interface Reply {
@@ -473,4 +475,5 @@ export const handlers: Record<string, Handler> = {
   revokePassport,
   getPassportPdf,
   getPassportQr,
+  ...accountHandlers,
 };

@@ -58,6 +58,13 @@ public class OwnershipPanacheRepository implements OwnershipRepositoryPort {
     }
 
     @Override
+    public long countOpenByOwner(UUID ownerId) {
+        return em.createQuery("select count(p) from OwnershipPeriodEntity p where p.ownerId = :owner "
+                        + "and p.ownedTo is null", Long.class)
+                .setParameter("owner", ownerId).getSingleResult();
+    }
+
+    @Override
     public void save(OwnershipPeriod period) {
         OwnershipPeriodEntity entity = em.find(OwnershipPeriodEntity.class, period.id());
         if (entity == null) {
@@ -133,5 +140,20 @@ public class OwnershipPanacheRepository implements OwnershipRepositoryPort {
     private OwnershipClaim toDomain(OwnershipClaimEntity e) {
         return new OwnershipClaim(e.id, new Vin(e.vin), e.claimantId, ClaimStatus.valueOf(e.status), e.filedAt,
                 e.decidedAt);
+    }
+
+    @Override
+    public void detachOwner(UUID ownerId, UUID tombstone) {
+        em.flush();
+        em.createNativeQuery("update vehicle_passport.ownership_period set owner_id = :tombstone "
+                        + "where owner_id = :owner")
+                .setParameter("tombstone", tombstone).setParameter("owner", ownerId).executeUpdate();
+        em.createNativeQuery("delete from vehicle_passport.ownership_claim "
+                        + "where claimant_id = :owner and status = 'PENDING'")
+                .setParameter("owner", ownerId).executeUpdate();
+        em.createNativeQuery("update vehicle_passport.ownership_claim set claimant_id = :tombstone "
+                        + "where claimant_id = :owner")
+                .setParameter("tombstone", tombstone).setParameter("owner", ownerId).executeUpdate();
+        em.clear();
     }
 }

@@ -14,4 +14,9 @@ public interface PassportRepositoryPort {
     Optional<Passport> findByToken(String token);
 
     List<Passport> findByCreator(UUID userId);
+
+    long countByCreator(UUID userId);
+
+    /** Sets revokedAt on every passport of the creator that is not yet revoked; returns the count. */
+    int revokeAllByCreator(UUID userId, java.time.Instant at);
 }

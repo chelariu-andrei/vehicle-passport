@@ -2,6 +2,7 @@
 import { documentsStatus, findOperation, responseSchema, schemaErrors, validatorFor } from './contract';
 import type { Operation } from './contract';
 import { handlers, problem } from './handlers';
+import { initialAccount } from './account';
 import type { Ctx, FakeState, Reply, UploadForm } from './handlers';
 
 export * from './builders';
@@ -64,6 +65,7 @@ export function installFakeApi(): FakeApi {
     scans: {},
     passports: [],
     attachments: {},
+    account: initialAccount(),
   };
   const scanVins = new Map<string, string>();
   const decidedClaims = new Set<string>();
