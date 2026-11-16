@@ -134,3 +134,48 @@ test('a lost connection mid-upload keeps the event and counts the unsent files a
   expect(fake.state.events[SAMPLE_VIN]).toHaveLength(1);
   expect(uploads).toBe(2);
 });
+
+/** Holds every upload until `release` is called. */
+function holdUploads() {
+  const online = globalThis.fetch;
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  globalThis.fetch = (async (...args: Parameters<typeof fetch>) => {
+    if ((args[0] as Request).url.includes('/attachments')) await gate;
+    return online(...args);
+  }) as typeof fetch;
+  return { release, restore: () => (globalThis.fetch = online) };
+}
+
+test('back is ignored while the files are uploading, and the upload still finishes', async () => {
+  const fake = await open();
+  await choosePhotos(1);
+  await screen.findByText(en.event.documents.photo(1));
+  const held = holdUploads();
+  try {
+    await saveAndConfirm();
+    await waitFor(() => expect(fake.callsTo('addEvent')).toHaveLength(1));
+    await fireEvent.press(screen.getByRole('button', { name: en.common.back }));
+    expect(screen.getByText(en.event.addTitle)).toBeTruthy();
+    held.release();
+    await waitFor(() => expect(screen.queryByText(en.event.addTitle)).toBeNull());
+  } finally {
+    held.restore();
+  }
+  expect(fake.state.attachments[fake.state.events[SAMPLE_VIN][0].id]).toHaveLength(1);
+});
+
+test('tapping confirm twice uploads the file once', async () => {
+  const fake = await open();
+  await choosePhotos(1);
+  await screen.findByText(en.event.documents.photo(1));
+  await press(en.event.save);
+  const confirm = await screen.findByRole('button', { name: en.event.check.confirm });
+  await fireEvent.press(confirm);
+  await fireEvent.press(confirm);
+  await waitFor(() => expect(fake.callsTo('addAttachment')).toHaveLength(1));
+  expect(fake.callsTo('addEvent')).toHaveLength(1);
+  expect(fake.callsTo('addAttachment')).toHaveLength(1);
+});

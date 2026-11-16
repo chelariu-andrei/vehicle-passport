@@ -2,9 +2,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Modal, Platform, Pressable, ScrollView, View } from 'react-native';
+import { BackHandler, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import type { z } from 'zod';
 
 import { errorMessage, qk } from '@/shared/api';
@@ -207,6 +207,16 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
   const [files, setFiles] = useState<StagedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const documents = files.length;
+  // Leaving mid-save would drop the staged files or navigate over whatever the person opened, so back waits until the flow is done.
+  const busy = save.isPending || uploading;
+  useEffect(() => {
+    if (!busy) return;
+    const hold = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => hold.remove();
+  }, [busy]);
+  const leave = () => {
+    if (!busy) close();
+  };
   const submit = handleSubmit((values) => {
     if (!uploading) setChecking(values);
   });
@@ -257,7 +267,7 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
   return (
     <Screen
       scroll
-      header={<AppBar onBack={close} />}
+      header={<AppBar onBack={leave} />}
       footer={<ActionBar primary={{ title: en.event.save, loading: save.isPending || uploading, onPress: submit }} />}
     >
       <Text variant="display-xl" accessibilityRole="header">
