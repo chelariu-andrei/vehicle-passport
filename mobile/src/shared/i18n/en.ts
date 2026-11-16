@@ -400,6 +400,18 @@ export const en = {
     expiry: { 7: 'In 7 days', 30: 'In 30 days', 90: 'In 90 days', none: 'No expiry' },
     createSubmit: 'Create',
   },
+  validation: {
+    emailInvalid: 'Enter a valid email address.',
+    emailTooLong: 'Email must be at most 254 characters.',
+    passwordTooShort: 'Password must be at least 8 characters.',
+    passwordTooLong: 'Password must be at most 72 characters.',
+    displayNameRequired: 'Enter your name.',
+    displayNameTooLong: 'Name must be at most 80 characters.',
+    displayNameInvalid: 'Name cannot contain control characters.',
+    phoneInvalid: 'Use international format, for example +40712345678.',
+    supportMessageTooShort: 'Write at least 10 characters.',
+    supportMessageTooLong: 'Message must be at most 4000 characters.',
+  },
   evidence: {
     ESTIMATED: 'Estimated',
     USER_CONFIRMED: 'Confirmed',
