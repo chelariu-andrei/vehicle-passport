@@ -4,6 +4,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "vehicle")
@@ -37,7 +39,8 @@ public class VehicleEntity {
     @Column(name = "paint_color")
     public String paintColor;
 
-    @Column(name = "paint_hex", length = 7)
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "paint_hex", columnDefinition = "char(7)")
     public String paintHex;
 
     @Column(name = "paint_finish")

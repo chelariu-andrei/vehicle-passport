@@ -38,7 +38,8 @@ public class ScanJobEntity {
     @Column(name = "content_type", nullable = false)
     public String contentType;
 
-    @Column(name = "sha256", length = 64)
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "sha256", columnDefinition = "char(64)")
     public String sha256;
 
     @Column(name = "size_bytes")

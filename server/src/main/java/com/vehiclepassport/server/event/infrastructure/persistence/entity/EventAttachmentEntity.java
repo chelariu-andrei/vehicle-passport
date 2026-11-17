@@ -6,6 +6,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "event_attachment")
@@ -21,6 +23,7 @@ public class EventAttachmentEntity {
     @Column(name = "vin", nullable = false, length = 17)
     public String vin;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "sha256", columnDefinition = "char(64)")
     public String sha256;
 
