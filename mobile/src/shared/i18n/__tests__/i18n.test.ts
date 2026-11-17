@@ -35,4 +35,9 @@ describe('Romanian counts', () => {
       '120 de evenimente',
     ]);
   });
+
+  it('counts the days left on a document the same way', () => {
+    const expiresIn = ro.event!.validity!.expiresIn!;
+    expect([0, 1, 12, 20, 101].map(expiresIn)).toEqual(['Expiră în 0 zile', 'Expiră în 1 zi', 'Expiră în 12 zile', 'Expiră în 20 de zile', 'Expiră în 101 zile']);
+  });
 });

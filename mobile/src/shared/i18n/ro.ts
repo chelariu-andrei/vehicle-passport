@@ -50,7 +50,7 @@ export const ro: DeepPartial<Widen<typeof en>> = {
     until: (date: string) => `până la ${date}`,
     validity: {
       validUntil: (date: string) => `Valabil până la ${date}`,
-      expiresIn: (days: number) => (days === 1 ? 'Expiră în 1 zi' : days % 100 >= 1 && days % 100 <= 19 ? `Expiră în ${days} zile` : `Expiră în ${days} de zile`),
+      expiresIn: (days: number) => (days === 1 ? 'Expiră în 1 zi' : days < 20 || (days % 100 >= 1 && days % 100 <= 19) ? `Expiră în ${days} zile` : `Expiră în ${days} de zile`),
       expired: 'Expirat',
     },
     chooseDateFor: (label: string, date: string) => `${label}, ${date === '' ? 'nesetat' : date}`,

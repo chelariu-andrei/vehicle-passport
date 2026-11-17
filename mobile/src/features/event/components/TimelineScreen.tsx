@@ -45,12 +45,27 @@ export function TimelineScreen({ vin, carName }: { vin: string; carName?: string
     }
   };
 
-  const loadMore = async () => {
-    // Not while anything loads: fetchNextPage cancels a running refetch. A failed page does not lock paging; reaching the end tries again.
+  /** Loads the next page. Not while anything loads: fetchNextPage cancels a running refetch. */
+  const nextPage = async () => {
     if (!pages.hasNextPage || pages.isFetching) return;
     const result = await pages.fetchNextPage();
     // A cursor the server refuses (the history changed under it) restarts from page one.
     if (isApiError(result.error, 'invalid-cursor')) void pages.refetch();
+  };
+
+  /**
+   * Scrolling near the end. After a failure it does nothing: the list re-fires onEndReached whenever its content changes size (the
+   * footer swapping to the error row does that), which would retry a failing page in a loop. The footer's retry is the way on.
+   */
+  const onEndReached = () => {
+    if (pages.isError) return;
+    void nextPage();
+  };
+
+  /** The footer's retry: the failed page when there is one, else the whole list (a refresh that failed). */
+  const retry = () => {
+    if (pages.isFetching) return;
+    void (pages.hasNextPage ? nextPage() : pages.refetch());
   };
 
   const filtered = activeCount(filters) > 0;
@@ -103,7 +118,7 @@ export function TimelineScreen({ vin, carName }: { vin: string; carName?: string
           </View>
         )}
         renderItem={({ item, index, section }) => <TimelineRail vin={vin} event={item} first={index === 0} last={index === section.data.length - 1} />}
-        onEndReached={() => void loadMore()}
+        onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
         ListFooterComponent={
           pages.isFetchingNextPage ? (
@@ -124,7 +139,7 @@ export function TimelineScreen({ vin, carName }: { vin: string; carName?: string
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={s.common.retry}
-                onPress={() => void (pages.hasNextPage ? loadMore() : pages.refetch())}
+                onPress={retry}
                 hitSlop={8}
                 style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: tokens.space['space-1'] }}
               >

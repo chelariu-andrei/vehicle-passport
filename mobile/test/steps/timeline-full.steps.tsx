@@ -253,6 +253,10 @@ defineFeature(feature, (test) => {
       expect(within(footer).getByRole('button', { name: en.common.retry })).toBeTruthy();
       // The failed request was the second page.
       expect(fake.callsTo('getTimeline')[1].path).toContain('cursor=');
+      // Scrolling to the end again (or the list re-firing as the footer changes size) must not retry by itself.
+      await fireEvent(screen.getByTestId('timeline-list'), 'onEndReached');
+      await fireEvent(screen.getByTestId('timeline-list'), 'onEndReached');
+      expect(fake.callsTo('getTimeline')).toHaveLength(2);
     });
     and('retrying loads the next page', async () => {
       await fireEvent.press(within(screen.getByTestId('timeline-load-more-failed')).getByRole('button', { name: en.common.retry }));
