@@ -77,6 +77,12 @@ const SHAPES = {
   filter: [{ d: 'M4 6h16M7 12h10M10 18h4' }],
   bell: [{ d: 'M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z' }, { d: 'M10 20.5a2 2 0 0 0 4 0' }],
   kit: [{ x: 3.5, y: 7.5, width: 17, height: 12, rx: 2 }, { d: 'M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5' }, { d: 'M12 11v5M9.5 13.5h5' }],
+  fuel: [
+    { x: 5, y: 4, width: 9, height: 16, rx: 1.5 },
+    { d: 'M7.5 8h4M14 9h2.5a1.5 1.5 0 0 1 1.5 1.5V16a1.5 1.5 0 0 0 3 0V9l-2.5-2.5' },
+  ],
+  bolt: [{ d: 'M13 3L6 13.5h5L10 21l8-11h-5.5z' }],
+  chart: [{ d: 'M4 4v16h16' }, { d: 'M8 15l3.5-4 3 2.5L19 8' }],
 } satisfies Record<string, Shape[]>;
 
 // The web would pass the native-only props to the DOM element, so it gets the ARIA one.
