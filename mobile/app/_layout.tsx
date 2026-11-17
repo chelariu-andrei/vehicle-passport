@@ -7,7 +7,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppLockBoundary, BiometricOfferSheet, sweepStaleExport, useConsentGate } from '@/features/account';
-import { cancelReminders, ReminderSync } from '@/features/deadlines';
+import { cancelReminders, ReminderSync, useNotificationTap } from '@/features/deadlines';
 import { SettingsSync } from '@/features/settings';
 import { autoJourney } from '@/features/vehicle';
 import { createAppQueryClient, forgetVehicle } from '@/shared/api';
@@ -59,6 +59,8 @@ function Shell() {
   const inAuth = segments[0] === '(auth)';
   // The reset link signs the person in (a recovery session); they stay here until the new password is set.
   const resettingPassword = inAuth && segments[1] === 'reset-password';
+  // A tapped reminder opens its car's Document status.
+  useNotificationTap();
   return (
     <View style={{ flex: 1 }}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />

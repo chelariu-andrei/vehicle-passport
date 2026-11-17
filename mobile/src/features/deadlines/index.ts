@@ -7,3 +7,5 @@ export { readPermission, reminderPrompt, requestPermission } from './notificatio
 export type { PermissionState } from './notifications/permission';
 export { ReminderPermissionNote } from './components/ReminderPermissionNote';
 export { cancelReminders, ReminderSync } from './notifications/ReminderSync';
+export { routeForNotification } from './notifications/routeForNotification';
+export { useNotificationTap } from './notifications/useNotificationTap';
