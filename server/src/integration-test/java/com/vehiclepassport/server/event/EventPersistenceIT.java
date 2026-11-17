@@ -2,20 +2,33 @@ package com.vehiclepassport.server.event;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.out.EventRepositoryPort;
+import com.vehiclepassport.server.event.domain.model.Component;
+import com.vehiclepassport.server.event.domain.model.CustomField;
+import com.vehiclepassport.server.event.domain.model.EventAnnotations;
 import com.vehiclepassport.server.event.domain.model.EventDetails;
 import com.vehiclepassport.server.event.domain.model.EventSource;
 import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.EvidenceLevel;
+import com.vehiclepassport.server.event.domain.model.InsuranceCoverage;
+import com.vehiclepassport.server.event.domain.model.InsuranceDetails;
+import com.vehiclepassport.server.event.domain.model.ItpDetails;
+import com.vehiclepassport.server.event.domain.model.ItpResult;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
 import com.vehiclepassport.server.event.domain.model.PartLine;
+import com.vehiclepassport.server.event.domain.model.RovinietaDetails;
+import com.vehiclepassport.server.event.domain.model.RovinietaDuration;
+import com.vehiclepassport.server.event.domain.model.SafetyEquipmentDetails;
+import com.vehiclepassport.server.event.domain.model.SafetyItem;
 import com.vehiclepassport.server.event.domain.model.ScanDetails;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
 import com.vehiclepassport.server.event.domain.model.TimelineOrder;
+import com.vehiclepassport.server.event.domain.model.Validity;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import com.vehiclepassport.server.shared.error.DomainException;
 import com.vehiclepassport.server.testsupport.smoke.PersistenceProfile;
@@ -26,7 +39,9 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -59,6 +74,8 @@ class EventPersistenceIT {
     AssertActiveOwnerUseCase owners;
     @Inject
     AddEventUseCase adding;
+    @Inject
+    EntityManager em;
 
     private record Fixture(String vin, UUID owner, UUID period) {
     }
@@ -236,6 +253,123 @@ class EventPersistenceIT {
             }
             assertEquals(1, QuarkusTransaction.requiringNew().call(() -> events.allActive(f.vin())).size());
         }
+    }
+
+    private VehicleEvent full(Fixture f, EventType type, String date, Integer km, String label, Validity validity,
+            EventDetails details, EvidenceLevel evidence, EventSource source) {
+        return new VehicleEvent(UUID.randomUUID(), f.vin(), type, LocalDate.parse(date), km, new BigDecimal("99.90"),
+                "EUR", label, "notes " + type, validity, details, Set.of(Component.BRAKES, Component.ENGINE),
+                List.of(new CustomField("Mecanic", "Ion"), new CustomField("Garanție", "12 luni")), evidence, source,
+                f.owner(), f.period(), null, T0, null);
+    }
+
+    @Test
+    void roundTripsEveryNewField() {
+        Fixture f = fixture();
+        ScanDetails scan = new ScanDetails("Service X",
+                List.of(new PartLine("Plăcuțe", new BigDecimal("1"), new BigDecimal("210.00"))),
+                new BigDecimal("80.00"));
+        List<VehicleEvent> all = List.of(
+                full(f, EventType.SERVICE, "2025-01-01", 1000, null, null, scan, EvidenceLevel.DOCUMENTED,
+                        EventSource.SCAN),
+                full(f, EventType.REPAIR, "2025-01-02", 1100, null, null, null, EvidenceLevel.USER_CONFIRMED,
+                        EventSource.MANUAL),
+                full(f, EventType.TIRES, "2025-01-03", 1200, null, null, scan, EvidenceLevel.DOCUMENTED,
+                        EventSource.SCAN),
+                full(f, EventType.ITP, "2025-01-04", 1300, null,
+                        new Validity(LocalDate.parse("2025-01-04"), LocalDate.parse("2027-01-03")),
+                        new ItpDetails("RAR Iasi", ItpResult.PASSED_WITH_REMARKS), EvidenceLevel.USER_CONFIRMED,
+                        EventSource.MANUAL),
+                full(f, EventType.ITP, "2025-01-05", 1400, null, null, new ItpDetails("Statia Sud", null),
+                        EvidenceLevel.DOCUMENTED, EventSource.SCAN),
+                full(f, EventType.ROVINIETA, "2025-01-06", null, null,
+                        new Validity(LocalDate.parse("2025-01-06"), LocalDate.parse("2026-01-05")),
+                        new RovinietaDetails(RovinietaDuration.TWELVE_MONTHS), EvidenceLevel.USER_CONFIRMED,
+                        EventSource.MANUAL),
+                full(f, EventType.INSURANCE, "2025-01-07", null, null,
+                        new Validity(LocalDate.parse("2025-01-08"), LocalDate.parse("2026-01-07")),
+                        new InsuranceDetails(InsuranceCoverage.CASCO, "Allianz", "POL-1"),
+                        EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL),
+                full(f, EventType.SAFETY_EQUIPMENT, "2025-01-08", 1500, null,
+                        new Validity(LocalDate.parse("2025-01-08"), LocalDate.parse("2026-01-08")),
+                        new SafetyEquipmentDetails(SafetyItem.FIRST_AID_KIT), EvidenceLevel.USER_CONFIRMED,
+                        EventSource.MANUAL),
+                full(f, EventType.OTHER, "2025-01-09", null, "Spălătorie", null, null, EvidenceLevel.USER_CONFIRMED,
+                        EventSource.MANUAL));
+        saveAll(all);
+
+        for (VehicleEvent saved : all) {
+            VehicleEvent loaded = QuarkusTransaction.requiringNew()
+                    .call(() -> events.findActive(f.vin(), saved.id())).orElseThrow();
+            assertEquals(saved, loaded, saved.type().name());
+        }
+    }
+
+    @Test
+    void preMigrationRowRoundTrips() {
+        Fixture f = fixture();
+        UUID id = UUID.randomUUID();
+        QuarkusTransaction.requiringNew().run(() -> em.createNativeQuery("""
+                        insert into vehicle_passport.vehicle_event (id, vin, type, event_date, odometer_km, cost_amount,
+                            currency, notes, details, evidence, source, created_by, period_id, document_key, created_at)
+                        values (:id, :vin, 'SERVICE', date '2025-03-01', 42000, 300.00, 'RON', 'old',
+                            cast('{"serviceName":"X","parts":[],"labor":null}' as jsonb), 'DOCUMENTED', 'SCAN',
+                            :owner, :period, 'docs/old.pdf', timestamptz '2025-03-01 10:00:00+00')
+                        """)
+                .setParameter("id", id).setParameter("vin", f.vin()).setParameter("owner", f.owner())
+                .setParameter("period", f.period()).executeUpdate());
+
+        VehicleEvent loaded = QuarkusTransaction.requiringNew().call(() -> events.findActive(f.vin(), id))
+                .orElseThrow();
+        assertEquals(new ScanDetails("X", List.of(), null), loaded.details());
+        assertEquals(Set.of(), loaded.components());
+        assertEquals(List.of(), loaded.customFields());
+        assertNull(loaded.validity());
+        assertNull(loaded.customLabel());
+
+        VehicleEvent edited = loaded.edited(loaded.facts(), new EventAnnotations("new notes", Set.of(), List.of()),
+                Clock.systemUTC());
+        saveAll(List.of(edited));
+
+        VehicleEvent again = QuarkusTransaction.requiringNew().call(() -> events.findActive(f.vin(), id))
+                .orElseThrow();
+        assertEquals("new notes", again.notes());
+        assertEquals(new ScanDetails("X", List.of(), null), again.details());
+        assertEquals(edited, again);
+    }
+
+    @Test
+    void unknownStoredDetailsKindFailsLoudly() {
+        Fixture f = fixture();
+        VehicleEvent e = event(f, UUID.randomUUID(), "2025-03-01", T0, 1000);
+        saveAll(List.of(e));
+        QuarkusTransaction.requiringNew().run(() -> em.createNativeQuery(
+                        "update vehicle_passport.vehicle_event set details = cast('{\"kind\":\"BOGUS\"}' as jsonb)"
+                                + " where id = :id")
+                .setParameter("id", e.id()).executeUpdate());
+
+        assertThrows(IllegalStateException.class,
+                () -> QuarkusTransaction.requiringNew().call(() -> events.findActive(f.vin(), e.id())));
+    }
+
+    @Test
+    void neighboursIgnoreEventsWithoutKm() {
+        Fixture f = fixture();
+        VehicleEvent service = event(f, UUID.randomUUID(), "2025-01-01", T0, 100000);
+        VehicleEvent insurance = full(f, EventType.INSURANCE, "2025-02-01", null, null,
+                new Validity(LocalDate.parse("2025-02-01"), LocalDate.parse("2026-01-31")),
+                new InsuranceDetails(InsuranceCoverage.RCA, "Groupama", null), EvidenceLevel.USER_CONFIRMED,
+                EventSource.MANUAL);
+        saveAll(List.of(service, insurance));
+
+        Neighbours around = QuarkusTransaction.requiringNew()
+                .call(() -> events.neighbours(f.vin(), LocalDate.parse("2025-03-01"), T0, UUID.randomUUID()));
+        assertEquals(100000, around.previousKm());
+        assertNull(around.nextKm());
+
+        Neighbours before = QuarkusTransaction.requiringNew()
+                .call(() -> events.neighbours(f.vin(), LocalDate.parse("2024-12-01"), T0, UUID.randomUUID()));
+        assertEquals(100000, before.nextKm());
     }
 
     private Callable<Object> add(Fixture f, String date, int km) {
