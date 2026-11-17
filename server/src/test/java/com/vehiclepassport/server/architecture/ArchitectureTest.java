@@ -136,6 +136,21 @@ class ArchitectureTest {
                     .should().beDeclaredInClassesThat().resideOutsideOfPackage("..application.service.."));
 
     @ArchTest
+    static final ArchRule dtos_stay_in_api = noClasses()
+            .that().resideOutsideOfPackage("..api..")
+            .should().dependOnClassesThat().resideInAPackage("..api.dto..");
+
+    @ArchTest
+    static final ArchRule dtos_do_not_use_domain = noClasses()
+            .that().resideInAPackage("..api.dto..")
+            .should().dependOnClassesThat().resideInAPackage("..domain..");
+
+    @ArchTest
+    static final ArchRule event_port_in_is_domain_free = noClasses()
+            .that().resideInAPackage(BASE + ".event.application.port.in..")
+            .should().dependOnClassesThat().resideInAPackage(BASE + ".event.domain..");
+
+    @ArchTest
     static final ArchRule extraction_adapters_live_in_client = classes()
             .that().implement(BASE + ".scan.application.port.out.ReceiptExtractionPort")
             .should().resideInAPackage("..scan.infrastructure.client..");
