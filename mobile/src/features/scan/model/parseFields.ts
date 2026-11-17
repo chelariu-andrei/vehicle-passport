@@ -1,7 +1,7 @@
 import type { components } from '@/shared/api/generated/schema';
 
 export type ScanFields = components['schemas']['ScanFields'];
-export type EventType = components['schemas']['EventType'];
+export type EventType = components['schemas']['ScanEventType'];
 export const REVIEW_EVENT_TYPES: readonly EventType[] = ['SERVICE', 'REPAIR', 'TIRES', 'ITP'];
 
 /** Below this a value is flagged "Check" (integration 3.4.3). It never blocks confirmation. */

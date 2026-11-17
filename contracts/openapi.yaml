@@ -474,6 +474,39 @@ paths:
           in: query
           required: false
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: type
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/EventType' }
+          description: Matches any of the given types (`?type=ITP&type=INSURANCE`).
+        - name: component
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/Component' }
+          description: Matches events tagged with any of the given components.
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          description: Inclusive, on the event date.
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          description: Inclusive, on the event date. `from` after `to` is refused.
+        - name: order
+          in: query
+          required: false
+          schema: { type: string, enum: [asc, desc], default: asc }
+          description: A cursor is only valid with the order it was issued for. Send the same filters on every page.
       responses:
         '403': { $ref: '#/components/responses/ConsentRequired' }
         '200':
@@ -482,7 +515,57 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/TimelinePage' }
         '400':
-          description: Codes `validation-failed` (limit out of range) or `invalid-cursor`.
+          description: Codes `validation-failed` (limit out of range, bad filter, `from` after `to`) or `invalid-cursor` (including a cursor used with a different `order`).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /vehicles/{vin}/timeline/summary:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+    get:
+      tags: [events]
+      operationId: getTimelineSummary
+      summary: Aggregates of the VIN's timeline for the given filters
+      parameters:
+        - name: type
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/EventType' }
+        - name: component
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/Component' }
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date }
+      responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
+        '200':
+          description: Counts, costs, distance and years for the filtered timeline.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimelineSummary' }
+        '400':
+          description: Code `validation-failed` (bad filter, `from` after `to`).
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -1111,7 +1194,44 @@ components:
 
     EventType:
       type: string
+      enum: [SERVICE, REPAIR, TIRES, ITP, ROVINIETA, INSURANCE, SAFETY_EQUIPMENT, OTHER]
+
+    ScanEventType:
+      type: string
+      description: The event types a scan can be confirmed as.
       enum: [SERVICE, REPAIR, TIRES, ITP]
+
+    Component:
+      type: string
+      enum: [ENGINE, TRANSMISSION, BRAKES, SUSPENSION, STEERING, TIRES_WHEELS, ELECTRICAL, CLIMATE, BODY, EXHAUST, INTERIOR, FLUIDS, OTHER]
+
+    InsuranceCoverage:
+      type: string
+      enum: [RCA, CASCO]
+
+    RovinietaDuration:
+      type: string
+      enum: [ONE_DAY, SEVEN_DAYS, THIRTY_DAYS, NINETY_DAYS, TWELVE_MONTHS]
+
+    ItpResult:
+      type: string
+      enum: [PASSED, PASSED_WITH_REMARKS, FAILED]
+
+    SafetyItem:
+      type: string
+      enum: [FIRE_EXTINGUISHER, FIRST_AID_KIT]
+
+    ValidityStatus:
+      type: string
+      enum: [VALID, EXPIRING, EXPIRED, SUPERSEDED, UNKNOWN]
+
+    CustomField:
+      type: object
+      required: [label, value]
+      additionalProperties: false
+      properties:
+        label: { type: string, minLength: 1, maxLength: 40 }
+        value: { type: string, minLength: 1, maxLength: 200 }
 
     Evidence:
       type: string
@@ -1187,7 +1307,7 @@ components:
 
     EventRequest:
       type: object
-      required: [type, date, odometerKm, costAmount, currency]
+      required: [type, date, costAmount, currency]
       additionalProperties: false
       properties:
         type: { $ref: '#/components/schemas/EventType' }
@@ -1195,10 +1315,36 @@ components:
           type: string
           format: date
           description: Must not be in the future.
-        odometerKm: { type: integer, minimum: 0 }
+        odometerKm:
+          type: [integer, 'null']
+          minimum: 0
+          description: Required for SERVICE, REPAIR, TIRES and ITP; optional otherwise. The server enforces it (`validation-failed`).
         costAmount: { type: number, minimum: 0, multipleOf: 0.01 }
         currency: { type: string, pattern: '^[A-Z]{3}$', examples: [RON] }
         notes: { type: [string, 'null'], maxLength: 2000 }
+        customLabel:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 60
+          description: Required for OTHER, forbidden for every other type.
+        validFrom: { type: [string, 'null'], format: date }
+        validUntil:
+          type: [string, 'null']
+          format: date
+          description: Never sent for ROVINIETA (computed by the server from `validFrom` and `duration`).
+        details:
+          description: Required for ROVINIETA, INSURANCE and SAFETY_EQUIPMENT; optional for ITP; `kind` must match the event type.
+          oneOf:
+            - $ref: '#/components/schemas/EventDetailsInput'
+            - type: 'null'
+        components:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Component' }
+        customFields:
+          type: array
+          maxItems: 10
+          items: { $ref: '#/components/schemas/CustomField' }
 
     Part:
       type: object
@@ -1211,31 +1357,116 @@ components:
     ScanDetails:
       type: object
       description: Structured data from a confirmed scan. Read-only output.
+      required: [kind]
       properties:
+        kind: { type: string, enum: [SCAN] }
         serviceName: { type: [string, 'null'] }
         parts:
           type: array
           items: { $ref: '#/components/schemas/Part' }
         labor: { type: [number, 'null'] }
 
+    InsuranceDetails:
+      type: object
+      required: [kind, coverage, insurer]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [INSURANCE] }
+        coverage: { $ref: '#/components/schemas/InsuranceCoverage' }
+        insurer: { type: string, minLength: 1, maxLength: 100 }
+        policyNumber: { type: [string, 'null'], maxLength: 60 }
+
+    RovinietaDetails:
+      type: object
+      required: [kind, duration]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [ROVINIETA] }
+        duration: { $ref: '#/components/schemas/RovinietaDuration' }
+
+    ItpDetails:
+      type: object
+      required: [kind]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [ITP] }
+        station: { type: [string, 'null'], maxLength: 100 }
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/ItpResult'
+            - type: 'null'
+
+    SafetyEquipmentDetails:
+      type: object
+      required: [kind, item]
+      additionalProperties: false
+      properties:
+        kind: { type: string, enum: [SAFETY_EQUIPMENT] }
+        item: { $ref: '#/components/schemas/SafetyItem' }
+
+    EventDetailsInput:
+      description: Details a client may send, discriminated by `kind`. SCAN details are never accepted.
+      oneOf:
+        - $ref: '#/components/schemas/InsuranceDetails'
+        - $ref: '#/components/schemas/RovinietaDetails'
+        - $ref: '#/components/schemas/ItpDetails'
+        - $ref: '#/components/schemas/SafetyEquipmentDetails'
+      discriminator:
+        propertyName: kind
+        mapping:
+          INSURANCE: '#/components/schemas/InsuranceDetails'
+          ROVINIETA: '#/components/schemas/RovinietaDetails'
+          ITP: '#/components/schemas/ItpDetails'
+          SAFETY_EQUIPMENT: '#/components/schemas/SafetyEquipmentDetails'
+
+    EventDetailsOutput:
+      description: Details of an event, discriminated by `kind`.
+      oneOf:
+        - $ref: '#/components/schemas/ScanDetails'
+        - $ref: '#/components/schemas/InsuranceDetails'
+        - $ref: '#/components/schemas/RovinietaDetails'
+        - $ref: '#/components/schemas/ItpDetails'
+        - $ref: '#/components/schemas/SafetyEquipmentDetails'
+      discriminator:
+        propertyName: kind
+        mapping:
+          SCAN: '#/components/schemas/ScanDetails'
+          INSURANCE: '#/components/schemas/InsuranceDetails'
+          ROVINIETA: '#/components/schemas/RovinietaDetails'
+          ITP: '#/components/schemas/ItpDetails'
+          SAFETY_EQUIPMENT: '#/components/schemas/SafetyEquipmentDetails'
+
     EventResponse:
       type: object
       description: Carries no creator or ownership-period information.
-      required: [id, type, date, odometerKm, costAmount, currency, evidence, source, documentPresent, attachmentCount]
+      required: [id, type, date, odometerKm, costAmount, currency, evidence, source, documentPresent, attachmentCount, components, customFields]
       properties:
         id: { type: string, format: uuid }
         type: { $ref: '#/components/schemas/EventType' }
         date: { type: string, format: date }
-        odometerKm: { type: integer }
+        odometerKm: { type: [integer, 'null'] }
         costAmount: { type: number }
         currency: { type: string }
         notes: { type: [string, 'null'] }
-        details:
+        customLabel: { type: [string, 'null'] }
+        validFrom: { type: [string, 'null'], format: date }
+        validUntil: { type: [string, 'null'], format: date }
+        validityStatus:
           readOnly: true
-          description: Only scans populate this.
+          description: Computed by the server from the validity rules; null for types without validity.
           oneOf:
-            - $ref: '#/components/schemas/ScanDetails'
+            - $ref: '#/components/schemas/ValidityStatus'
             - type: 'null'
+        details:
+          oneOf:
+            - $ref: '#/components/schemas/EventDetailsOutput'
+            - type: 'null'
+        components:
+          type: array
+          items: { $ref: '#/components/schemas/Component' }
+        customFields:
+          type: array
+          items: { $ref: '#/components/schemas/CustomField' }
         evidence: { $ref: '#/components/schemas/Evidence' }
         source: { $ref: '#/components/schemas/EventSource' }
         documentPresent: { type: boolean }
@@ -1267,6 +1498,48 @@ components:
         nextCursor:
           type: [string, 'null']
           description: Null on the last page.
+
+    TypeCount:
+      type: object
+      required: [type, count]
+      properties:
+        type: { $ref: '#/components/schemas/EventType' }
+        count: { type: integer, minimum: 1 }
+
+    CurrencyAmount:
+      type: object
+      required: [currency, amount]
+      properties:
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        amount: { type: number, multipleOf: 0.01 }
+
+    Distance:
+      type: object
+      description: Computed from all events of the car that have km in the period, ignoring the type and component filters.
+      required: [km, fromKm, toKm]
+      properties:
+        km: { type: [integer, 'null'], description: "`toKm` - `fromKm`; null when fewer than two readings are available." }
+        fromKm: { type: [integer, 'null'], description: Last reading before `from`, or else the first reading in the period. }
+        toKm: { type: [integer, 'null'], description: Last reading in the period. }
+
+    TimelineSummary:
+      type: object
+      required: [eventCount, countsByType, costByCurrency, distance, years]
+      properties:
+        eventCount: { type: integer, minimum: 0 }
+        countsByType:
+          type: array
+          description: Only types with a count above zero.
+          items: { $ref: '#/components/schemas/TypeCount' }
+        costByCurrency:
+          type: array
+          description: Sorted by amount, descending.
+          items: { $ref: '#/components/schemas/CurrencyAmount' }
+        distance: { $ref: '#/components/schemas/Distance' }
+        years:
+          type: array
+          description: Every year with at least one event, newest first, ignoring all filters.
+          items: { type: integer }
 
     ScanStatus:
       type: string
@@ -1329,7 +1602,7 @@ components:
       properties:
         type:
           allOf:
-            - $ref: '#/components/schemas/EventType'
+            - $ref: '#/components/schemas/ScanEventType'
           default: SERVICE
         serviceName: { type: [string, 'null'] }
         date: { type: string, format: date }
@@ -1341,6 +1614,15 @@ components:
         total: { type: number, minimum: 0 }
         currency: { type: string, pattern: '^[A-Z]{3}$', default: RON }
         notes: { type: [string, 'null'], maxLength: 2000 }
+        validUntil:
+          type: [string, 'null']
+          format: date
+          description: Only allowed when `type` is ITP; refused otherwise with `validation-failed`.
+        itpResult:
+          description: Only allowed when `type` is ITP; refused otherwise with `validation-failed`.
+          oneOf:
+            - $ref: '#/components/schemas/ItpResult'
+            - type: 'null'
 
     ConfirmScanResponse:
       type: object
@@ -1381,9 +1663,13 @@ components:
           description: >
             Immutable snapshot: vehicle (vin, make, model, engine, year, fuel) and events
             (type, date, odometerKm, costAmount, currency, notes, serviceName, parts, labor, evidence,
-            documentPresent). `serviceName`, `parts` and `labor` are flat keys on the event, not nested under
-            `details`; `parts` is omitted when the event has no parts detail, and money values are strings
-            with two decimals.
+            documentPresent). `serviceName`, `parts` and `labor` (scan details) are flat keys on the event,
+            not nested under `details`; `parts` is omitted when the event has no parts detail, and money values
+            are strings with two decimals. Newer fields are added only when non-empty or non-null, so a snapshot
+            of old-style events is unchanged: `odometerKm` is omitted when the event has no km; `customLabel`,
+            `validFrom`, `validUntil`, `components` and `customFields` are top-level event keys; details of the
+            other kinds (INSURANCE, ROVINIETA, ITP, SAFETY_EQUIPMENT) are nested under `details: { kind, ... }`,
+            the same as the API response. This format is permanent once a passport is hashed.
             No owner, creator or ownership-date information.
         hash: { type: string }
         algorithm: { type: string, enum: [SHA-256] }
