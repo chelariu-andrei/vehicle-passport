@@ -20,7 +20,7 @@ import java.util.List;
 class ArchitectureTest {
 
     private static final String BASE = "com.vehiclepassport.server";
-    private static final List<String> FEATURES = List.of("vehicle", "event", "scan", "passport", "account");
+    private static final List<String> FEATURES = List.of("vehicle", "event", "scan", "passport", "account", "fuel");
     private static final String DOMAIN_EXCEPTION = BASE + ".shared.error.DomainException";
     private static final String ERROR_KIND = BASE + ".shared.error.ErrorKind";
     private static final String TRANSACTIONAL = "jakarta.transaction.Transactional";
@@ -108,7 +108,7 @@ class ArchitectureTest {
     static final ArchRule shared_is_independent = noClasses()
             .that().resideInAPackage("..shared..")
             .should().dependOnClassesThat().resideInAnyPackage(
-                    BASE + ".vehicle..", BASE + ".event..", BASE + ".scan..", BASE + ".passport..", BASE + ".account..");
+                    BASE + ".vehicle..", BASE + ".event..", BASE + ".scan..", BASE + ".passport..", BASE + ".account..", BASE + ".fuel..");
 
     @ArchTest
     static final ArchRule naming = CompositeArchRule
