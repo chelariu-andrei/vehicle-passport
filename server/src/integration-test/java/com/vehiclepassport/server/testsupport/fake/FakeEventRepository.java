@@ -39,7 +39,9 @@ public class FakeEventRepository implements EventRepositoryPort, Resettable {
 
     @Override
     public Neighbours neighbours(String vin, LocalDate date, Instant createdAt, UUID excludeId) {
-        List<VehicleEvent> others = active(vin).filter(e -> !e.id().equals(excludeId)).sorted(ORDER).toList();
+        // Like the real repository, events without a reading are no neighbours.
+        List<VehicleEvent> others = active(vin).filter(e -> !e.id().equals(excludeId) && e.odometerKm() != null)
+            .sorted(ORDER).toList();
         Integer previous = null;
         Integer next = null;
         for (VehicleEvent e : others) {

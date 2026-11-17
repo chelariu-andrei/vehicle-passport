@@ -12,10 +12,10 @@ public record CustomField(String label, String value) {
         label = label == null ? "" : label.trim();
         value = value == null ? "" : value.trim();
         if (label.isEmpty() || label.length() > MAX_LABEL) {
-            throw new InvalidEventException("Custom field label must be 1 to " + MAX_LABEL + " characters");
+            throw InvalidEventException.validation("Custom field label must be 1 to " + MAX_LABEL + " characters");
         }
         if (value.isEmpty() || value.length() > MAX_VALUE) {
-            throw new InvalidEventException("Custom field value must be 1 to " + MAX_VALUE + " characters");
+            throw InvalidEventException.validation("Custom field value must be 1 to " + MAX_VALUE + " characters");
         }
     }
 }

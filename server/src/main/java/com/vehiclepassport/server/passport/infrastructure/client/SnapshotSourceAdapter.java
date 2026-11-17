@@ -39,8 +39,9 @@ public class SnapshotSourceAdapter implements SnapshotSourcePort {
                 events);
     }
 
+    /** Only scan details are written so far (flat, as before); the other kinds join the snapshot later. */
     private static SnapshotEvent toEvent(EventView e) {
-        DetailsView d = e.details();
+        DetailsView d = e.details() != null && "SCAN".equals(e.details().kind()) ? e.details() : null;
         List<SnapshotPart> parts = d == null ? null
                 : d.parts().stream().map(p -> new SnapshotPart(p.name(), p.qty(), p.price())).toList();
         return new SnapshotEvent(e.id(), e.type(), e.date(), e.odometerKm(), e.costAmount(), e.currency(),

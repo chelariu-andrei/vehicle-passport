@@ -29,12 +29,12 @@ public enum EventType {
 
     public static EventType parse(String raw) {
         if (raw == null) {
-            throw new InvalidEventException("Event type is required");
+            throw InvalidEventException.validation("Event type is required");
         }
         try {
             return valueOf(raw.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
-            throw new InvalidEventException("Unknown event type: " + raw);
+            throw InvalidEventException.validation("Unknown event type: " + raw);
         }
     }
 }

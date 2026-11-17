@@ -4,5 +4,5 @@ import java.time.LocalDate;
 
 public interface CheckOdometerUseCase {
 
-    boolean isConsistent(String vin, LocalDate date, int km);
+    boolean isConsistent(String vin, LocalDate date, Integer km);
 }

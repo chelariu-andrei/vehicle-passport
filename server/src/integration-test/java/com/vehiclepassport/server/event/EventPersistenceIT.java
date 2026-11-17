@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.out.EventRepositoryPort;
 import com.vehiclepassport.server.event.domain.model.Component;
 import com.vehiclepassport.server.event.domain.model.CustomField;
@@ -404,7 +405,7 @@ class EventPersistenceIT {
     }
 
     private Callable<Object> add(Fixture f, String date, int km) {
-        return () -> adding.add(new AddEventCommand(f.owner(), f.vin(), "SERVICE", LocalDate.parse(date), km,
-                BigDecimal.TEN, "RON", null));
+        return () -> adding.add(new AddEventCommand(f.owner(), f.vin(), new EventInput("SERVICE",
+                LocalDate.parse(date), km, BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
     }
 }

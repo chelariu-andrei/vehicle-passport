@@ -15,6 +15,7 @@ import com.vehiclepassport.server.event.application.port.in.AttachmentUpload;
 import com.vehiclepassport.server.event.application.port.in.AttachmentView;
 import com.vehiclepassport.server.event.application.port.in.DeleteAttachmentUseCase;
 import com.vehiclepassport.server.event.application.port.in.EventDocument;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.GetEventDocumentUseCase;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
@@ -273,8 +274,8 @@ public class AttachmentSteps {
     }
 
     private UUID addEventAs(UUID user, String vin, String date, int km) {
-        EventView v = addEvent.add(new AddEventCommand(user, vin, "SERVICE", LocalDate.parse(date), km,
-                BigDecimal.TEN, "RON", null));
+        EventView v = addEvent.add(new AddEventCommand(user, vin, new EventInput("SERVICE", LocalDate.parse(date), km,
+                BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
         return v.id();
     }
 

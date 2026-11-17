@@ -6,7 +6,7 @@ public record SafetyEquipmentDetails(SafetyItem item) implements EventDetails {
 
     public SafetyEquipmentDetails {
         if (item == null) {
-            throw new InvalidEventException("Safety equipment item is required");
+            throw InvalidEventException.validation("Safety equipment item is required");
         }
     }
 

@@ -153,6 +153,15 @@ public class ReviewSteps {
         world.attempt(() -> confirmAs(km));
     }
 
+    @When("I confirm the extracted data as {word}")
+    public void iConfirmTheExtractedDataAs(String type) {
+        ScanJobView view = world.get(JOB_KEY);
+        ConfirmScanCommand base = command(view.id(), null);
+        world.attempt(() -> world.put(EVENT_KEY, confirm.confirm(new ConfirmScanCommand(base.userId(),
+            base.jobId(), type, base.date(), base.odometerKm(), base.serviceName(), base.parts(), base.labor(),
+            base.total(), null, null, null, null))));
+    }
+
     @When("I confirm without choosing type or currency")
     public void iConfirmWithoutTypeOrCurrency() {
         world.attempt(() -> confirmAs(null));
@@ -256,7 +265,7 @@ public class ReviewSteps {
         ConfirmScanCommand base = command(view.id(), null);
         world.put(EVENT_KEY, confirm.confirm(new ConfirmScanCommand(base.userId(), base.jobId(), null,
             base.date(), km == null ? base.odometerKm() : km, base.serviceName(), base.parts(), base.labor(),
-            base.total(), null, null)));
+            base.total(), null, null, null, null)));
     }
 
     private ConfirmScanCommand command(UUID jobId, Integer km) {
@@ -265,7 +274,7 @@ public class ReviewSteps {
             .map(p -> new PartInput(p.name(), p.qty(), p.price())).toList();
         return new ConfirmScanCommand(world.me(), jobId, null, r.date().value(),
             km == null ? r.odometerKm().value() : km, r.serviceName().value(), parts, r.labor().value(),
-            r.total().value(), null, null);
+            r.total().value(), null, null, null, null);
     }
 
     private EventView savedEvent() {

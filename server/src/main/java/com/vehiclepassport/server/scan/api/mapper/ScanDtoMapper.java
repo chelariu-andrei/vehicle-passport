@@ -35,7 +35,7 @@ public class ScanDtoMapper {
         List<PartInput> parts = r.parts() == null ? List.of()
                 : r.parts().stream().map(p -> new PartInput(p.name(), p.qty(), p.price())).toList();
         return new ConfirmScanCommand(userId, jobId, r.type(), r.date(), r.odometerKm(), r.serviceName(), parts,
-                r.labor(), r.total(), r.currency(), r.notes());
+                r.labor(), r.total(), r.currency(), r.notes(), r.validUntil(), r.itpResult());
     }
 
     public ScanJobResponse toResponse(ScanJobView v) {

@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.passport.application.port.in.CreatePassportUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.AssertActiveOwnerUseCase;
 import com.vehiclepassport.server.vehicle.application.port.in.RegisterVehicleUseCase;
@@ -51,8 +52,8 @@ class PassportResourceIT {
         String vin = PassportFixtures.randomVin();
         UUID id = UUID.fromString(user);
         registering.register(new RegisterVehicleCommand(id, vin, "Dacia", "Duster", null, 2020, "DIESEL"));
-        adding.add(new AddEventCommand(id, vin, "SERVICE", LocalDate.parse("2025-03-01"), 1000, BigDecimal.TEN,
-                "RON", PassportFixtures.TRICKY_NOTES));
+        adding.add(new AddEventCommand(id, vin, new EventInput("SERVICE", LocalDate.parse("2025-03-01"), 1000,
+                BigDecimal.TEN, "RON", PassportFixtures.TRICKY_NOTES, null, null, null, null, null, null)));
         return vin;
     }
 

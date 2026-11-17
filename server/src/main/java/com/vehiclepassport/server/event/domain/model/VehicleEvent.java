@@ -18,7 +18,9 @@ import java.util.regex.Pattern;
 
 /**
  * An entry on a vehicle's timeline. The per-type rules (spec §5.1) are enforced when an event is created or edited;
- * the canonical constructor only normalises, so rows written under older rules still load.
+ * the canonical constructor only normalises, so rows written under older rules still load. A breach of the type
+ * table is a {@link InvalidEventException#validation validation} failure; the older value rules (future date,
+ * negative km or cost, currency) stay business-rule failures.
  *
  * @param odometerKm null only for a type whose odometer is optional
  * @param validity   null for a type without validity, and for an ITP without validUntil
@@ -166,17 +168,17 @@ public record VehicleEvent(
     private static Checked check(EventFacts f, EventAnnotations a, boolean fromScan, Clock clock) {
         EventType type = f.type();
         if (type == null) {
-            throw new InvalidEventException("Event type is required");
+            throw InvalidEventException.validation("Event type is required");
         }
         TypeRule rule = type.rule();
         if (f.date() == null) {
-            throw new InvalidEventException("Event date is required");
+            throw InvalidEventException.validation("Event date is required");
         }
         if (f.date().isAfter(LocalDate.now(clock))) {
             throw new InvalidEventException("Event date cannot be in the future");
         }
         if (f.odometerKm() == null && rule.odometer() == OdometerRule.REQUIRED) {
-            throw new InvalidEventException("Odometer is required for " + type);
+            throw InvalidEventException.validation("Odometer is required for " + type);
         }
         if (f.odometerKm() != null && f.odometerKm() < 0) {
             throw new InvalidEventException("Odometer cannot be negative");
@@ -202,25 +204,25 @@ public record VehicleEvent(
         TypeRule rule = type.rule();
         if (d instanceof ScanDetails) {
             if (!fromScan) {
-                throw new InvalidEventException("Scan details come only from a scanned document");
+                throw InvalidEventException.validation("Scan details come only from a scanned document");
             }
             if (rule.detailsKind() != null) {
-                throw new InvalidEventException(type + " takes " + rule.detailsKind() + " details, not SCAN");
+                throw InvalidEventException.validation(type + " takes " + rule.detailsKind() + " details, not SCAN");
             }
             return;
         }
         if (d == null) {
             // A scanned ITP carries the station it was read from, so its details are always present.
             if (rule.detailsRequired() || (fromScan && rule.detailsKind() != null)) {
-                throw new InvalidEventException(type + " requires " + rule.detailsKind() + " details");
+                throw InvalidEventException.validation(type + " requires " + rule.detailsKind() + " details");
             }
             return;
         }
         if (rule.detailsKind() == null) {
-            throw new InvalidEventException(type + " takes no details");
+            throw InvalidEventException.validation(type + " takes no details");
         }
         if (d.kind() != rule.detailsKind()) {
-            throw new InvalidEventException(type + " takes " + rule.detailsKind() + " details, not " + d.kind());
+            throw InvalidEventException.validation(type + " takes " + rule.detailsKind() + " details, not " + d.kind());
         }
     }
 
@@ -230,38 +232,39 @@ public record VehicleEvent(
         return switch (rule) {
             case NONE -> {
                 if (from != null || until != null) {
-                    throw new InvalidEventException(f.type() + " has no validity");
+                    throw InvalidEventException.validation(f.type() + " has no validity");
                 }
                 yield null;
             }
             case UNTIL_OPTIONAL -> {
                 if (from != null) {
-                    throw new InvalidEventException("Valid from of " + f.type() + " is the event date");
+                    throw InvalidEventException.validation("Valid from of " + f.type() + " is the event date");
                 }
                 yield until == null ? null : new Validity(f.date(), until);
             }
             case UNTIL_REQUIRED -> {
                 if (from != null) {
-                    throw new InvalidEventException("Valid from of " + f.type() + " is the event date");
+                    throw InvalidEventException.validation("Valid from of " + f.type() + " is the event date");
                 }
                 if (until == null) {
-                    throw new InvalidEventException("Valid until is required for " + f.type());
+                    throw InvalidEventException.validation("Valid until is required for " + f.type());
                 }
                 yield new Validity(f.date(), until);
             }
             case COMPUTED -> {
                 if (from == null) {
-                    throw new InvalidEventException("Valid from is required for " + f.type());
+                    throw InvalidEventException.validation("Valid from is required for " + f.type());
                 }
                 if (until != null) {
-                    throw new InvalidEventException("Valid until of " + f.type() + " is computed, do not send it");
+                    throw InvalidEventException.validation(
+                            "Valid until of " + f.type() + " is computed, do not send it");
                 }
                 // checkDetails ran first, so the details are the required RovinietaDetails.
                 yield new Validity(from, ((RovinietaDetails) f.details()).duration().endFor(from));
             }
             case RANGE -> {
                 if (from == null || until == null) {
-                    throw new InvalidEventException("Valid from and valid until are required for " + f.type());
+                    throw InvalidEventException.validation("Valid from and valid until are required for " + f.type());
                 }
                 yield new Validity(from, until);
             }
@@ -271,20 +274,20 @@ public record VehicleEvent(
     private static String customLabel(String raw, TypeRule rule) {
         if (!rule.customLabelRequired()) {
             if (raw != null) {
-                throw new InvalidEventException("A custom label is only allowed on OTHER events");
+                throw InvalidEventException.validation("A custom label is only allowed on OTHER events");
             }
             return null;
         }
         String label = trimToNull(raw);
         if (label == null || label.length() > MAX_LABEL) {
-            throw new InvalidEventException("Custom label must be 1 to " + MAX_LABEL + " characters");
+            throw InvalidEventException.validation("Custom label must be 1 to " + MAX_LABEL + " characters");
         }
         return label;
     }
 
     private static void checkAnnotations(EventAnnotations a) {
         if (a.customFields().size() > MAX_CUSTOM_FIELDS) {
-            throw new InvalidEventException("At most " + MAX_CUSTOM_FIELDS + " custom fields are allowed");
+            throw InvalidEventException.validation("At most " + MAX_CUSTOM_FIELDS + " custom fields are allowed");
         }
     }
 

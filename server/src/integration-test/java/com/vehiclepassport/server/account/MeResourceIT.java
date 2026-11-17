@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.vehiclepassport.server.account.application.port.in.GetMeUseCase;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.passport.application.port.in.CreatePassportUseCase;
 import com.vehiclepassport.server.testsupport.smoke.PersistenceProfile;
 import com.vehiclepassport.server.vehicle.application.port.in.RegisterVehicleUseCase;
@@ -204,12 +205,12 @@ class MeResourceIT {
         registering.register(new RegisterVehicleCommand(me, mine, "Dacia", "Duster", null, 2020, "DIESEL"));
         registering.register(new RegisterVehicleCommand(me, mine2, "Dacia", "Logan", null, 2019, "PETROL"));
         registering.register(new RegisterVehicleCommand(other, theirs, "Dacia", "Sandero", null, 2018, "PETROL"));
-        adding.add(new AddEventCommand(me, mine, "SERVICE", LocalDate.parse("2025-03-01"), 1000, BigDecimal.TEN,
-                "RON", null));
-        adding.add(new AddEventCommand(me, mine, "SERVICE", LocalDate.parse("2025-04-01"), 2000, BigDecimal.TEN,
-                "RON", null));
-        adding.add(new AddEventCommand(other, theirs, "SERVICE", LocalDate.parse("2025-03-01"), 1000,
-                BigDecimal.TEN, "RON", null));
+        adding.add(new AddEventCommand(me, mine, new EventInput("SERVICE", LocalDate.parse("2025-03-01"), 1000,
+                BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
+        adding.add(new AddEventCommand(me, mine, new EventInput("SERVICE", LocalDate.parse("2025-04-01"), 2000,
+                BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
+        adding.add(new AddEventCommand(other, theirs, new EventInput("SERVICE", LocalDate.parse("2025-03-01"), 1000,
+                BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
         passports.create(me, mine, null);
         passports.create(other, theirs, null);
         passports.create(other, theirs, null);

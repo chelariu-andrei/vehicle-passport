@@ -7,7 +7,7 @@ public record RovinietaDetails(RovinietaDuration duration) implements EventDetai
 
     public RovinietaDetails {
         if (duration == null) {
-            throw new InvalidEventException("Rovinieta duration is required");
+            throw InvalidEventException.validation("Rovinieta duration is required");
         }
     }
 

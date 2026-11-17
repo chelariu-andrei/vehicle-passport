@@ -16,6 +16,7 @@ import com.vehiclepassport.server.scan.application.port.out.DocumentStoragePort;
 import com.vehiclepassport.server.scan.application.port.out.EventSavePort;
 import com.vehiclepassport.server.scan.application.port.out.ScanJobRepositoryPort;
 import com.vehiclepassport.server.scan.domain.exception.IllegalScanTransitionException;
+import com.vehiclepassport.server.scan.domain.exception.InvalidConfirmationException;
 import com.vehiclepassport.server.scan.domain.exception.ScanJobNotFoundException;
 import com.vehiclepassport.server.shared.error.DomainException;
 import com.vehiclepassport.server.shared.util.UploadPolicy;
@@ -45,6 +46,9 @@ public class ScanService implements SubmitScanUseCase, SubmitScanBatchUseCase, G
     private static final int BUFFER_BYTES = 8192;
     private static final String DEFAULT_TYPE = "SERVICE";
     private static final String DEFAULT_CURRENCY = "RON";
+    private static final String ITP = "ITP";
+    /** The contract's ScanEventType: the event types a scanned document can become. */
+    private static final List<String> SCAN_TYPES = List.of("SERVICE", "REPAIR", "TIRES", ITP);
 
     private final ScanJobRepositoryPort jobs;
     private final DocumentStoragePort storage;
@@ -104,11 +108,18 @@ public class ScanService implements SubmitScanUseCase, SubmitScanBatchUseCase, G
     @Override
     @Transactional
     public UUID confirm(ConfirmScanCommand c) {
+        String type = c.eventType() == null ? DEFAULT_TYPE : c.eventType();
+        if (!SCAN_TYPES.contains(type)) {
+            throw new InvalidConfirmationException("A scan can be confirmed only as " + SCAN_TYPES);
+        }
+        if (!ITP.equals(type) && (c.validUntil() != null || c.itpResult() != null)) {
+            throw new InvalidConfirmationException("Valid until and ITP result are only allowed for an ITP");
+        }
         ScanJob job = lockOwned(c.userId(), c.jobId(), "confirm");
-        UUID eventId = events.saveDocumented(new ConfirmedEvent(c.userId(), job.vin(),
-                c.eventType() == null ? DEFAULT_TYPE : c.eventType(), c.date(), c.odometerKm(), c.total(),
-                c.currency() == null ? DEFAULT_CURRENCY : c.currency(), c.notes(), c.serviceName(), c.parts(),
-                c.labor(), job.documentKey(), job.contentType(), job.sha256(), job.sizeBytes()));
+        UUID eventId = events.saveDocumented(new ConfirmedEvent(c.userId(), job.vin(), type, c.date(),
+                c.odometerKm(), c.total(), c.currency() == null ? DEFAULT_CURRENCY : c.currency(), c.notes(),
+                c.serviceName(), c.parts(), c.labor(), job.documentKey(), job.contentType(), job.sha256(),
+                job.sizeBytes(), c.validUntil(), c.itpResult()));
         job.confirm();
         jobs.save(job);
         return eventId;

@@ -83,7 +83,7 @@ public class PdfRendererAdapter implements PdfRendererPort {
 
         private void event(SnapshotEvent e) throws IOException {
             float full = width - 2 * MARGIN;
-            String head = e.date() + "  " + e.type() + "  " + e.odometerKm() + " km"
+            String head = e.date() + "  " + e.type() + (e.odometerKm() == null ? "" : "  " + e.odometerKm() + " km")
                     + (e.costAmount() != null ? "  " + e.costAmount().toPlainString() + " " + nz(e.currency()) : "");
             line(head, BODY, 0, full);
             if (e.serviceName() != null && !e.serviceName().isBlank()) {

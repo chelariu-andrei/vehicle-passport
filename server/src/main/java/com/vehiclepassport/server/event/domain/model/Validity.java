@@ -8,10 +8,10 @@ public record Validity(LocalDate validFrom, LocalDate validUntil) {
 
     public Validity {
         if (validFrom == null) {
-            throw new InvalidEventException("Valid from is required");
+            throw InvalidEventException.validation("Valid from is required");
         }
         if (validUntil != null && validUntil.isBefore(validFrom)) {
-            throw new InvalidEventException("Valid until cannot be before valid from");
+            throw InvalidEventException.validation("Valid until cannot be before valid from");
         }
     }
 }

@@ -89,8 +89,9 @@ public class OwnerDataExportAdapter implements OwnerDataExportPort {
         return m;
     }
 
+    /** Only scan details are exported so far; the other kinds are added with the rest of the new fields. */
     private static Map<String, Object> details(DetailsView d) {
-        if (d == null) {
+        if (d == null || !"SCAN".equals(d.kind())) {
             return null;
         }
         Map<String, Object> m = new LinkedHashMap<>();

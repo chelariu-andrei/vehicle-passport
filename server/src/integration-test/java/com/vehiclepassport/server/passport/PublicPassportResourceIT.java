@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.passport.application.port.in.CreatePassportUseCase;
 import com.vehiclepassport.server.passport.application.port.in.PassportView;
 import com.vehiclepassport.server.passport.application.port.in.RevokePassportLinkUseCase;
@@ -58,8 +59,8 @@ class PublicPassportResourceIT {
     PassportRepositoryPort passports;
 
     private void event(String vin, String date, int km, String notes) {
-        adding.add(new AddEventCommand(OWNER, vin, "SERVICE", LocalDate.parse(date), km, new BigDecimal("450.50"),
-                "RON", notes));
+        adding.add(new AddEventCommand(OWNER, vin, new EventInput("SERVICE", LocalDate.parse(date), km,
+                new BigDecimal("450.50"), "RON", notes, null, null, null, null, null, null)));
     }
 
     private static String tokenOf(PassportView view) {

@@ -10,7 +10,7 @@ public record SnapshotEvent(
         UUID sortId,
         String type,
         LocalDate date,
-        int odometerKm,
+        Integer odometerKm,
         BigDecimal costAmount,
         String currency,
         String notes,

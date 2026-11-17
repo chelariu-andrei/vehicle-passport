@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
 import com.vehiclepassport.server.event.application.port.in.TimelinePage;
@@ -124,14 +125,16 @@ public class EventSteps {
 
     @When("I add a {word} event on {word} at {int} km costing {int} RON")
     public void iAddAnEventCosting(String type, String date, int km, int cost) {
-        world.attempt(() -> world.put(RESULT_KEY, addEvent.add(new AddEventCommand(
-            world.me(), VIN, type, LocalDate.parse(date), km, BigDecimal.valueOf(cost), "RON", "note"))));
+        world.attempt(() -> world.put(RESULT_KEY, addEvent.add(new AddEventCommand(world.me(), VIN,
+                new EventInput(type, LocalDate.parse(date), km, BigDecimal.valueOf(cost), "RON", "note", null, null,
+                null, null, null, null)))));
     }
 
     @When("I add an event on {word} at {int} km")
     public void iAddAnEvent(String date, int km) {
-        world.attempt(() -> world.put(RESULT_KEY, addEvent.add(new AddEventCommand(
-            world.me(), VIN, "SERVICE", LocalDate.parse(date), km, BigDecimal.TEN, "RON", null))));
+        world.attempt(() -> world.put(RESULT_KEY, addEvent.add(new AddEventCommand(world.me(), VIN,
+                new EventInput("SERVICE", LocalDate.parse(date), km, BigDecimal.TEN, "RON", null, null, null, null,
+                null, null, null)))));
     }
 
     @When("I request the timeline")
@@ -228,8 +231,8 @@ public class EventSteps {
     }
 
     private EventView addAs(UUID user, String date, int km) {
-        return addEvent.add(new AddEventCommand(
-            user, VIN, "SERVICE", LocalDate.parse(date), km, BigDecimal.TEN, "RON", null));
+        return addEvent.add(new AddEventCommand(user, VIN, new EventInput("SERVICE", LocalDate.parse(date), km,
+                BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
     }
 
     private void assertNoError() {

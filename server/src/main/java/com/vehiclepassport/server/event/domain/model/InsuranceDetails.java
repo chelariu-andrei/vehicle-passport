@@ -11,15 +11,15 @@ public record InsuranceDetails(InsuranceCoverage coverage, String insurer, Strin
 
     public InsuranceDetails {
         if (coverage == null) {
-            throw new InvalidEventException("Insurance coverage is required");
+            throw InvalidEventException.validation("Insurance coverage is required");
         }
         insurer = insurer == null ? "" : insurer.trim();
         if (insurer.isEmpty() || insurer.length() > MAX_INSURER) {
-            throw new InvalidEventException("Insurer must be 1 to " + MAX_INSURER + " characters");
+            throw InvalidEventException.validation("Insurer must be 1 to " + MAX_INSURER + " characters");
         }
         policyNumber = policyNumber == null || policyNumber.isBlank() ? null : policyNumber.trim();
         if (policyNumber != null && policyNumber.length() > MAX_POLICY) {
-            throw new InvalidEventException("Policy number must be at most " + MAX_POLICY + " characters");
+            throw InvalidEventException.validation("Policy number must be at most " + MAX_POLICY + " characters");
         }
     }
 

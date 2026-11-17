@@ -2,7 +2,9 @@ package com.vehiclepassport.server.event;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
@@ -14,6 +16,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.ReadVehicleHistoryUseCase;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventCommand;
@@ -35,9 +38,11 @@ import jakarta.inject.Inject;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -78,8 +83,8 @@ class EventResourceIT {
     }
 
     private EventView addAs(String user, String vin, String date, int km) {
-        return adding.add(new AddEventCommand(UUID.fromString(user), vin, "SERVICE", LocalDate.parse(date), km,
-                BigDecimal.TEN, "RON", null));
+        return adding.add(new AddEventCommand(UUID.fromString(user), vin, new EventInput("SERVICE",
+                LocalDate.parse(date), km, BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
     }
 
     private static Map<String, Object> body(String date, int km, String notes) {
@@ -92,7 +97,7 @@ class EventResourceIT {
     private UUID documented(String user, String vin, int km, String key) {
         return savingConfirmed.save(new SaveConfirmedEventCommand(UUID.fromString(user), vin, "SERVICE",
                 LocalDate.parse("2025-03-01"), km, new BigDecimal("450.00"), "RON", "scan", null, key,
-                "application/pdf", null, 0));
+                "application/pdf", null, 0, null, null));
     }
 
     @Test
@@ -421,5 +426,110 @@ class EventResourceIT {
                 .contentType(startsWith("application/problem+json"))
                 .body("code", equalTo("validation-failed"));
         assertEquals(0, history.history(vin).size());
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void legacy_request_still_accepted_with_empty_new_fields() {
+        String vin = registerAs(ME);
+        given().contentType(JSON_UTF8).body(Map.of("type", "SERVICE", "date", "2025-03-01", "odometerKm", 1000,
+                        "costAmount", 10, "currency", "RON"))
+                .when().post("/vehicles/" + vin + "/events")
+                .then().statusCode(201)
+                .body("odometerKm", equalTo(1000))
+                .body("components", hasSize(0))
+                .body("customFields", hasSize(0))
+                .body("$", hasKey("validFrom"))
+                .body("validFrom", nullValue())
+                .body("validUntil", nullValue())
+                .body("validityStatus", nullValue())
+                .body("customLabel", nullValue())
+                .body("details", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void insurance_round_trips_with_typed_details_components_and_custom_fields() {
+        String vin = registerAs(ME);
+        String id = given().contentType(JSON_UTF8).body(Map.of("type", "INSURANCE", "date", "2025-03-01",
+                        "costAmount", 1200, "currency", "RON", "validFrom", "2025-03-12", "validUntil", "2026-03-11",
+                        "details", Map.of("kind", "INSURANCE", "coverage", "CASCO", "insurer", "Allianz"),
+                        "components", List.of("BODY", "ENGINE"),
+                        "customFields", List.of(Map.of("label", "Agent", "value", "Ana"))))
+                .when().post("/vehicles/" + vin + "/events")
+                .then().statusCode(201)
+                .body("$", hasKey("odometerKm"))
+                .body("odometerKm", nullValue())
+                .body("validFrom", equalTo("2025-03-12"))
+                .body("validUntil", equalTo("2026-03-11"))
+                .body("details.kind", equalTo("INSURANCE"))
+                .body("details.coverage", equalTo("CASCO"))
+                .body("details.insurer", equalTo("Allianz"))
+                .body("details", not(hasKey("parts")))
+                .body("details", not(hasKey("policyNumber")))
+                .body("components", equalTo(List.of("ENGINE", "BODY")))
+                .body("customFields[0].label", equalTo("Agent"))
+                .extract().path("id");
+        given().when().get("/vehicles/" + vin + "/timeline").then().statusCode(200)
+                .body("items[0].id", equalTo(id))
+                .body("items[0].details.kind", equalTo("INSURANCE"));
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void rule_and_shape_breaches_of_the_new_fields_are_400_validation_failed() {
+        String vin = registerAs(ME);
+        List<Map<String, Object>> bad = List.of(
+                Map.of("type", "SERVICE", "date", "2025-03-01", "costAmount", 10, "currency", "RON"),
+                Map.of("type", "SERVICE", "date", "2025-03-01", "odometerKm", 1, "costAmount", 10, "currency", "RON",
+                        "components", List.of("WINGS")),
+                Map.of("type", "SERVICE", "date", "2025-03-01", "odometerKm", 1, "costAmount", 10, "currency", "RON",
+                        "customLabel", " "),
+                Map.of("type", "SERVICE", "date", "2025-03-01", "odometerKm", 1, "costAmount", 10, "currency", "RON",
+                        "validUntil", "2026-01-01"),
+                Map.of("type", "SERVICE", "date", "2025-03-01", "odometerKm", 1, "costAmount", 10, "currency", "RON",
+                        "details", Map.of("kind", "INSURANCE", "coverage", "RCA", "insurer", "A")),
+                Map.of("type", "ITP", "date", "2025-03-01", "odometerKm", 1, "costAmount", 10, "currency", "RON",
+                        "details", Map.of("kind", "SCAN", "serviceName", "x")),
+                Map.of("type", "INSURANCE", "date", "2025-03-01", "costAmount", 10, "currency", "RON",
+                        "validFrom", "2025-03-01", "validUntil", "2026-03-01",
+                        "details", Map.of("kind", "INSURANCE", "coverage", "LIABILITY", "insurer", "A")),
+                Map.of("type", "OTHER", "date", "2025-03-01", "costAmount", 10, "currency", "RON",
+                        "customLabel", "x", "customFields", IntStream.range(0, 11)
+                                .mapToObj(i -> Map.of("label", "L" + i, "value", "v")).toList()));
+        for (Map<String, Object> body : bad) {
+            given().contentType(JSON_UTF8).body(body)
+                    .when().post("/vehicles/" + vin + "/events")
+                    .then().statusCode(400)
+                    .contentType(startsWith("application/problem+json"))
+                    .body("code", equalTo("validation-failed"));
+        }
+        String nullElements = "{\"type\":\"OTHER\",\"date\":\"2025-03-01\",\"costAmount\":1,\"currency\":\"RON\","
+                + "\"customLabel\":\"x\",\"components\":[null],\"customFields\":[null]}";
+        given().contentType(JSON_UTF8).body(nullElements)
+                .when().post("/vehicles/" + vin + "/events")
+                .then().statusCode(400).body("code", equalTo("validation-failed"));
+        assertEquals(0, history.history(vin).size());
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void put_type_change_with_leftover_details_400_and_event_unchanged() {
+        String vin = registerAs(ME);
+        String id = given().contentType(JSON_UTF8).body(Map.of("type", "INSURANCE", "date", "2025-03-01",
+                        "costAmount", 1200, "currency", "RON", "validFrom", "2025-03-01", "validUntil", "2026-02-28",
+                        "details", Map.of("kind", "INSURANCE", "coverage", "RCA", "insurer", "Allianz")))
+                .when().post("/vehicles/" + vin + "/events")
+                .then().statusCode(201).extract().path("id");
+        given().contentType(JSON_UTF8).body(Map.of("type", "SERVICE", "date", "2025-03-01", "odometerKm", 1000,
+                        "costAmount", 1200, "currency", "RON",
+                        "details", Map.of("kind", "INSURANCE", "coverage", "RCA", "insurer", "Allianz")))
+                .when().put("/vehicles/" + vin + "/events/" + id)
+                .then().statusCode(400).body("code", equalTo("validation-failed"));
+        assertEquals("INSURANCE", history.history(vin).get(0).type());
     }
 }

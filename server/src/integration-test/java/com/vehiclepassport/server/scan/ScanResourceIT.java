@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.ReadVehicleHistoryUseCase;
 import com.vehiclepassport.server.scan.ScanTestSupport.Fixture;
 import com.vehiclepassport.server.scan.domain.model.ScanJob;
@@ -283,8 +284,9 @@ class ScanResourceIT {
     @OidcSecurity(claims = @Claim(key = "sub", value = ME))
     void confirm_that_fails_odometer_check_saves_no_event_and_leaves_the_job_extracted() {
         Fixture f = mine();
-        adding.add(new AddEventCommand(UUID.fromString(ME), f.vin(), "SERVICE", LocalDate.parse("2025-01-01"),
-                100000, new BigDecimal("10.00"), "RON", null));
+        adding.add(new AddEventCommand(UUID.fromString(ME), f.vin(), new EventInput("SERVICE",
+                LocalDate.parse("2025-01-01"), 100000, new BigDecimal("10.00"), "RON", null, null, null, null, null,
+                null, null)));
         ScanJob job = support.extracted(f);
         int before = history.history(f.vin()).size();
 
@@ -340,5 +342,44 @@ class ScanResourceIT {
 
         assertEquals(1, storage.keys().size());
         assertTrue(storage.keys().iterator().next().startsWith("scans/" + f.vin() + "/"));
+    }
+
+    @Test
+    @TestSecurity(user = "f1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void confirm_itp_with_valid_until_and_result_201() {
+        Fixture f = mine();
+        ScanJob job = support.extracted(f);
+        given().contentType(ContentType.JSON).body("{\"type\":\"ITP\",\"date\":\"2025-06-01\",\"odometerKm\":120000,"
+                        + "\"total\":150,\"serviceName\":\"RAR Iasi\",\"validUntil\":\"2027-06-01\","
+                        + "\"itpResult\":\"PASSED\"}")
+                .when().post("/scans/" + job.id() + "/confirm")
+                .then().statusCode(201);
+        given().when().get("/vehicles/" + f.vin() + "/timeline").then().statusCode(200)
+                .body("items[0].details.kind", equalTo("ITP"))
+                .body("items[0].details.station", equalTo("RAR Iasi"))
+                .body("items[0].details.result", equalTo("PASSED"))
+                .body("items[0].validUntil", equalTo("2027-06-01"))
+                .body("items[0].evidence", equalTo("DOCUMENTED"));
+    }
+
+    @Test
+    @TestSecurity(user = "f1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void confirm_refuses_itp_fields_on_other_types_long_station_and_non_scan_types_400() {
+        Fixture f = mine();
+        ScanJob job = support.extracted(f);
+        String head = "{\"date\":\"2025-06-01\",\"odometerKm\":120000,\"total\":1,";
+        for (String body : new String[] {
+                head + "\"type\":\"SERVICE\",\"validUntil\":\"2027-01-01\"}",
+                head + "\"itpResult\":\"PASSED\"}",
+                head + "\"type\":\"ITP\",\"serviceName\":\"" + "s".repeat(101) + "\"}",
+                head + "\"type\":\"ROVINIETA\"}"}) {
+            given().contentType(ContentType.JSON).body(body)
+                    .when().post("/scans/" + job.id() + "/confirm")
+                    .then().statusCode(400).body("code", equalTo("validation-failed"));
+        }
+        assertEquals(ScanStatus.EXTRACTED, support.reload(job.id()).status());
+        assertEquals(0, history.history(f.vin()).size());
     }
 }

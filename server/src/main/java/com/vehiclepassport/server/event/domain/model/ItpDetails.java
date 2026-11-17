@@ -10,7 +10,7 @@ public record ItpDetails(String station, ItpResult result) implements EventDetai
     public ItpDetails {
         station = station == null || station.isBlank() ? null : station.trim();
         if (station != null && station.length() > MAX_STATION) {
-            throw new InvalidEventException("ITP station must be at most " + MAX_STATION + " characters");
+            throw InvalidEventException.validation("ITP station must be at most " + MAX_STATION + " characters");
         }
     }
 

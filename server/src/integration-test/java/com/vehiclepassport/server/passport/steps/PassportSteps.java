@@ -14,6 +14,7 @@ import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.DeleteEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.DetailsView;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.PartView;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventCommand;
@@ -171,12 +172,12 @@ public class PassportSteps {
     public void vHasBothKindsOfEvent() {
         ownAsMe();
         add(world.me(), "2025-01-10", 100000, "plain");
-        DetailsView details = new DetailsView("Garage Sud",
+        DetailsView details = DetailsView.scan("Garage Sud",
                 List.of(new PartView("Oil filter", new BigDecimal("1.50"), new BigDecimal("30"))),
                 new BigDecimal("100"));
         saveConfirmed.save(new SaveConfirmedEventCommand(world.me(), VIN, "SERVICE", LocalDate.parse("2025-03-01"),
                 120000, new BigDecimal("450.00"), "RON", "from receipt", details, "docs/receipt.pdf",
-                "application/pdf", null, 0));
+                "application/pdf", null, 0, null, null));
     }
 
     @Given("a passport P1 created while event E existed")
@@ -505,8 +506,8 @@ public class PassportSteps {
     }
 
     private EventView add(UUID user, String date, int km, String notes) {
-        return addEvent.add(new AddEventCommand(
-                user, VIN, "SERVICE", LocalDate.parse(date), km, BigDecimal.TEN, "RON", notes));
+        return addEvent.add(new AddEventCommand(user, VIN, new EventInput("SERVICE", LocalDate.parse(date), km,
+                BigDecimal.TEN, "RON", notes, null, null, null, null, null, null)));
     }
 
     private void assertNoError() {
