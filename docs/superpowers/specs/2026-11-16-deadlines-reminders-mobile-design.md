@@ -86,7 +86,7 @@ Route `app/vehicles/[vin]/deadlines.tsx` → `features/deadlines/components/Dead
   - has `eventId` → the event detail screen;
   - `NOT_RECORDED` / `UNKNOWN` → the new-event form with the type pre-selected (`events/new?type=INSURANCE` etc., using
     the registry from the timeline spec §8.1; RCA/CASCO also pre-select `coverage`).
-- Footer: caption showing the active reminder days (from settings) or "Reminders are off" when
+- Footer: caption showing the active reminder days (from settings) plus "and on the expiry day", or "Reminders are off" when
   `documentDeadlines` is false, and a secondary `Button` "Notification settings" → `/account/notifications`.
 - States: `Skeleton` rows while loading; `ErrorState` with retry; `OfflineBanner` when offline (show last data if
   cached); no `EmptyState` is needed because the six rows always exist.
