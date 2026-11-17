@@ -68,7 +68,7 @@ public final class ConsumptionCalculator {
     }
 
     /** {@code Σ quantity / Σ km * 100}, 2 decimals HALF_UP; null for no segments. */
-    static BigDecimal weightedAverage(List<ConsumptionSegment> segments) {
+    public static BigDecimal weightedAverage(List<ConsumptionSegment> segments) {
         if (segments.isEmpty()) {
             return null;
         }

@@ -3,6 +3,7 @@ package com.vehiclepassport.server.fuel.application.service;
 import com.vehiclepassport.server.fuel.application.port.out.ActiveOwnerPort;
 import com.vehiclepassport.server.fuel.application.port.out.ClockPort;
 import com.vehiclepassport.server.fuel.application.port.out.FuelEntryRepositoryPort;
+import com.vehiclepassport.server.fuel.application.port.out.LatestOdometerPort;
 import com.vehiclepassport.server.fuel.application.port.out.OdometerCheckPort;
 import com.vehiclepassport.server.fuel.application.port.out.OwnedPeriod;
 import com.vehiclepassport.server.fuel.application.port.out.VehicleFuelPort;
@@ -97,8 +98,14 @@ final class FuelFakes {
         }
     }
 
-    static final class Odometer implements OdometerCheckPort {
+    static final class Odometer implements OdometerCheckPort, LatestOdometerPort {
         boolean consistent = true;
+        Integer latest;
+
+        @Override
+        public Optional<Integer> latestKm(String vin) {
+            return Optional.ofNullable(latest);
+        }
 
         @Override
         public boolean isConsistent(String vin, LocalDate date, int km) {
