@@ -1,4 +1,4 @@
-import { consumptionUnit, formatConsumption, formatKm, formatMoney, formatQuantity, unitOf } from './fuelDisplay';
+import { consumptionUnit, formatConsumption, formatKm, formatMoney, formatQuantity, formatRate, unitOf } from './fuelDisplay';
 
 test('units follow the fuel type', () => {
   expect(unitOf('DIESEL')).toBe('L');
@@ -32,4 +32,10 @@ test('formatKm groups thousands with a space', () => {
   expect(formatKm(84210)).toBe('84 210');
   expect(formatKm(950)).toBe('950');
   expect(formatKm(1234567)).toBe('1 234 567');
+});
+
+test('formatRate shows two decimals per unit, and a dash when unknown', () => {
+  expect(formatRate(0.5234, 'RON', 'km', 'en')).toBe('0.52 RON/km');
+  expect(formatRate(7.18, 'RON', 'L', 'ro')).toBe('7,18 RON/L');
+  expect(formatRate(null, 'RON', 'kWh', 'en')).toBe('–');
 });

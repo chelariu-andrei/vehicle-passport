@@ -28,3 +28,10 @@ export function formatMoney(amount: number, currency: string, locale: string): s
 export function formatKm(km: number): string {
   return String(km).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
+
+/** A price per unit, such as `0.52 RON/km` or `7.18 RON/L`, or a dash when there is no value yet. */
+export function formatRate(value: number | null, currency: string, per: string, locale: string): string {
+  if (value === null) return '–';
+  const n = new Intl.NumberFormat(tag(locale), { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  return `${n} ${currency}/${per}`;
+}

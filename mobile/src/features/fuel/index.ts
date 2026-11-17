@@ -6,3 +6,4 @@ export { useAddFuelEntry } from './api/useAddFuelEntry';
 export { useUpdateFuelEntry } from './api/useUpdateFuelEntry';
 export { useDeleteFuelEntry } from './api/useDeleteFuelEntry';
 export { FuelFormScreen } from './components/FuelFormScreen';
+export { FuelScreen } from './components/FuelScreen';
