@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, useWindowDimensions, View } from 'react-native';
 
+import { DeadlinesBell } from '@/features/deadlines';
 import { HistoryList } from '@/features/event';
 import { errorMessage, forgetVehicle, useRefetchOnFocus } from '@/shared/api';
 import {
@@ -175,14 +176,17 @@ function ActiveCar({ car, onlyCar }: { car: VehicleResponse; onlyCar: boolean })
       header={
         <Header
           right={
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={en.vehicle.more}
-              onPress={() => setMenu(true)}
-              style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Icon name="more" />
-            </Pressable>
+            <>
+              <DeadlinesBell vin={vin} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={en.vehicle.more}
+                onPress={() => setMenu(true)}
+                style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Icon name="more" />
+              </Pressable>
+            </>
           }
         />
       }
