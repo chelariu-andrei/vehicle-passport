@@ -353,6 +353,37 @@ class EventPersistenceIT {
     }
 
     @Test
+    void unknownStoredEnumValueFailsLoudly() {
+        Fixture f = fixture();
+        VehicleEvent e = event(f, UUID.randomUUID(), "2025-03-01", T0, 1000);
+        saveAll(List.of(e));
+        QuarkusTransaction.requiringNew().run(() -> em.createNativeQuery(
+                        "update vehicle_passport.vehicle_event set details = cast("
+                                + "'{\"kind\":\"INSURANCE\",\"coverage\":\"BOGUS\",\"insurer\":\"X\"}' as jsonb)"
+                                + " where id = :id")
+                .setParameter("id", e.id()).executeUpdate());
+
+        assertThrows(IllegalStateException.class,
+                () -> QuarkusTransaction.requiringNew().call(() -> events.findActive(f.vin(), e.id())));
+    }
+
+    @Test
+    void componentsAreStoredSorted() {
+        Fixture f = fixture();
+        // declaration order ENGINE, BRAKES, ELECTRICAL differs from the alphabetical order
+        VehicleEvent e = new VehicleEvent(UUID.randomUUID(), f.vin(), EventType.REPAIR, LocalDate.parse("2025-03-01"),
+                1000, new BigDecimal("1.00"), "RON", null, null, null, null,
+                Set.of(Component.ELECTRICAL, Component.ENGINE, Component.BRAKES), List.of(),
+                EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL, f.owner(), f.period(), null, T0, null);
+        saveAll(List.of(e));
+
+        Object stored = QuarkusTransaction.requiringNew().call(() -> em.createNativeQuery(
+                        "select array_to_string(components, ',') from vehicle_passport.vehicle_event where id = :id")
+                .setParameter("id", e.id()).getSingleResult());
+        assertEquals("BRAKES,ELECTRICAL,ENGINE", stored);
+    }
+
+    @Test
     void neighboursIgnoreEventsWithoutKm() {
         Fixture f = fixture();
         VehicleEvent service = event(f, UUID.randomUUID(), "2025-01-01", T0, 100000);

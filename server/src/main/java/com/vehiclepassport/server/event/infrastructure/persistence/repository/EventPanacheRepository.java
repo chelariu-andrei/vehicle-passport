@@ -216,8 +216,9 @@ public class EventPanacheRepository implements EventRepositoryPort {
         }
     }
 
+    /** Sorted by name, so equal sets are always stored as the same array whatever the Set's iteration order. */
     private static String[] toColumn(Set<Component> components) {
-        return components.stream().map(Component::name).toArray(String[]::new);
+        return components.stream().map(Component::name).sorted().toArray(String[]::new);
     }
 
     private static Set<Component> components(String[] stored) {
