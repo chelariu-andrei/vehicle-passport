@@ -82,6 +82,7 @@ function PeriodSheet({ visible, filters, onChange, onClose }: { visible: boolean
               accessibilityLabel={en.event.chooseDateFor(t.to, to)}
               testID="timeline-period-to"
               value={to}
+              maxDate={today}
               onChange={setTo}
               onClear={() => setTo('')}
               error={inverted ? en.event.invalidPeriod : undefined}

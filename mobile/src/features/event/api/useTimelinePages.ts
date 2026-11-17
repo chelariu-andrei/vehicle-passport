@@ -10,6 +10,11 @@ type TimelinePage = components['schemas']['TimelinePage'];
 
 const PAGE_SIZE = 20;
 
+/** Every loaded page in one list. Module-level, so the selection is stable and only recomputes when the pages change. */
+function allItems(data: InfiniteData<TimelinePage, string | undefined>): EventResponse[] {
+  return data.pages.flatMap((page) => page.items);
+}
+
 /** The filtered timeline, newest first, 20 at a time; `data` is every loaded page in one list. */
 export function useTimelinePages(vin: string, f: TimelineFilters): UseInfiniteQueryResult<EventResponse[]> {
   return useInfiniteQuery<TimelinePage, Error, EventResponse[], ReturnType<typeof qk.timelinePages<TimelineFilters>>, string | undefined>({
@@ -22,7 +27,7 @@ export function useTimelinePages(vin: string, f: TimelineFilters): UseInfiniteQu
       ),
     initialPageParam: undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
-    select: (data: InfiniteData<TimelinePage, string | undefined>) => data.pages.flatMap((page) => page.items),
+    select: allItems,
     meta: { vin },
   });
 }

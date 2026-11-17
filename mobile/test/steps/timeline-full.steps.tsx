@@ -232,4 +232,36 @@ defineFeature(feature, (test) => {
       expect(screen.getAllByText(/^(Valid until|Expires in|Expired)/)).toHaveLength(1);
     });
   });
+  test('A failed page offers a retry', ({ given, when, then, and }) => {
+    given('the timeline has more than one page and the second page fails once', async () => {
+      const events = Array.from({ length: 25 }, (_, i) =>
+        anEvent({ date: new Date(Date.UTC(2020, 0, 1 + i)).toISOString().slice(0, 10), odometerKm: 1000 + i, details: { kind: 'SCAN', serviceName: `Event ${i}` } }),
+      );
+      await openTimeline(withEvents(...events));
+      expect(await screen.findByText('Event 24')).toBeTruthy();
+      await waitFor(() => expect(fake.callsTo('getTimeline')).toHaveLength(1));
+      fake.failNext('getTimeline', 500, 'internal-error');
+    });
+    when('I scroll to the end of the list', async () => {
+      await fireEvent(screen.getByTestId('timeline-list'), 'onEndReached');
+      await waitFor(() => expect(fake.callsTo('getTimeline')).toHaveLength(2));
+    });
+    then(/^the list ends with "(.*)" and a retry$/, async (text: string) => {
+      expect(text).toBe(en.timeline.loadMoreFailed);
+      const footer = await screen.findByTestId('timeline-load-more-failed');
+      expect(within(footer).getByText(text)).toBeTruthy();
+      expect(within(footer).getByRole('button', { name: en.common.retry })).toBeTruthy();
+      // The failed request was the second page.
+      expect(fake.callsTo('getTimeline')[1].path).toContain('cursor=');
+    });
+    and('retrying loads the next page', async () => {
+      await fireEvent.press(within(screen.getByTestId('timeline-load-more-failed')).getByRole('button', { name: en.common.retry }));
+      await waitFor(() => expect(fake.callsTo('getTimeline')).toHaveLength(3));
+      expect(fake.callsTo('getTimeline')[2].path).toContain('cursor=');
+      await waitFor(() => expect(screen.queryByTestId('timeline-load-more-failed')).toBeNull());
+      // The list is virtualised, so the rows of page two may not be drawn. That page was the last: reaching the end again asks for nothing.
+      await fireEvent(screen.getByTestId('timeline-list'), 'onEndReached');
+      expect(fake.callsTo('getTimeline')).toHaveLength(3);
+    });
+  });
 });

@@ -42,3 +42,9 @@ Feature: Full timeline
   Scenario: Only the current policy shows a marker
     Given an RCA marked SUPERSEDED and an RCA marked EXPIRING in 12 days
     Then only the newer RCA shows "Expires in 12 days"
+
+  Scenario: A failed page offers a retry
+    Given the timeline has more than one page and the second page fails once
+    When I scroll to the end of the list
+    Then the list ends with "Couldn't load more events" and a retry
+    And retrying loads the next page

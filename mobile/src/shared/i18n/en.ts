@@ -362,6 +362,7 @@ export const en = {
     moreTypes: (n: number) => `+${n}`,
     summaryFailed: "The summary couldn't be loaded.",
     loadingMore: 'Loading more events',
+    loadMoreFailed: "Couldn't load more events",
   },
   claims: {
     title: 'Ownership claims',

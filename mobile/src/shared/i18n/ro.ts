@@ -136,10 +136,12 @@ export const ro: DeepPartial<Widen<typeof en>> = {
     km: (grouped: string) => `${grouped} km`,
     noDistance: '—',
     noDistanceHint: 'necesită două citiri ale kilometrajului',
-    eventCount: (n: number) => (n === 1 ? '1 eveniment' : n % 100 >= 1 && n % 100 <= 19 ? `${n} evenimente` : `${n} de evenimente`),
+    // Romanian puts "de" before counts of 20 and up whose last two digits are 00 or 20–99 (20 de, 100 de, but 0, 2–19, 101–119 without).
+    eventCount: (n: number) => (n === 1 ? '1 eveniment' : n < 20 || (n % 100 >= 1 && n % 100 <= 19) ? `${n} evenimente` : `${n} de evenimente`),
     moreTypes: (n: number) => `+${n}`,
     summaryFailed: 'Rezumatul nu a putut fi încărcat.',
     loadingMore: 'Se încarcă mai multe evenimente',
+    loadMoreFailed: 'Nu am putut încărca mai multe evenimente',
   },
   tabs: {
     car: 'Mașină',

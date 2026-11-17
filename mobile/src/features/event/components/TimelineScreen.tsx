@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { RefreshControl, SectionList, View } from 'react-native';
+import { Pressable, RefreshControl, SectionList, View } from 'react-native';
 
 import { isApiError } from '@/shared/api';
-import { AppBar, EmptyState, ErrorState, Screen, Skeleton, Text, tokens, useTheme } from '@/shared/design';
+import { AppBar, EmptyState, ErrorState, Icon, Screen, Skeleton, Text, tokens, useTheme } from '@/shared/design';
 import { useStrings } from '@/shared/i18n';
 
 import { useTimelinePages } from '../api/useTimelinePages';
@@ -46,7 +46,8 @@ export function TimelineScreen({ vin, carName }: { vin: string; carName?: string
   };
 
   const loadMore = async () => {
-    if (!pages.hasNextPage || pages.isFetchingNextPage || pages.isError) return;
+    // Not while anything loads: fetchNextPage cancels a running refetch. A failed page does not lock paging; reaching the end tries again.
+    if (!pages.hasNextPage || pages.isFetching) return;
     const result = await pages.fetchNextPage();
     // A cursor the server refuses (the history changed under it) restarts from page one.
     if (isApiError(result.error, 'invalid-cursor')) void pages.refetch();
@@ -108,6 +109,30 @@ export function TimelineScreen({ vin, carName }: { vin: string; carName?: string
           pages.isFetchingNextPage ? (
             <View accessible accessibilityLabel={s.timeline.loadingMore} style={{ paddingVertical: tokens.space['space-3'] }}>
               <Skeleton height={64} />
+            </View>
+          ) : pages.isError && pages.data ? (
+            // A later page (or a refresh) failed while rows are on screen: say so where the list stops, with a retry.
+            <View
+              testID="timeline-load-more-failed"
+              accessibilityRole="alert"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.space['space-2'], paddingVertical: tokens.space['space-3'] }}
+            >
+              <Icon name="alert" size={16} color="danger" />
+              <Text color="ink-muted" style={{ flex: 1 }}>
+                {s.timeline.loadMoreFailed}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={s.common.retry}
+                onPress={() => void (pages.hasNextPage ? loadMore() : pages.refetch())}
+                hitSlop={8}
+                style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: tokens.space['space-1'] }}
+              >
+                <Icon name="rotate" size={16} color="brand" />
+                <Text variant="label" color="brand">
+                  {s.common.retry}
+                </Text>
+              </Pressable>
             </View>
           ) : undefined
         }
