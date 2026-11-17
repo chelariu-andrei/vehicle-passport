@@ -18,10 +18,9 @@ type Operation = { method: string; path: string; id: string };
 
 /**
  * Account operations the server ships before the mobile Account screens (docs/superpowers/plans/2026-11-15-account-mobile.md).
- * getTimelineSummary is consumed by the full timeline screen (Task 16).
  * Remove an id here as soon as a feature calls it; the last test fails if a listed operation is already in use.
  */
-const NOT_YET_CONSUMED = new Set(['listConsentHistory', 'getTimelineSummary']);
+const NOT_YET_CONSUMED = new Set(['listConsentHistory']);
 
 function authenticatedOperations(): Operation[] {
   const contract = parse(readFileSync(join(root, '../contracts/openapi.yaml'), 'utf8')) as {

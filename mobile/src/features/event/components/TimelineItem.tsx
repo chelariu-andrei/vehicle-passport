@@ -51,8 +51,11 @@ function ComponentChips({ components }: { components: EventResponse['components'
   );
 }
 
-/** One entry: day and month, a type tile, title and subtitle from the registry, the validity marker, component chips, attachments and the evidence badge. A hairline separates rows; there is no box. */
-export function TimelineItem({ vin, event }: { vin: string; event: EventResponse }) {
+/**
+ * One entry: day and month, a type tile, title and subtitle from the registry, the validity marker, component chips, attachments and the evidence badge.
+ * A hairline separates rows; there is no box. On the full timeline the rail's dot stands for the type, so `tile` is off there.
+ */
+export function TimelineItem({ vin, event, tile = true }: { vin: string; event: EventResponse; tile?: boolean }) {
   const router = useRouter();
   const { colors } = useTheme();
   const title = eventTitle(event);
@@ -81,7 +84,7 @@ export function TimelineItem({ vin, event }: { vin: string; event: EventResponse
           {month}
         </Text>
       </View>
-      <TypeTile event={event} />
+      {tile ? <TypeTile event={event} /> : null}
       <View style={{ flex: 1, gap: tokens.space['space-1'] }}>
         <Text variant="title">{title}</Text>
         <Text color="ink-muted">{meta}</Text>

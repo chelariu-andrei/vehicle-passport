@@ -1,10 +1,11 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { AppBar, Screen } from '@/shared/design';
-import { en } from '@/shared/i18n/en';
+import { TimelineScreen } from '@/features/event';
+import { useVehicle } from '@/features/vehicle';
 
-/** Placeholder until the full timeline screen lands. */
 export default function TimelineRoute() {
-  const router = useRouter();
-  return <Screen header={<AppBar onBack={() => router.back()} title={en.vehicle.timelineTitle} />}>{null}</Screen>;
+  const { vin } = useLocalSearchParams<{ vin: string }>();
+  const vehicle = useVehicle(vin);
+  const carName = vehicle.data ? `${vehicle.data.make} ${vehicle.data.model}` : undefined;
+  return <TimelineScreen vin={vin} carName={carName} />;
 }

@@ -129,7 +129,7 @@ export function eventTitle(e: EventResponse): string {
 }
 
 /** `148200` as `148 200`. */
-function groupThousands(n: number): string {
+export function groupThousands(n: number): string {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
@@ -139,9 +139,14 @@ function amount(n: number): string {
   return groupThousands(Number(whole)) + (fraction ? `.${fraction}` : '');
 }
 
+/** `1 250 RON`. */
+export function formatMoney(n: number, currency: string): string {
+  return `${amount(n)} ${currency}`;
+}
+
 /** What a row says under its title: until when and cost for validity types, else kilometres (when known) and cost. */
 export function eventSubtitle(e: EventResponse): string {
-  const cost = `${amount(e.costAmount)} ${e.currency}`;
+  const cost = formatMoney(e.costAmount, e.currency);
   const config = EVENT_TYPE_CONFIG[e.type];
   if (config.validity !== 'none' && e.validUntil) return `${en.event.until(formatDate(e.validUntil))} · ${cost}`;
   return e.odometerKm === null ? cost : `${groupThousands(e.odometerKm)} km · ${cost}`;
