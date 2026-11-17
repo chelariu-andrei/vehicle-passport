@@ -30,7 +30,9 @@ import com.vehiclepassport.server.event.domain.model.EventSource;
 import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.EvidenceLevel;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
+import com.vehiclepassport.server.event.domain.model.EventFilter;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
+import com.vehiclepassport.server.event.domain.model.TimelineOrder;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import com.vehiclepassport.server.shared.error.FileTooLargeException;
 import com.vehiclepassport.server.shared.error.UnsupportedFileException;
@@ -437,7 +439,7 @@ class AttachmentServiceTest {
             rows.put(e.id(), e);
         }
 
-        public List<VehicleEvent> page(String vin, TimelineCursor a, int l) { return List.of(); }
+        public List<VehicleEvent> page(String vin, EventFilter f, TimelineOrder o, TimelineCursor a, int l) { return List.of(); }
 
         public List<VehicleEvent> allActive(String vin) { return List.of(); }
     }

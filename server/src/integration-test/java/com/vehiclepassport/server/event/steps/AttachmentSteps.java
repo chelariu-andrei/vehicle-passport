@@ -19,6 +19,7 @@ import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.GetEventDocumentUseCase;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
+import com.vehiclepassport.server.event.application.port.in.TimelineQuery;
 import com.vehiclepassport.server.event.application.port.in.ListAttachmentsUseCase;
 import com.vehiclepassport.server.event.application.port.in.OpenAttachmentUseCase;
 import com.vehiclepassport.server.scan.application.port.in.ScanJobView;
@@ -229,7 +230,7 @@ public class AttachmentSteps {
     @Then("the timeline shows E with {int} attachments, a document present and evidence {word}")
     public void theTimelineShowsE(int count, String evidence) {
         UUID id = world.get(E_KEY);
-        EventView e = timeline.get(world.me(), VIN, null, 100).items().stream()
+        EventView e = timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items().stream()
                 .filter(v -> v.id().equals(id)).findFirst().orElseThrow();
         assertEquals(count, e.attachmentCount());
         assertTrue(e.documentPresent());

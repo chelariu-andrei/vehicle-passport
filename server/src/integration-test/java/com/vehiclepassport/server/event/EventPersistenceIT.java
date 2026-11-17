@@ -13,6 +13,7 @@ import com.vehiclepassport.server.event.domain.model.Component;
 import com.vehiclepassport.server.event.domain.model.CustomField;
 import com.vehiclepassport.server.event.domain.model.EventAnnotations;
 import com.vehiclepassport.server.event.domain.model.EventDetails;
+import com.vehiclepassport.server.event.domain.model.EventFilter;
 import com.vehiclepassport.server.event.domain.model.EventSource;
 import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.EvidenceLevel;
@@ -99,7 +100,88 @@ class EventPersistenceIT {
     }
 
     private List<VehicleEvent> page(String vin, TimelineCursor after, int limit) {
-        return QuarkusTransaction.requiringNew().call(() -> events.page(vin, after, limit));
+        return page(vin, EventFilter.none(), TimelineOrder.ASC, after, limit);
+    }
+
+    private List<VehicleEvent> page(String vin, EventFilter filter, TimelineOrder order, TimelineCursor after,
+            int limit) {
+        return QuarkusTransaction.requiringNew().call(() -> events.page(vin, filter, order, after, limit));
+    }
+
+    /** Reads every page of the query, {@code size} at a time, following the keyset as the service does. */
+    private List<UUID> readAll(String vin, EventFilter filter, TimelineOrder order, int size) {
+        List<UUID> seen = new ArrayList<>();
+        TimelineCursor cursor = null;
+        while (true) {
+            List<VehicleEvent> fetched = page(vin, filter, order, cursor, size);
+            fetched.forEach(e -> seen.add(e.id()));
+            if (fetched.size() < size) {
+                return seen;
+            }
+            VehicleEvent last = fetched.get(fetched.size() - 1);
+            cursor = new TimelineCursor(order, last.date(), last.createdAt(), last.id());
+        }
+    }
+
+    private static VehicleEvent tagged(Fixture f, EventType type, String date, Instant createdAt,
+            Set<Component> components) {
+        return new VehicleEvent(UUID.randomUUID(), f.vin(), type, LocalDate.parse(date), 1000,
+                new BigDecimal("1.00"), "RON", null, null, null, null, components, List.of(),
+                EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL, f.owner(), f.period(), null, createdAt, null);
+    }
+
+    @Test
+    void desc_pagination_across_a_tie_loses_and_repeats_nothing() {
+        Fixture f = fixture();
+        List<VehicleEvent> all = new ArrayList<>();
+        UUID low = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID high = UUID.fromString("ffffffff-0000-0000-0000-000000000001");
+        all.add(event(f, low, "2025-04-10", T0, 5000));
+        all.add(event(f, high, "2025-04-10", T0, 5000));
+        for (int i = 0; i < 3; i++) {
+            all.add(event(f, UUID.randomUUID(), "2025-04-10", T0, 5000));
+        }
+        all.add(event(f, UUID.randomUUID(), "2025-04-10", T0.plusSeconds(1), 5000));
+        all.add(event(f, UUID.randomUUID(), "2025-04-09", T0.plusSeconds(9), 5000));
+        all.add(event(f, UUID.randomUUID(), "2025-04-11", T0, 5000));
+        saveAll(all);
+        List<UUID> expected = all.stream().sorted(ORDER.reversed()).map(VehicleEvent::id).toList();
+
+        for (int size : new int[] {1, 2, 3, 100}) {
+            assertEquals(expected, readAll(f.vin(), EventFilter.none(), TimelineOrder.DESC, size), "size " + size);
+        }
+        assertTrue(expected.indexOf(high) < expected.indexOf(low), "the unsigned-larger uuid comes first");
+    }
+
+    @Test
+    void page_filters_by_type_component_and_period() {
+        Fixture f = fixture();
+        VehicleEvent engine2024 = tagged(f, EventType.SERVICE, "2024-06-01", T0, Set.of(Component.ENGINE));
+        VehicleEvent brakes2025 = tagged(f, EventType.REPAIR, "2025-03-01", T0,
+                Set.of(Component.BRAKES, Component.TIRES_WHEELS));
+        VehicleEvent untagged2025 = tagged(f, EventType.INSURANCE, "2025-05-01", T0, Set.of());
+        VehicleEvent engineBrakes2025 = tagged(f, EventType.REPAIR, "2025-12-31", T0,
+                Set.of(Component.ENGINE, Component.BRAKES));
+        VehicleEvent deleted = tagged(f, EventType.REPAIR, "2025-06-01", T0, Set.of(Component.BRAKES))
+                .deleted(T0.plusSeconds(5));
+        saveAll(List.of(engine2024, brakes2025, untagged2025, engineBrakes2025, deleted));
+        LocalDate from = LocalDate.parse("2025-01-01");
+        LocalDate to = LocalDate.parse("2025-12-31");
+
+        assertEquals(List.of(brakes2025.id(), untagged2025.id(), engineBrakes2025.id()),
+                readAll(f.vin(), new EventFilter(Set.of(EventType.REPAIR, EventType.INSURANCE), null, null, null),
+                        TimelineOrder.ASC, 2));
+        assertEquals(List.of(engine2024.id(), brakes2025.id(), engineBrakes2025.id()),
+                readAll(f.vin(), new EventFilter(null, Set.of(Component.ENGINE, Component.TIRES_WHEELS), null,
+                        null), TimelineOrder.ASC, 100));
+        assertEquals(List.of(engineBrakes2025.id(), untagged2025.id(), brakes2025.id()),
+                readAll(f.vin(), new EventFilter(null, null, from, to), TimelineOrder.DESC, 1),
+                "both ends inclusive");
+        assertEquals(List.of(engineBrakes2025.id()),
+                readAll(f.vin(), new EventFilter(Set.of(EventType.REPAIR), Set.of(Component.ENGINE), from, null),
+                        TimelineOrder.DESC, 1));
+        assertEquals(List.of(), readAll(f.vin(), new EventFilter(null, Set.of(Component.ENGINE), from,
+                LocalDate.parse("2025-12-30")), TimelineOrder.ASC, 10));
     }
 
     @Test

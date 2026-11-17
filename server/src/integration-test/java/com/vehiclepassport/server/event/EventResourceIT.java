@@ -212,6 +212,95 @@ class EventResourceIT {
         assertNoIdentity(json);
     }
 
+    private EventView addTagged(String vin, String type, String date, int km, String... components) {
+        return adding.add(new AddEventCommand(UUID.fromString(ME), vin, new EventInput(type, LocalDate.parse(date),
+                km, BigDecimal.TEN, "RON", null, null, null, null, null, List.of(components), null)));
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void timeline_filters_by_repeated_type_and_component_params() {
+        String vin = registerAs(ME);
+        EventView engine = addTagged(vin, "SERVICE", "2024-06-01", 1000, "ENGINE");
+        EventView brakes = addTagged(vin, "REPAIR", "2025-03-01", 2000, "BRAKES", "TIRES_WHEELS");
+        EventView tires = addTagged(vin, "TIRES", "2025-04-01", 3000);
+
+        given().queryParam("type", "REPAIR", "TIRES").when().get("/vehicles/" + vin + "/timeline")
+                .then().statusCode(200).body("items.id", equalTo(List.of(brakes.id().toString(),
+                        tires.id().toString())));
+        given().queryParam("component", "ENGINE", "TIRES_WHEELS").queryParam("order", "desc")
+                .when().get("/vehicles/" + vin + "/timeline")
+                .then().statusCode(200).body("items.id", equalTo(List.of(brakes.id().toString(),
+                        engine.id().toString())));
+        given().queryParam("from", "2025-01-01").queryParam("to", "2025-03-01")
+                .when().get("/vehicles/" + vin + "/timeline")
+                .then().statusCode(200).body("items.id", equalTo(List.of(brakes.id().toString())));
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void timeline_desc_pages_follow_next_cursor_newest_first() {
+        String vin = registerAs(ME);
+        for (int i = 0; i < 5; i++) {
+            addAs(ME, vin, "2025-03-01", 1000 + i);
+        }
+        addAs(ME, vin, "2025-03-02", 2000);
+        List<String> ascending = given().queryParam("limit", 100).when().get("/vehicles/" + vin + "/timeline")
+                .then().statusCode(200).extract().jsonPath().getList("items.id", String.class);
+        List<String> seen = new java.util.ArrayList<>();
+        String cursor = null;
+        do {
+            var request = given().queryParam("limit", 2).queryParam("order", "desc");
+            if (cursor != null) {
+                request = request.queryParam("cursor", cursor);
+            }
+            var response = request.when().get("/vehicles/" + vin + "/timeline").then().statusCode(200).extract();
+            seen.addAll(response.jsonPath().getList("items.id", String.class));
+            cursor = response.jsonPath().getString("nextCursor");
+        } while (cursor != null && seen.size() < 20);
+        assertEquals(6, ascending.size());
+        assertEquals(ascending.reversed(), seen);
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void bad_filters_are_400_validation_failed() {
+        String vin = registerAs(ME);
+        List<Map<String, String>> bad = List.of(
+                Map.of("type", "PAINTING"),
+                Map.of("component", "WING"),
+                Map.of("from", "2025-02-30"),
+                Map.of("to", "2025-13-01"),
+                Map.of("from", "25-01-01"),
+                Map.of("from", "2025-12-31", "to", "2025-01-01"),
+                Map.of("order", "sideways"),
+                Map.of("order", "DESC"));
+        for (Map<String, String> params : bad) {
+            given().queryParams(params).when().get("/vehicles/" + vin + "/timeline")
+                    .then().statusCode(400)
+                    .contentType(startsWith("application/problem+json"))
+                    .body("code", equalTo("validation-failed"));
+        }
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void ascending_cursor_with_desc_order_is_400_invalid_cursor() {
+        String vin = registerAs(ME);
+        addAs(ME, vin, "2025-03-01", 1000);
+        addAs(ME, vin, "2025-03-02", 2000);
+        String cursor = given().queryParam("limit", 1).when().get("/vehicles/" + vin + "/timeline")
+                .then().statusCode(200).extract().jsonPath().getString("nextCursor");
+        given().queryParam("cursor", cursor).queryParam("order", "desc").when().get("/vehicles/" + vin + "/timeline")
+                .then().statusCode(400).body("code", equalTo("invalid-cursor"));
+        given().queryParam("cursor", cursor).queryParam("order", "asc").when().get("/vehicles/" + vin + "/timeline")
+                .then().statusCode(200).body("items", hasSize(1));
+    }
+
     @Test
     @TestSecurity(user = "e1")
     @OidcSecurity(claims = @Claim(key = "sub", value = ME))

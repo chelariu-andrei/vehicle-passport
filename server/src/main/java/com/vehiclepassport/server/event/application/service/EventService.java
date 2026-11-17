@@ -31,7 +31,11 @@ import com.vehiclepassport.server.event.application.port.in.DetailsView;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
 import com.vehiclepassport.server.event.application.port.in.PartView;
+import com.vehiclepassport.server.event.application.port.in.TimelineFilterView;
 import com.vehiclepassport.server.event.application.port.in.TimelinePage;
+import com.vehiclepassport.server.event.application.port.in.TimelineQuery;
+import com.vehiclepassport.server.event.domain.exception.InvalidTimelineFilterException;
+import com.vehiclepassport.server.event.domain.model.EventFilter;
 import com.vehiclepassport.server.event.application.port.out.ActiveOwnerPort;
 import com.vehiclepassport.server.event.application.port.out.AttachmentRepositoryPort;
 import com.vehiclepassport.server.event.application.port.out.OwnedPeriod;
@@ -53,7 +57,9 @@ import jakarta.transaction.Transactional;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -117,19 +123,49 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
 
     @Override
     @Transactional
-    public TimelinePage get(UUID userId, String vin, String cursor, int limit) {
-        String canonical = owners.assertActiveOwner(vin, userId).vin();
-        int size = Math.max(MIN_LIMIT, Math.min(MAX_LIMIT, limit));
-        TimelineCursor after = cursor == null || cursor.isBlank() ? null : TimelineCursor.decode(cursor, TimelineOrder.ASC);
-        List<VehicleEvent> fetched = events.page(canonical, after, size + 1);
+    public TimelinePage get(TimelineQuery q) {
+        String canonical = owners.assertActiveOwner(q.vin(), q.userId()).vin();
+        int size = Math.max(MIN_LIMIT, Math.min(MAX_LIMIT, q.limit()));
+        TimelineOrder order = TimelineOrder.parse(q.order());
+        EventFilter filter = filter(q.filter());
+        String cursor = q.cursor();
+        TimelineCursor after = cursor == null || cursor.isBlank() ? null : TimelineCursor.decode(cursor, order);
+        List<VehicleEvent> fetched = events.page(canonical, filter, order, after, size + 1);
         boolean more = fetched.size() > size;
         List<VehicleEvent> window = more ? fetched.subList(0, size) : fetched;
         String next = null;
         if (more) {
             VehicleEvent last = window.get(window.size() - 1);
-            next = new TimelineCursor(TimelineOrder.ASC, last.date(), last.createdAt(), last.id()).encode();
+            next = new TimelineCursor(order, last.date(), last.createdAt(), last.id()).encode();
         }
         return new TimelinePage(toViews(window), next);
+    }
+
+    /** Unknown names are refused rather than ignored, so a typo never widens the result. Repeats are harmless. */
+    private static EventFilter filter(TimelineFilterView v) {
+        if (v == null) {
+            return EventFilter.none();
+        }
+        return new EventFilter(filterValues(EventType.class, v.types(), "event type"),
+                filterValues(Component.class, v.components(), "component"), v.from(), v.to());
+    }
+
+    private static <E extends Enum<E>> Set<E> filterValues(Class<E> type, List<String> raw, String what) {
+        EnumSet<E> out = EnumSet.noneOf(type);
+        if (raw == null) {
+            return out;
+        }
+        for (String name : raw) {
+            if (name == null || name.isBlank()) {
+                throw new InvalidTimelineFilterException("A " + what + " filter cannot be empty");
+            }
+            try {
+                out.add(Enum.valueOf(type, name.trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException e) {
+                throw new InvalidTimelineFilterException("Unknown " + what + ": " + name);
+            }
+        }
+        return out;
     }
 
     @Override

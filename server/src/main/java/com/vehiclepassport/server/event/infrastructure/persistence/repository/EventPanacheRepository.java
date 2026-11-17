@@ -5,6 +5,7 @@ import com.vehiclepassport.server.event.domain.model.Component;
 import com.vehiclepassport.server.event.domain.model.CustomField;
 import com.vehiclepassport.server.event.domain.model.DetailsKind;
 import com.vehiclepassport.server.event.domain.model.EventDetails;
+import com.vehiclepassport.server.event.domain.model.EventFilter;
 import com.vehiclepassport.server.event.domain.model.EventSource;
 import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.EvidenceLevel;
@@ -20,6 +21,7 @@ import com.vehiclepassport.server.event.domain.model.SafetyEquipmentDetails;
 import com.vehiclepassport.server.event.domain.model.SafetyItem;
 import com.vehiclepassport.server.event.domain.model.ScanDetails;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
+import com.vehiclepassport.server.event.domain.model.TimelineOrder;
 import com.vehiclepassport.server.event.domain.model.Validity;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import com.vehiclepassport.server.event.infrastructure.persistence.entity.VehicleEventEntity;
@@ -29,6 +31,7 @@ import com.vehiclepassport.server.event.infrastructure.persistence.entity.Vehicl
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -121,20 +124,58 @@ public class EventPanacheRepository implements EventRepositoryPort {
         }
     }
 
+    /**
+     * One native query assembled from fixed fragments; every value is a bound parameter. Native because the
+     * component match is the Postgres array overlap {@code &&} (served by the gin index) and the parameter must be
+     * cast to {@code text[]}: bound from HQL it arrives as {@code varchar[]}, for which no {@code &&} exists.
+     * Descending flips the keyset comparison along with the sort.
+     */
     @Override
-    public List<VehicleEvent> page(String vin, TimelineCursor after, int limit) {
-        TypedQuery<VehicleEventEntity> query;
-        if (after == null) {
-            query = em.createQuery(ACTIVE + ASC, VehicleEventEntity.class);
-        } else {
-            query = em.createQuery(ACTIVE + " and (e.eventDate > :d or (e.eventDate = :d and e.createdAt > :c)"
-                            + " or (e.eventDate = :d and e.createdAt = :c and e.id > :id))" + ASC,
-                            VehicleEventEntity.class)
-                    .setParameter("d", after.date()).setParameter("c", micros(after.createdAt()))
+    @SuppressWarnings("unchecked")
+    public List<VehicleEvent> page(String vin, EventFilter filter, TimelineOrder order, TimelineCursor after,
+            int limit) {
+        StringBuilder sql = new StringBuilder(
+                "select * from vehicle_passport.vehicle_event e where e.vin = :vin and e.deleted_at is null");
+        if (!filter.types().isEmpty()) {
+            sql.append(" and e.type in (:types)");
+        }
+        if (!filter.components().isEmpty()) {
+            sql.append(" and e.components && cast(:components as text[])");
+        }
+        if (filter.from() != null) {
+            sql.append(" and e.event_date >= :from");
+        }
+        if (filter.to() != null) {
+            sql.append(" and e.event_date <= :to");
+        }
+        boolean desc = order == TimelineOrder.DESC;
+        if (after != null) {
+            String beyond = desc ? "<" : ">";
+            sql.append(" and (e.event_date ").append(beyond).append(" :d")
+                    .append(" or (e.event_date = :d and e.created_at ").append(beyond).append(" :c)")
+                    .append(" or (e.event_date = :d and e.created_at = :c and e.id ").append(beyond).append(" :id))");
+        }
+        sql.append(desc ? " order by e.event_date desc, e.created_at desc, e.id desc"
+                : " order by e.event_date, e.created_at, e.id");
+        Query query = em.createNativeQuery(sql.toString(), VehicleEventEntity.class).setParameter("vin", vin);
+        if (!filter.types().isEmpty()) {
+            query.setParameter("types", filter.types().stream().map(EventType::name).toList());
+        }
+        if (!filter.components().isEmpty()) {
+            query.setParameter("components", toColumn(filter.components()));
+        }
+        if (filter.from() != null) {
+            query.setParameter("from", filter.from());
+        }
+        if (filter.to() != null) {
+            query.setParameter("to", filter.to());
+        }
+        if (after != null) {
+            query.setParameter("d", after.date()).setParameter("c", micros(after.createdAt()))
                     .setParameter("id", after.id());
         }
-        return query.setParameter("vin", vin).setMaxResults(limit).getResultList().stream()
-                .map(EventPanacheRepository::toDomain).toList();
+        List<VehicleEventEntity> rows = query.setMaxResults(limit).getResultList();
+        return rows.stream().map(EventPanacheRepository::toDomain).toList();
     }
 
     @Override

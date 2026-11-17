@@ -12,9 +12,14 @@ import com.vehiclepassport.server.event.application.port.in.DetailsView;
 import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.PartView;
+import com.vehiclepassport.server.event.application.port.in.TimelineFilterView;
 import com.vehiclepassport.server.event.application.port.in.TimelinePage;
+import com.vehiclepassport.server.event.application.port.in.TimelineQuery;
 import com.vehiclepassport.server.event.application.port.in.UpdateEventCommand;
+import com.vehiclepassport.server.event.domain.exception.InvalidTimelineFilterException;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,6 +41,24 @@ public class EventDtoMapper {
                 toResponse(v.details()), v.components(),
                 v.customFields().stream().map(f -> new CustomFieldDto(f.label(), f.value())).toList(),
                 v.evidence(), v.source(), v.documentPresent(), v.attachmentCount());
+    }
+
+    /** Dates arrive as text already shaped yyyy-MM-dd; one that does not exist (2025-02-30) is refused here. */
+    public TimelineQuery toTimelineQuery(UUID userId, String vin, List<String> types, List<String> components,
+            String from, String to, String order, String cursor, int limit) {
+        return new TimelineQuery(userId, vin, new TimelineFilterView(types, components, date(from), date(to)), order,
+                cursor, limit);
+    }
+
+    private static LocalDate date(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(raw);
+        } catch (DateTimeParseException e) {
+            throw new InvalidTimelineFilterException("Not a date: " + raw);
+        }
     }
 
     public TimelinePageResponse toResponse(TimelinePage page) {

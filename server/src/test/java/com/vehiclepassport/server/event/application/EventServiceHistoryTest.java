@@ -10,7 +10,9 @@ import com.vehiclepassport.server.event.domain.model.EventSource;
 import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.EvidenceLevel;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
+import com.vehiclepassport.server.event.domain.model.EventFilter;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
+import com.vehiclepassport.server.event.domain.model.TimelineOrder;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -44,7 +46,7 @@ class EventServiceHistoryTest {
             public Optional<VehicleEvent> findActive(String vin, UUID id) { return Optional.empty(); }
             public Neighbours neighbours(String vin, LocalDate d, Instant c, UUID x) { return null; }
             public void save(VehicleEvent e) { }
-            public List<VehicleEvent> page(String vin, TimelineCursor a, int l) { return List.of(); }
+            public List<VehicleEvent> page(String vin, EventFilter f, TimelineOrder o, TimelineCursor a, int l) { return List.of(); }
             public List<VehicleEvent> allActive(String vin) { return stored; }
             public long countActiveByCreator(UUID userId) { return 0; }
             public List<VehicleEvent> activeByCreator(UUID userId) { return List.of(); }

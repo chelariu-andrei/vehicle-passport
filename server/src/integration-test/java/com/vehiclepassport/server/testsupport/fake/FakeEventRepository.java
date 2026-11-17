@@ -1,8 +1,10 @@
 package com.vehiclepassport.server.testsupport.fake;
 
 import com.vehiclepassport.server.event.application.port.out.EventRepositoryPort;
+import com.vehiclepassport.server.event.domain.model.EventFilter;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
+import com.vehiclepassport.server.event.domain.model.TimelineOrder;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import com.vehiclepassport.server.testsupport.Resettable;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -61,11 +63,20 @@ public class FakeEventRepository implements EventRepositoryPort, Resettable {
     }
 
     @Override
-    public List<VehicleEvent> page(String vin, TimelineCursor after, int limit) {
-        return active(vin).sorted(ORDER)
-            .filter(e -> after == null || ORDER.compare(e, cursorEvent(after)) > 0)
+    public List<VehicleEvent> page(String vin, EventFilter filter, TimelineOrder order, TimelineCursor after,
+            int limit) {
+        Comparator<VehicleEvent> direction = order == TimelineOrder.DESC ? ORDER.reversed() : ORDER;
+        return active(vin).filter(e -> matches(e, filter)).sorted(direction)
+            .filter(e -> after == null || direction.compare(e, cursorEvent(after)) > 0)
             .limit(limit)
             .toList();
+    }
+
+    private static boolean matches(VehicleEvent e, EventFilter f) {
+        return (f.types().isEmpty() || f.types().contains(e.type()))
+            && (f.components().isEmpty() || e.components().stream().anyMatch(f.components()::contains))
+            && (f.from() == null || !e.date().isBefore(f.from()))
+            && (f.to() == null || !e.date().isAfter(f.to()));
     }
 
     @Override

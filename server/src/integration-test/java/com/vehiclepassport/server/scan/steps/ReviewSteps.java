@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
+import com.vehiclepassport.server.event.application.port.in.TimelineQuery;
 import com.vehiclepassport.server.scan.application.port.in.ConfirmScanCommand;
 import com.vehiclepassport.server.scan.application.port.in.ConfirmScanUseCase;
 import com.vehiclepassport.server.scan.application.port.in.PartInput;
@@ -281,7 +282,7 @@ public class ReviewSteps {
         UUID id = world.get(EVENT_KEY);
         assertNotNull(id, "no event was confirmed");
         UUID viewer = world.get(OWNER_KEY) == null ? world.me() : world.get(OWNER_KEY);
-        return timeline.get(viewer, VIN, null, 100).items().stream()
+        return timeline.get(TimelineQuery.firstPage(viewer, VIN, 100)).items().stream()
             .filter(e -> e.id().equals(id)).findFirst().orElseThrow();
     }
 

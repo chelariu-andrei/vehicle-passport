@@ -12,6 +12,7 @@ import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.GetEventDocumentUseCase;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
+import com.vehiclepassport.server.event.application.port.in.TimelineQuery;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventCommand;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.UpdateEventCommand;
@@ -201,7 +202,7 @@ public class EditDeleteSteps {
         int expected = world.get(EXPECTED_KEY);
         assertEquals(expected, errors.size(), "every attempt must be refused");
         // the event is unchanged and still on the timeline
-        assertTrue(timeline.get(world.me(), VIN, null, 100).items().stream()
+        assertTrue(timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items().stream()
             .anyMatch(e -> e.id().equals(id) && e.odometerKm() == 120000));
     }
 
@@ -214,7 +215,8 @@ public class EditDeleteSteps {
     public void theTimelineDoesNotContainE() {
         assertNull(world.lastError(), String.valueOf(world.lastError()));
         UUID id = world.get(E_KEY);
-        assertTrue(timeline.get(world.me(), VIN, null, 100).items().stream().noneMatch(e -> e.id().equals(id)));
+        assertTrue(timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items().stream()
+                .noneMatch(e -> e.id().equals(id)));
     }
 
     @Then("E has evidence {word} and notes {string}")
@@ -244,7 +246,7 @@ public class EditDeleteSteps {
     }
 
     private EventView find(UUID id) {
-        return timeline.get(world.me(), VIN, null, 100).items().stream()
+        return timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items().stream()
             .filter(e -> e.id().equals(id)).findFirst().orElseThrow();
     }
 

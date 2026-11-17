@@ -15,6 +15,9 @@ import com.vehiclepassport.server.event.application.port.in.DetailsView;
 import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
+import com.vehiclepassport.server.event.application.port.in.TimelineFilterView;
+import com.vehiclepassport.server.event.application.port.in.TimelinePage;
+import com.vehiclepassport.server.event.application.port.in.TimelineQuery;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventCommand;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.UpdateEventCommand;
@@ -45,7 +48,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -58,6 +66,9 @@ public class TimelineExtendedSteps {
     private static final String RESULT_KEY = "extended.result";
     private static final String EVENT_KEY = "extended.event";
     private static final String ATTEMPTS_KEY = "extended.attempts";
+    private static final String NAMED_KEY = "extended.named";
+    private static final String FILTERED_KEY = "extended.filtered";
+    private static final String CURSOR_KEY = "extended.cursor";
     private static final LocalDate DATE = LocalDate.parse("2026-01-10");
     private static final byte[] PNG_BYTES = {
         (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01};
@@ -174,7 +185,7 @@ public class TimelineExtendedSteps {
         List<RuntimeException> errors = world.get(ATTEMPTS_KEY);
         assertEquals(2, errors.size());
         errors.forEach(e -> assertNull(e, String.valueOf(e)));
-        List<EventView> items = timeline.get(world.me(), VIN, null, 100).items();
+        List<EventView> items = all();
         assertEquals(3, items.size());
         assertNull(items.get(1).odometerKm(), "the insurance has no km");
     }
@@ -293,6 +304,110 @@ public class TimelineExtendedSteps {
         EventView v = find(world.get(EVENT_KEY));
         update(v, inputOf(v, v.costAmount(), "SERVICE", v.validFrom(), v.validUntil(), null, List.of(),
                 List.of()));
+    }
+
+    // ---- filters and order ----
+
+    @Given("V has a SERVICE tagged ENGINE in 2024, a REPAIR tagged BRAKES in 2025 and an INSURANCE RCA in 2025")
+    public void vHasTaggedEvents() {
+        Map<String, UUID> named = new HashMap<>();
+        named.put("SERVICE", addEvent.add(new AddEventCommand(world.me(), VIN, new EventInput("SERVICE",
+                LocalDate.parse("2024-06-01"), 100000, BigDecimal.TEN, "RON", null, null, null, null, null,
+                List.of("ENGINE"), null))).id());
+        named.put("REPAIR", addEvent.add(new AddEventCommand(world.me(), VIN, new EventInput("REPAIR",
+                LocalDate.parse("2025-03-01"), 110000, BigDecimal.TEN, "RON", null, null, null, null, null,
+                List.of("BRAKES"), null))).id());
+        LocalDate rca = LocalDate.parse("2025-05-01");
+        named.put("RCA", addEvent.add(new AddEventCommand(world.me(), VIN, new EventInput("INSURANCE", rca, null,
+                new BigDecimal("1200"), "RON", null, null, rca, rca.plusYears(1).minusDays(1),
+                insurance("RCA", "Allianz"), null, null))).id());
+        world.put(NAMED_KEY, named);
+    }
+
+    /** {@code query} is a URL-style query string: type, component, from, to, order (repeatable lists). */
+    @When("I request the timeline with {word}")
+    public void iRequestTheTimelineWith(String query) {
+        List<String> types = new ArrayList<>();
+        List<String> components = new ArrayList<>();
+        LocalDate from = null;
+        LocalDate to = null;
+        String order = null;
+        for (String pair : query.split("&")) {
+            String[] kv = pair.split("=", 2);
+            switch (kv[0]) {
+                case "type" -> types.add(kv[1]);
+                case "component" -> components.add(kv[1]);
+                case "from" -> from = LocalDate.parse(kv[1]);
+                case "to" -> to = LocalDate.parse(kv[1]);
+                case "order" -> order = kv[1];
+                default -> throw new IllegalArgumentException("Unknown query parameter " + kv[0]);
+            }
+        }
+        TimelineQuery q = new TimelineQuery(world.me(), VIN, new TimelineFilterView(types, components, from, to),
+                order, null, 100);
+        world.attempt(() -> world.put(FILTERED_KEY, timeline.get(q).items()));
+    }
+
+    /** Narrow on purpose: "I see the same public URL ..." and "I see all N events ..." belong to other steps. */
+    @Then("^I see (nothing|the (?:SERVICE|REPAIR|RCA)(?: and the (?:SERVICE|REPAIR|RCA))*)$")
+    public void iSee(String result) {
+        assertNoError();
+        Map<String, UUID> named = world.get(NAMED_KEY);
+        List<UUID> expected = result.equals("nothing") ? List.of()
+                : Arrays.stream(result.split(" and ")).map(n -> named.get(n.replaceFirst("^the ", ""))).toList();
+        List<EventView> items = world.get(FILTERED_KEY);
+        assertEquals(expected, items.stream().map(EventView::id).toList());
+    }
+
+    @Given("V has {int} events on {word} recorded at the same moment")
+    public void vHasEventsAtTheSameMoment(int count, String date) {
+        for (int i = 0; i < count; i++) {
+            addEvent.add(new AddEventCommand(world.me(), VIN, service(LocalDate.parse(date), 100000)));
+        }
+    }
+
+    @When("I read the timeline {int} at a time with order={word}")
+    public void iReadTheTimelineWithOrder(int size, String order) {
+        List<EventView> seen = new ArrayList<>();
+        String cursor = null;
+        int guard = 0;
+        do {
+            TimelinePage page = timeline.get(new TimelineQuery(world.me(), VIN, null, order, cursor, size));
+            assertTrue(page.items().size() <= size);
+            seen.addAll(page.items());
+            cursor = page.nextCursor();
+            assertTrue(++guard < 50, "pagination does not terminate");
+        } while (cursor != null);
+        world.put(FILTERED_KEY, seen);
+    }
+
+    @Then("I see all {int} events exactly once, newest first")
+    public void iSeeAllEventsNewestFirst(int count) {
+        List<UUID> ids = this.<List<EventView>>fromWorld(FILTERED_KEY).stream().map(EventView::id).toList();
+        assertEquals(count, new HashSet<>(ids).size(), "no repeats");
+        List<UUID> ascending = new ArrayList<>(all().stream().map(EventView::id).toList());
+        Collections.reverse(ascending);
+        assertEquals(ascending, ids, "exactly the ascending timeline reversed");
+        List<EventView> items = world.get(FILTERED_KEY);
+        for (int i = 1; i < items.size(); i++) {
+            assertTrue(!items.get(i).date().isAfter(items.get(i - 1).date()), "dates never increase");
+        }
+    }
+
+    @Given("I hold a cursor from an ascending page")
+    public void iHoldAnAscendingCursor() {
+        for (int i = 1; i <= 3; i++) {
+            addEvent.add(new AddEventCommand(world.me(), VIN, service(LocalDate.of(2025, i, 1), 100000 + i)));
+        }
+        String cursor = timeline.get(new TimelineQuery(world.me(), VIN, null, "asc", null, 1)).nextCursor();
+        assertNotNull(cursor);
+        world.put(CURSOR_KEY, cursor);
+    }
+
+    @When("I use it with order={word}")
+    public void iUseItWithOrder(String order) {
+        world.attempt(() -> timeline.get(new TimelineQuery(world.me(), VIN, null, order, world.get(CURSOR_KEY),
+                1)));
     }
 
     // ---- outcomes ----
@@ -419,8 +534,17 @@ public class TimelineExtendedSteps {
     }
 
     private EventView find(UUID id) {
-        return timeline.get(world.me(), VIN, null, 100).items().stream()
-                .filter(e -> e.id().equals(id)).findFirst().orElseThrow();
+        return all().stream().filter(e -> e.id().equals(id)).findFirst().orElseThrow();
+    }
+
+    private List<EventView> all() {
+        return timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items();
+    }
+
+    private <T> T fromWorld(String key) {
+        T value = world.get(key);
+        assertNotNull(value, key);
+        return value;
     }
 
     private void assertNoError() {

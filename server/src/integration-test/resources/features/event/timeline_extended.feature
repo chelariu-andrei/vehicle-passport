@@ -87,3 +87,43 @@ Feature: Extended timeline
   Scenario: A rule breach on an old field keeps its business code
     When I add a SERVICE event dated in the future
     Then the answer is 422 "invalid-event"
+
+  Scenario Outline: Filtering the timeline
+    Given V has a SERVICE tagged ENGINE in 2024, a REPAIR tagged BRAKES in 2025 and an INSURANCE RCA in 2025
+    When I request the timeline with <query>
+    Then I see <result>
+
+    Examples:
+      | query                            | result                 |
+      | type=REPAIR&type=INSURANCE       | the REPAIR and the RCA |
+      | component=BRAKES                 | the REPAIR             |
+      | from=2025-01-01&to=2025-12-31    | the REPAIR and the RCA |
+      | component=ENGINE&from=2025-01-01 | nothing                |
+
+  Scenario: Newest first, paged without gaps
+    Given V has 5 events
+    When I read the timeline 2 at a time with order=desc
+    Then I see all 5 events exactly once, newest first
+
+  Scenario: Newest first across same-moment ties
+    Given V has 5 events on 2025-03-01 recorded at the same moment
+    When I read the timeline 2 at a time with order=desc
+    Then I see all 5 events exactly once, newest first
+
+  Scenario: A cursor is bound to its order
+    Given I hold a cursor from an ascending page
+    When I use it with order=desc
+    Then the answer is 400 "invalid-cursor"
+
+  Scenario: An inverted period is refused
+    When I request the timeline with from=2025-12-31&to=2025-01-01
+    Then the answer is 400 "validation-failed"
+
+  Scenario Outline: An unknown filter value is refused
+    When I request the timeline with <query>
+    Then the answer is 400 "validation-failed"
+
+    Examples:
+      | query          |
+      | type=PAINTING  |
+      | component=WING |

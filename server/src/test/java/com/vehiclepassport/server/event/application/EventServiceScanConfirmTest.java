@@ -22,7 +22,9 @@ import com.vehiclepassport.server.event.domain.model.ItpResult;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
 import com.vehiclepassport.server.event.domain.model.PartLine;
 import com.vehiclepassport.server.event.domain.model.ScanDetails;
+import com.vehiclepassport.server.event.domain.model.EventFilter;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
+import com.vehiclepassport.server.event.domain.model.TimelineOrder;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -49,7 +51,7 @@ class EventServiceScanConfirmTest {
         public Optional<VehicleEvent> findActive(String vin, UUID id) { return Optional.empty(); }
         public Neighbours neighbours(String vin, LocalDate d, Instant c, UUID x) { return new Neighbours(null, null); }
         public void save(VehicleEvent e) { saved.add(e); }
-        public List<VehicleEvent> page(String vin, TimelineCursor a, int l) { return List.of(); }
+        public List<VehicleEvent> page(String vin, EventFilter f, TimelineOrder o, TimelineCursor a, int l) { return List.of(); }
         public List<VehicleEvent> allActive(String vin) { return saved; }
         public long countActiveByCreator(UUID userId) { return 0; }
         public List<VehicleEvent> activeByCreator(UUID userId) { return List.of(); }
