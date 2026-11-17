@@ -49,7 +49,7 @@ class AccountExportServiceTest {
 
     private final OwnerDataExportPort data = owner -> {
         askedForData = owner;
-        return new OwnedData(vehicles.getOrDefault(owner, List.of()), List.of(), List.of());
+        return new OwnedData(vehicles.getOrDefault(owner, List.of()), List.of(), List.of(), List.of());
     };
 
     private final AccountExportService service = new AccountExportService(

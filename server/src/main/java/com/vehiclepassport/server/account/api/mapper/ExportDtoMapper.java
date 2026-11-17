@@ -22,7 +22,7 @@ public class ExportDtoMapper {
     public AccountExportResponse toResponse(AccountExport e) {
         return new AccountExportResponse(e.exportedAt(), me.toResponse(e.profile()), settings.toDto(e.settings()),
                 e.consents().stream().map(consents::toDto).toList(), e.data().vehicles(), e.data().events(),
-                e.data().passports(), e.supportReports().stream().map(ExportDtoMapper::toDto).toList());
+                e.data().passports(), e.data().fuelEntries(), e.supportReports().stream().map(ExportDtoMapper::toDto).toList());
     }
 
     private static SupportReportExportDto toDto(SubmittedSupportReport r) {

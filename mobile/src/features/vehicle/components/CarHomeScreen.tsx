@@ -5,6 +5,7 @@ import { Modal, Platform, Pressable, useWindowDimensions, View } from 'react-nat
 
 import { DeadlinesBell } from '@/features/deadlines';
 import { HistoryList } from '@/features/event';
+import { FuelCarRow } from '@/features/fuel';
 import { errorMessage, forgetVehicle, useRefetchOnFocus } from '@/shared/api';
 import {
   ActionBar,
@@ -214,6 +215,8 @@ function ActiveCar({ car, onlyCar }: { car: VehicleResponse; onlyCar: boolean })
           <Button kind="secondary" title={en.vehicle.createPassport} onPress={() => router.push(`/vehicles/${vin}/passports/new`)} />
         </View>
       </View>
+
+      <FuelCarRow vin={vin} />
 
       <HistoryList vin={vin} />
 

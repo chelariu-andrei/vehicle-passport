@@ -19,6 +19,7 @@ tags:
   - name: vehicles
   - name: claims
   - name: events
+  - name: fuel
   - name: scans
   - name: passports
   - name: public
@@ -589,6 +590,153 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DeadlinesResponse' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /vehicles/{vin}/fuel-entries:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+    post:
+      tags: [fuel]
+      operationId: addFuelEntry
+      summary: Log a fill-up or charge (active owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FuelEntryRequest' }
+      responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
+        '201':
+          description: The saved entry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FuelEntryResponse' }
+        '400':
+          description: Code `validation-failed` (request shape).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: Code `odometer-inconsistent` or `invalid-fuel-entry`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    get:
+      tags: [fuel]
+      operationId: listFuelEntries
+      summary: The fuel entries of the car, newest first (active owner only)
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+          description: Opaque cursor from a previous page's `nextCursor`.
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+      responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
+        '200':
+          description: A page of entries.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FuelEntryPage' }
+        '400':
+          description: Code `validation-failed` (limit out of range or malformed cursor).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /vehicles/{vin}/fuel-entries/{entryId}:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+      - name: entryId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [fuel]
+      operationId: updateFuelEntry
+      summary: Replace a fuel entry (active owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FuelEntryRequest' }
+      responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
+        '200':
+          description: The updated entry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FuelEntryResponse' }
+        '400':
+          description: Code `validation-failed` (request shape).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Codes `vehicle-not-found` or `fuel-entry-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: Code `odometer-inconsistent` or `invalid-fuel-entry`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    delete:
+      tags: [fuel]
+      operationId: deleteFuelEntry
+      summary: Delete a fuel entry (active owner only)
+      responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
+        '204': { description: Deleted. }
+        '404':
+          description: Codes `vehicle-not-found` or `fuel-entry-not-found`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /vehicles/{vin}/fuel/stats:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+    get:
+      tags: [fuel]
+      operationId: getFuelStats
+      summary: Consumption, cost and price statistics, computed on read
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema: { type: string, enum: ['3m', '6m', '12m', all], default: '6m' }
+      responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
+        '200':
+          description: Statistics. Always 200 for an owned car, with nulls and empty arrays when there is too little data.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FuelStatsResponse' }
+        '400':
+          description: Code `validation-failed` (unknown period).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '404':
           description: Code `vehicle-not-found` (unknown, or not visible to the caller).
           content:
@@ -1519,6 +1667,162 @@ components:
           type: [string, 'null']
           description: Null on the last page.
 
+    FuelEntryType: { type: string, enum: [PETROL, DIESEL, LPG, ELECTRIC] }
+    FuelGrade: { type: string, enum: [STANDARD, PREMIUM] }
+    ChargeType: { type: string, enum: [HOME, AC_PUBLIC, DC_FAST] }
+    FuelUnit: { type: string, enum: [L, KWH] }
+
+    FuelEntryRequest:
+      type: object
+      additionalProperties: false
+      required: [date, odometerKm, fuelType, quantity, total, currency]
+      properties:
+        date: { type: string, format: date }
+        odometerKm: { type: integer, minimum: 0 }
+        fuelType: { $ref: '#/components/schemas/FuelEntryType' }
+        quantity: { type: number, exclusiveMinimum: 0, maximum: 9999, multipleOf: 0.001, description: 'Litres, or kWh for ELECTRIC; at most 3 decimals.' }
+        total: { type: number, minimum: 0, maximum: 999999, multipleOf: 0.01 }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        fullTank: { type: boolean, default: true }
+        missedPrevious: { type: boolean, default: false, description: The previous fill-up was not logged; no consumption is computed across the gap. }
+        grade: { $ref: '#/components/schemas/FuelGrade' }
+        chargeType: { $ref: '#/components/schemas/ChargeType' }
+        station: { type: string, maxLength: 60 }
+        note: { type: string, maxLength: 200 }
+
+    FuelEntryResponse:
+      type: object
+      required: [id, date, odometerKm, fuelType, quantity, unit, total, unitPrice, currency, fullTank, missedPrevious]
+      properties:
+        id: { type: string, format: uuid }
+        date: { type: string, format: date }
+        odometerKm: { type: integer }
+        fuelType: { $ref: '#/components/schemas/FuelEntryType' }
+        quantity: { type: number }
+        unit: { $ref: '#/components/schemas/FuelUnit' }
+        total: { type: number }
+        unitPrice: { type: number, description: total / quantity, 4 decimals. }
+        currency: { type: string }
+        fullTank: { type: boolean }
+        missedPrevious: { type: boolean }
+        grade:
+          oneOf:
+            - $ref: '#/components/schemas/FuelGrade'
+            - type: 'null'
+        chargeType:
+          oneOf:
+            - $ref: '#/components/schemas/ChargeType'
+            - type: 'null'
+        station: { type: [string, 'null'] }
+        note: { type: [string, 'null'] }
+        consumption:
+          type: [number, 'null']
+          description: Per 100 km. Set on the full fill-up that closes an included consumption segment; otherwise null.
+
+    FuelEntryPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/FuelEntryResponse' }
+        nextCursor:
+          type: [string, 'null']
+          description: Null on the last page.
+
+    FuelStatsPoint:
+      type: object
+      required: [entryId, date, odometerKm, unitPrice]
+      properties:
+        entryId: { type: string, format: uuid }
+        date: { type: string, format: date }
+        odometerKm: { type: integer }
+        unitPrice: { type: number }
+        consumption: { type: [number, 'null'] }
+
+    FuelConsumptionAlert:
+      type: object
+      required: [latest, baseline, deltaPct, entryId]
+      properties:
+        latest: { type: number }
+        baseline: { type: number }
+        deltaPct: { type: number }
+        entryId: { type: string, format: uuid }
+
+    FuelGradeComparison:
+      type: object
+      required: [grade, avgConsumption, segmentCount]
+      properties:
+        grade: { $ref: '#/components/schemas/FuelGrade' }
+        avgConsumption: { type: number }
+        segmentCount: { type: integer }
+
+    FuelTypeStats:
+      type: object
+      required: [fuelType, unit, segmentCount, points, gradeComparison]
+      properties:
+        fuelType: { $ref: '#/components/schemas/FuelEntryType' }
+        unit: { $ref: '#/components/schemas/FuelUnit' }
+        avgConsumption: { type: [number, 'null'] }
+        lastConsumption: { type: [number, 'null'] }
+        avgUnitPrice: { type: [number, 'null'] }
+        segmentCount: { type: integer }
+        points:
+          type: array
+          description: Every entry of this fuel type, chronological.
+          items: { $ref: '#/components/schemas/FuelStatsPoint' }
+        alert:
+          oneOf:
+            - $ref: '#/components/schemas/FuelConsumptionAlert'
+            - type: 'null'
+        gradeComparison:
+          type: array
+          description: Empty unless both grades have at least 3 segments.
+          items: { $ref: '#/components/schemas/FuelGradeComparison' }
+
+    FuelMonthCost:
+      type: object
+      required: [month, cost, quantity, entries]
+      properties:
+        month: { type: string, pattern: '^[0-9]{4}-[0-9]{2}$' }
+        cost: { type: number }
+        quantity: { type: number }
+        entries: { type: integer }
+        distanceKm: { type: [integer, 'null'] }
+
+    FuelMonthEstimate:
+      type: object
+      required: [month, spentSoFar]
+      properties:
+        month: { type: string, pattern: '^[0-9]{4}-[0-9]{2}$' }
+        spentSoFar: { type: number }
+        projected: { type: [number, 'null'], description: Null with fewer than 3 entries in the last 60 days. }
+
+    FuelStatsPeriod:
+      type: object
+      properties:
+        from: { type: [string, 'null'], format: date }
+        to: { type: [string, 'null'], format: date }
+
+    FuelStatsResponse:
+      type: object
+      required: [entryCount, ignoredEntries, totalCost, period, monthly, monthEstimate, byFuelType]
+      properties:
+        currency: { type: [string, 'null'], description: The currency with the most entries in the period; null with no entries. }
+        period: { $ref: '#/components/schemas/FuelStatsPeriod' }
+        lastOdometerKm: { type: [integer, 'null'], description: Highest km across events and fuel entries. }
+        entryCount: { type: integer }
+        ignoredEntries: { type: integer, description: Entries left out because they use another currency. }
+        totalCost: { type: number }
+        costPerKm: { type: [number, 'null'] }
+        monthly:
+          type: array
+          items: { $ref: '#/components/schemas/FuelMonthCost' }
+        monthEstimate: { $ref: '#/components/schemas/FuelMonthEstimate' }
+        byFuelType:
+          type: array
+          items: { $ref: '#/components/schemas/FuelTypeStats' }
+
     TypeCount:
       type: object
       required: [type, count]
@@ -1911,7 +2215,7 @@ components:
     AccountExport:
       type: object
       description: Everything stored about the caller, delivered as an attachment download (Content-Disposition attachment).
-      required: [exportedAt, profile, settings, consents, vehicles, events, passports, supportReports]
+      required: [exportedAt, profile, settings, consents, vehicles, events, passports, fuelEntries, supportReports]
       properties:
         exportedAt: { type: string, format: date-time }
         profile: { $ref: '#/components/schemas/MeResponse' }
@@ -1935,6 +2239,16 @@ components:
         passports:
           type: array
           items: { $ref: '#/components/schemas/PassportResponse' }
+        fuelEntries:
+          type: array
+          description: Every fill-up the caller recorded, also on cars sold since (never those of the car's other owners); `vin` says which car.
+          items:
+            allOf:
+              - $ref: '#/components/schemas/FuelEntryResponse'
+              - type: object
+                required: [vin]
+                properties:
+                  vin: { $ref: '#/components/schemas/Vin' }
         supportReports:
           type: array
           description: Support reports the caller sent, oldest first.

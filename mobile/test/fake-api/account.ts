@@ -175,6 +175,7 @@ const exportMyData: Handler = (c: Ctx) => ({
     consents: [...c.state.account.history].reverse(),
     vehicles: c.state.vehicles,
     events: Object.entries(c.state.events).flatMap(([vin, list]) => list.map((e) => ({ ...e, vin }))),
+    fuelEntries: Object.entries(c.state.fuel).flatMap(([vin, list]) => list.map((e) => ({ ...e, vin }))),
     passports: c.state.passports,
     supportReports: c.state.account.support,
   },

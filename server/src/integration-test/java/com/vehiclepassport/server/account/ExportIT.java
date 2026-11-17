@@ -26,6 +26,9 @@ import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.vehicle.application.port.in.ReleaseVehicleUseCase;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
+import com.vehiclepassport.server.fuel.application.port.in.AddFuelEntryUseCase;
+import com.vehiclepassport.server.fuel.application.port.in.FuelEntryCommand;
+import com.vehiclepassport.server.fuel.domain.model.FuelEntryType;
 import com.vehiclepassport.server.passport.application.port.in.CreatePassportUseCase;
 import com.vehiclepassport.server.testsupport.smoke.PersistenceProfile;
 import com.vehiclepassport.server.vehicle.application.port.in.RegisterVehicleUseCase;
@@ -66,6 +69,13 @@ class ExportIT {
     ReleaseVehicleUseCase releasing;
     @Inject
     CreateSupportReportUseCase support;
+    @Inject
+    AddFuelEntryUseCase fuel;
+
+    private void fillUp(UUID user, String vin, String date, int km, String station) {
+        fuel.add(new FuelEntryCommand(user, vin, null, LocalDate.parse(date), km, FuelEntryType.DIESEL,
+                new BigDecimal("40.0"), new BigDecimal("300.00"), "RON", true, false, null, null, station, null));
+    }
 
     private static String randomVin() {
         String alphabet = "ABCDEFGHJKLMNPRSTUVWXYZ0123456789";
@@ -95,6 +105,8 @@ class ExportIT {
                 BigDecimal.TEN, "RON", "not yours", null, null, null, null, null, null)));
         passports.create(me, mine, null);
         passports.create(other, theirs, null);
+        fillUp(me, mine, "2025-04-02", 2100, "Petrom Unirii");
+        fillUp(other, theirs, "2025-03-02", 1100, "not your station");
         consents.record(me, new ConsentChange(List.of(new ConsentAcceptance(ConsentType.TERMS, "1.0")), null, null,
                 ConsentSource.SIGN_UP_FORM));
         consents.record(other, new ConsentChange(List.of(new ConsentAcceptance(ConsentType.TERMS, "1.0")), true, null,
@@ -117,6 +129,12 @@ class ExportIT {
                 .body("events.notes", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("not yours")))
                 .body("passports", hasSize(1))
                 .body("passports[0].vin", equalTo(mine))
+                .body("fuelEntries", hasSize(1))
+                .body("fuelEntries[0].vin", equalTo(mine))
+                .body("fuelEntries[0].station", equalTo("Petrom Unirii"))
+                .body("fuelEntries[0].unit", equalTo("L"))
+                .body("fuelEntries[0].unitPrice", equalTo(7.5f))
+                .body("fuelEntries[0].fullTank", equalTo(true))
                 .body("consents", hasSize(1))
                 .body("consents[0].type", equalTo("terms"));
     }
@@ -195,6 +213,7 @@ class ExportIT {
                 .body("vehicles", empty())
                 .body("events", empty())
                 .body("passports", empty())
+                .body("fuelEntries", empty())
                 .body("consents", empty());
     }
 
