@@ -8,6 +8,8 @@ export const qk = {
   /** The full timeline's pages and summary sit under `timeline(vin)`, so invalidating that refreshes them too. `F` is the event feature's filters (shared cannot import a feature). */
   timelinePages: <F>(vin: string, f: F) => ['timeline', vin, 'pages', f] as const,
   timelineSummary: <F>(vin: string, f: F) => ['timeline', vin, 'summary', f] as const,
+  /** Under `timeline(vin)`, so every event change (which invalidates the timeline) refreshes the document status too, and forgetting a car removes it. */
+  deadlines: (vin: string) => ['timeline', vin, 'deadlines'] as const,
   attachments: (vin: string, eventId: string) => ['attachments', vin, eventId] as const,
   claims: (vin: string) => ['claims', vin] as const,
   scan: (jobId: string) => ['scan', jobId] as const,
