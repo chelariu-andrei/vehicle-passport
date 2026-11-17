@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.DetailsView;
 import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.ReadVehicleHistoryUseCase;
@@ -323,6 +324,38 @@ class EventResourceIT {
                 .body("distance.km", nullValue())
                 .body("distance.fromKm", equalTo(102000))
                 .body("distance.toKm", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void deadlines_match_the_contract_shape_and_foreign_vin_404() {
+        String vin = registerAs(ME);
+        LocalDate from = LocalDate.now().minusDays(10);
+        EventView rca = adding.add(new AddEventCommand(UUID.fromString(ME), vin, new EventInput("INSURANCE", from,
+                null, new BigDecimal("1200"), "RON", null, null, from, from.plusDays(200),
+                new DetailsView("INSURANCE", null, null, null, "RCA", "Allianz", null, null, null, null, null),
+                null, null)));
+
+        given().when().get("/vehicles/" + vin + "/deadlines")
+                .then().statusCode(200)
+                .body("items.kind", equalTo(List.of("ITP", "RCA", "CASCO", "ROVINIETA", "FIRE_EXTINGUISHER",
+                        "FIRST_AID_KIT")))
+                .body("items[1].status", equalTo("VALID"))
+                .body("items[1].validUntil", equalTo(from.plusDays(200).toString()))
+                .body("items[1].daysLeft", notNullValue())
+                .body("items[1].eventId", equalTo(rca.id().toString()))
+                .body("items[0].status", equalTo("NOT_RECORDED"))
+                .body("items[0]", hasKey("validUntil"))
+                .body("items[0].validUntil", nullValue())
+                .body("items[0]", hasKey("daysLeft"))
+                .body("items[0]", hasKey("eventId"))
+                .body("items[0].eventId", nullValue());
+
+        given().when().get("/vehicles/" + registerAs(OTHER) + "/deadlines")
+                .then().statusCode(404)
+                .contentType(startsWith("application/problem+json"))
+                .body("code", equalTo("vehicle-not-found"));
     }
 
     @Test
