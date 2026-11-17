@@ -2,6 +2,7 @@ package com.vehiclepassport.server.architecture;
 
 import static com.tngtech.archunit.lang.SimpleConditionEvent.violated;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 
@@ -161,6 +162,54 @@ class ArchitectureTest {
             .that().haveSimpleNameEndingWith("Policy").and().areTopLevelClasses()
             .and().resideOutsideOfPackage(BASE + ".shared..")
             .should().resideInAPackage("..domain..");
+
+    /** Fuel spec decision 2: the fuel calculators know nothing of the other features. */
+    @ArchTest
+    static final ArchRule fuel_domain_has_no_event_or_vehicle_dependency = noClasses()
+            .that().resideInAPackage(BASE + ".fuel.domain..")
+            .should().dependOnClassesThat().resideInAnyPackage(BASE + ".event..", BASE + ".vehicle..");
+
+    /**
+     * Fuel spec decision 2: the odometer link is one-way, fuel asks event and event never looks at fuel readings.
+     * Remove this rule on purpose if the odometer gap is ever closed with a shared odometer store.
+     */
+    @ArchTest
+    static final ArchRule event_does_not_depend_on_fuel = noClasses()
+            .that().resideInAPackage(BASE + ".event..")
+            .should().dependOnClassesThat().resideInAPackage(BASE + ".fuel..");
+
+    private static final String FUEL_CALCULATORS =
+            BASE.replace(".", "\\.") + "\\.fuel\\.domain\\.model\\.(ConsumptionCalculator|ConsumptionAlert|CostMetrics)";
+
+    /** No framework, no ports and no instance state: the numbers depend only on the arguments. */
+    @ArchTest
+    static final ArchRule fuel_calculators_are_pure = CompositeArchRule
+            .of(noClasses().that().haveNameMatching(FUEL_CALCULATORS)
+                    .should().dependOnClassesThat().resideInAnyPackage("jakarta..", "io.quarkus..", "..port.."))
+            .and(fields().that().areDeclaredInClassesThat().haveNameMatching(FUEL_CALCULATORS)
+                    .and().areNotStatic()
+                    .should().beFinal()
+                    .allowEmptyShould(true));
+
+    @ArchTest
+    static final ArchRule fuel_ports_out_are_implemented_in_infrastructure = classes()
+            .that().resideInAPackage(BASE + ".fuel.application.port.out..").and().areInterfaces()
+            .should(new ArchCondition<JavaClass>("have at least one implementation, all in fuel.infrastructure") {
+                @Override
+                public void check(JavaClass port, ConditionEvents events) {
+                    List<JavaClass> implementations = port.getAllSubclasses().stream()
+                            .filter(c -> !c.isInterface()).toList();
+                    if (implementations.isEmpty()) {
+                        events.add(violated(port, port.getName() + " has no implementation"));
+                    }
+                    for (JavaClass impl : implementations) {
+                        if (!inPackage(impl.getPackageName(), BASE + ".fuel.infrastructure")) {
+                            events.add(violated(port, impl.getName() + " implements " + port.getSimpleName()
+                                    + " outside fuel.infrastructure"));
+                        }
+                    }
+                }
+            });
 
     @ArchTest
     static final ArchRule extraction_adapters_live_in_client = classes()
