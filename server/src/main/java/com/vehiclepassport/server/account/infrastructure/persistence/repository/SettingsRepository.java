@@ -27,7 +27,7 @@ public class SettingsRepository implements SettingsPort {
     public Optional<Settings> find(UUID userId) {
         List<?> rows = em.createNativeQuery("select language, appearance, distance_unit, currency, "
                         + "notif_document_deadlines, array_to_string(notif_reminder_days, ','), notif_scans, "
-                        + "notif_passport_views, notif_transfers, notif_product_news "
+                        + "notif_passport_views, notif_transfers, notif_product_news, notif_tire_season "
                         + "from vehicle_passport.user_settings where user_id = :id")
                 .setParameter("id", userId)
                 .getResultList();
@@ -40,8 +40,8 @@ public class SettingsRepository implements SettingsPort {
                 : Arrays.stream(days.split(",")).map(Integer::valueOf).collect(Collectors.toList());
         return Optional.of(new Settings(Language.fromValue((String) r[0]), Appearance.fromValue((String) r[1]),
                 DistanceUnit.fromValue((String) r[2]), Currency.fromValue((String) r[3]),
-                new NotificationPrefs((Boolean) r[4], reminderDays, (Boolean) r[6], (Boolean) r[7], (Boolean) r[8],
-                        (Boolean) r[9])));
+                new NotificationPrefs((Boolean) r[4], reminderDays, (Boolean) r[10], (Boolean) r[6], (Boolean) r[7],
+                        (Boolean) r[8], (Boolean) r[9])));
     }
 
     @Override
@@ -50,9 +50,9 @@ public class SettingsRepository implements SettingsPort {
         String days = n.reminderDays().stream().map(String::valueOf).collect(Collectors.joining(","));
         em.createNativeQuery("insert into vehicle_passport.user_settings (user_id, language, appearance, "
                         + "distance_unit, currency, notif_document_deadlines, notif_reminder_days, notif_scans, "
-                        + "notif_passport_views, notif_transfers, notif_product_news) "
+                        + "notif_passport_views, notif_transfers, notif_product_news, notif_tire_season) "
                         + "values (:id, :language, :appearance, :distance, :currency, :deadlines, "
-                        + "cast(string_to_array(:days, ',') as smallint[]), :scans, :views, :transfers, :news) "
+                        + "cast(string_to_array(:days, ',') as smallint[]), :scans, :views, :transfers, :news, :tires) "
                         + "on conflict (user_id) do update set language = excluded.language, "
                         + "appearance = excluded.appearance, distance_unit = excluded.distance_unit, "
                         + "currency = excluded.currency, "
@@ -60,7 +60,8 @@ public class SettingsRepository implements SettingsPort {
                         + "notif_reminder_days = excluded.notif_reminder_days, notif_scans = excluded.notif_scans, "
                         + "notif_passport_views = excluded.notif_passport_views, "
                         + "notif_transfers = excluded.notif_transfers, "
-                        + "notif_product_news = excluded.notif_product_news")
+                        + "notif_product_news = excluded.notif_product_news, "
+                        + "notif_tire_season = excluded.notif_tire_season")
                 .setParameter("id", userId)
                 .setParameter("language", s.language().value())
                 .setParameter("appearance", s.appearance().value())
@@ -72,6 +73,7 @@ public class SettingsRepository implements SettingsPort {
                 .setParameter("views", n.activityPassportViews())
                 .setParameter("transfers", n.activityTransfers())
                 .setParameter("news", n.productNews())
+                .setParameter("tires", n.tireSeason())
                 .executeUpdate();
     }
 }

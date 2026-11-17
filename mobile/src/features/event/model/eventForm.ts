@@ -313,6 +313,26 @@ export function formInputOf(original: EventResponse): EventFormInput {
  * What changing the type resets: the type-specific boxes go back to empty, the components to the type's suggestion, and a
  * type that counts from a start date starts at `date`. Notes, cost and custom fields are the person's and stay.
  */
+/** What a new form starts with when it is opened for one document (from the deadlines screen). */
+export type EventPreset = { type: EventType; coverage?: 'RCA' | 'CASCO'; item?: 'FIRE_EXTINGUISHER' | 'FIRST_AID_KIT' };
+
+/** A new form for `preset`: the type's own defaults, with the coverage or item already chosen. */
+export function presetFormInput(maxDate: string, preset: EventPreset): EventFormInput {
+  const base = newFormInput(maxDate);
+  const details = { ...EMPTY_DETAILS, ...(preset.coverage ? { coverage: preset.coverage } : {}), ...(preset.item ? { item: preset.item } : {}) };
+  return { ...base, ...typeDefaults(preset.type, maxDate), type: preset.type, details };
+}
+
+/** Reads route params into a preset; anything unknown is ignored, and no valid type means no preset. */
+export function parsePreset(params: Record<string, string | string[] | undefined>): EventPreset | null {
+  const type = EVENT_TYPES.find((t) => t === params.type);
+  if (!type) return null;
+  const preset: EventPreset = { type };
+  if (type === 'INSURANCE' && (params.coverage === 'RCA' || params.coverage === 'CASCO')) preset.coverage = params.coverage;
+  if (type === 'SAFETY_EQUIPMENT' && (params.item === 'FIRE_EXTINGUISHER' || params.item === 'FIRST_AID_KIT')) preset.item = params.item;
+  return preset;
+}
+
 export function typeDefaults(type: EventType, date: string): Pick<EventFormInput, 'customLabel' | 'validFrom' | 'validUntil' | 'details' | 'components'> {
   const config = EVENT_TYPE_CONFIG[type];
   return {

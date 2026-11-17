@@ -432,6 +432,22 @@ const getTimeline: Handler = (c) => {
   return ok({ items: ordered.slice(offset, end), nextCursor: end < ordered.length ? `c${end.toString(36)}` : null });
 };
 
+const DOCUMENT_ORDER = ['ITP', 'RCA', 'CASCO', 'ROVINIETA', 'FIRE_EXTINGUISHER', 'FIRST_AID_KIT'] as const;
+
+/** Mirrors the server's DeadlinesPolicy: always six items; the newest entry of each document decides its status. */
+const getDeadlines: Handler = (c) => {
+  if (!ownedVehicle(c)) return notOwned();
+  const rated = withValidity(c.state.events[c.params.vin] ?? []);
+  const items = DOCUMENT_ORDER.map((kind) => {
+    const e = rated.find((x) => validityGroup(x) === kind && x.validityStatus !== 'SUPERSEDED');
+    if (!e) return { kind, status: 'NOT_RECORDED', validUntil: null, daysLeft: null, eventId: null };
+    const status = e.validityStatus as 'VALID' | 'EXPIRING' | 'EXPIRED' | 'UNKNOWN';
+    const daysLeft = e.validUntil ? daysBetween(today(), e.validUntil) : null;
+    return { kind, status, validUntil: e.validUntil ?? null, daysLeft, eventId: e.id };
+  });
+  return ok({ items });
+};
+
 const getTimelineSummary: Handler = (c) => {
   if (!ownedVehicle(c)) return notOwned();
   const filters = filtersOf(c);
@@ -615,6 +631,7 @@ export const handlers: Record<string, Handler> = {
   deleteAttachment,
   getTimeline,
   getTimelineSummary,
+  getDeadlines,
   submitScan,
   submitScanBatch,
   getScan,

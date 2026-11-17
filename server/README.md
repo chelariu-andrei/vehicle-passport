@@ -65,3 +65,12 @@ A vehicle has an optional `plate` and an optional `appearance` (the look of the 
 The plate is owner-only: it is cleared when the car is released or a claim is approved, and it never enters a
 passport snapshot, the public passport or the PDF. The look stays with the car on transfer and is not part of
 a passport either.
+
+## Document deadlines
+
+`GET /vehicles/{vin}/deadlines` returns the status of the six documents (ITP, RCA, CASCO, rovinietă, fire
+extinguisher, first-aid kit), always six items in that order. Status comes from the current entry of each validity
+group (`DeadlinesPolicy`, which reuses `ValidityStatusPolicy`, so the 30-day threshold lives in one place): a missing
+document is `NOT_RECORDED`, never an offence. Reminders are local notifications scheduled by the mobile app; the
+server sends nothing. The only server-side setting is `notifications.tireSeason` (default `true`, required on
+`PUT /me/settings`).

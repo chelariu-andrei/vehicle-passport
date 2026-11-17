@@ -1,6 +1,8 @@
 package com.vehiclepassport.server.event.api.mapper;
 
 import com.vehiclepassport.server.event.api.dto.CustomFieldDto;
+import com.vehiclepassport.server.event.api.dto.DeadlineItemDto;
+import com.vehiclepassport.server.event.api.dto.DeadlinesResponse;
 import com.vehiclepassport.server.event.api.dto.DetailsDto;
 import com.vehiclepassport.server.event.api.dto.EventRequest;
 import com.vehiclepassport.server.event.api.dto.EventResponse;
@@ -12,6 +14,7 @@ import com.vehiclepassport.server.event.api.dto.TimelineSummaryResponse.Distance
 import com.vehiclepassport.server.event.api.dto.TimelineSummaryResponse.TypeCountDto;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.CustomFieldView;
+import com.vehiclepassport.server.event.application.port.in.DeadlinesView;
 import com.vehiclepassport.server.event.application.port.in.DetailsView;
 import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
@@ -64,6 +67,12 @@ public class EventDtoMapper {
                 s.countsByType().stream().map(c -> new TypeCountDto(c.type(), c.count())).toList(),
                 s.costByCurrency().stream().map(c -> new CurrencyAmountDto(c.currency(), c.amount())).toList(),
                 new DistanceDto(s.distanceKm(), s.fromKm(), s.toKm()), s.years());
+    }
+
+    public DeadlinesResponse toResponse(DeadlinesView v) {
+        return new DeadlinesResponse(v.items().stream()
+                .map(i -> new DeadlineItemDto(i.kind(), i.status(), i.validUntil(), i.daysLeft(), i.eventId()))
+                .toList());
     }
 
     private static LocalDate date(String raw) {

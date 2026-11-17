@@ -41,6 +41,7 @@ export function initialAccount(): AccountState {
       notifications: {
         documentDeadlines: true,
         reminderDays: [30, 7, 1],
+        tireSeason: true,
         activityScans: true,
         activityPassportViews: true,
         activityTransfers: true,

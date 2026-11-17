@@ -43,6 +43,16 @@ class ConsentGateIT {
     }
 
     @Test
+    @TestSecurity(user = "d1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = BLOCKED))
+    void gateBlocksDeadlinesUntilAccepted() {
+        given().when().get("/vehicles/WVWZZZ1JZXW000001/deadlines")
+                .then().statusCode(403)
+                .contentType("application/problem+json")
+                .body("code", equalTo("consent-required"));
+    }
+
+    @Test
     @TestSecurity(user = "d2")
     @OidcSecurity(claims = @Claim(key = "sub", value = OPEN))
     void gateAllowsMeAndPublicWhileConsentIsRequired() {

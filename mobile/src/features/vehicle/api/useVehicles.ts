@@ -5,8 +5,9 @@ import type { components } from '@/shared/api/generated/schema';
 
 export type VehicleResponse = components['schemas']['VehicleResponse'];
 
-export function useVehicles() {
-  return useQuery({ queryKey: qk.vehicles, queryFn: async () => unwrap(await api.GET('/vehicles')) });
+/** The garage. `enabled` lets a caller wait, such as until the account may use the app. */
+export function useVehicles(enabled = true) {
+  return useQuery({ queryKey: qk.vehicles, queryFn: async () => unwrap(await api.GET('/vehicles')), enabled });
 }
 
 /** One car. Starts from the garage list when that is already loaded, then refreshes. */

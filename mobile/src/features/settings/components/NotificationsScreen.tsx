@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { Switch, Text, tokens, useTheme } from '@/shared/design';
@@ -44,7 +45,7 @@ function Heading({ text }: { text: string }) {
   );
 }
 
-function Form({ settings }: { settings: Settings }) {
+function Form({ settings, permissionNote }: { settings: Settings; permissionNote?: ReactNode }) {
   const s = useStrings().settings.notifications;
   const { change } = useUpdateSettings();
   const n = settings.notifications;
@@ -75,6 +76,11 @@ function Form({ settings }: { settings: Settings }) {
             />
           ))}
         </View>
+        <Switch label={s.tireSeason} value={n.tireSeason} onValueChange={(value) => set({ tireSeason: value })} />
+        <Text variant="caption" color="ink-muted">
+          {s.tireSeasonCaption}
+        </Text>
+        {permissionNote}
       </View>
       <View style={{ gap: tokens.space['space-2'] }}>
         <Heading text={s.activityGroup} />
@@ -95,7 +101,7 @@ function Form({ settings }: { settings: Settings }) {
 }
 
 /** Account > Notifications. Every change is sent at once. */
-export function NotificationsScreen() {
+export function NotificationsScreen({ permissionNote }: { permissionNote?: ReactNode } = {}) {
   const s = useStrings();
-  return <SettingsPage title={s.settings.notifications.title}>{(settings) => <Form settings={settings} />}</SettingsPage>;
+  return <SettingsPage title={s.settings.notifications.title}>{(settings) => <Form settings={settings} permissionNote={permissionNote} />}</SettingsPage>;
 }

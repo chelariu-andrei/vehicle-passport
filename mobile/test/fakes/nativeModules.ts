@@ -136,3 +136,21 @@ jest.mock('react-native-webview', () => ({
   WebView: 'WebView',
   default: 'WebView',
 }));
+
+/*
+ * Local notifications: tests script permissions and read what was scheduled. The phone has notifications refused unless a
+ * test says otherwise, so the reminder sync stays quiet (no requests, no sheet) in tests that are not about it.
+ */
+jest.mock('expo-notifications', () => ({
+  __esModule: true,
+  SchedulableTriggerInputTypes: { DATE: 'date' },
+  AndroidImportance: { DEFAULT: 3 },
+  getPermissionsAsync: jest.fn(async () => ({ status: 'denied', granted: false, canAskAgain: false })),
+  requestPermissionsAsync: jest.fn(async () => ({ status: 'granted', granted: true, canAskAgain: true })),
+  cancelAllScheduledNotificationsAsync: jest.fn(async () => undefined),
+  scheduleNotificationAsync: jest.fn(async () => 'id'),
+  setNotificationChannelAsync: jest.fn(async () => null),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  getLastNotificationResponse: jest.fn(() => null),
+  getLastNotificationResponseAsync: jest.fn(async () => null),
+}));

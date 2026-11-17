@@ -21,17 +21,17 @@ const send = (method: string, path: string, init: { headers?: Record<string, str
 const register = (body: object) => send('POST', '/vehicles', { headers: json, body: JSON.stringify(body) });
 const carBody = { vin: VIN, make: 'Dacia', model: 'Logan', year: 2020, fuel: 'PETROL' };
 
-test('has a handler for all 40 authenticated operations', () => {
+test('has a handler for all 41 authenticated operations', () => {
   const doc = parse(readFileSync(resolve(__dirname, '../../../contracts/openapi.yaml'), 'utf8'));
   const ids: string[] = Object.values<Record<string, any>>(doc.paths)
     .flatMap((item) => ['get', 'put', 'post', 'patch', 'delete'].map((m) => item[m]).filter(Boolean))
     .filter((op) => !(Array.isArray(op.security) && op.security.length === 0))
     .map((op) => op.operationId);
-  expect(ids).toHaveLength(40);
+  expect(ids).toHaveLength(41);
   expect(ids).not.toContain('getPublicPassport');
   expect(ids).not.toContain('getPublicPassportPdf');
   expect(Object.keys(handlers).sort()).toEqual([...ids].sort());
-  expect(operations.filter((o) => o.authenticated)).toHaveLength(40);
+  expect(operations.filter((o) => o.authenticated)).toHaveLength(41);
 });
 
 test('an unknown JSON field answers 400 validation-failed and is recorded in violations', async () => {
@@ -526,4 +526,48 @@ test('a period resting on one reading has no distance and no fromKm', async () =
   api.state.events[VIN] = [anEvent({ date: '2024-03-10', odometerKm: 5000 }), anEvent({ date: '2024-04-10', odometerKm: null })];
   const summary = await send('GET', `/vehicles/${VIN}/timeline/summary`, { headers: auth }).then((r) => r.json());
   expect(summary.distance).toEqual({ km: null, fromKm: null, toKm: 5000 });
+});
+
+describe('deadlines', () => {
+  const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+  const get = () => send('GET', `/vehicles/${VIN}/deadlines`, { headers: auth }).then((r) => r.json());
+  const rca = (validUntil: string, date = '2025-01-01') =>
+    anEvent({ type: 'INSURANCE', date, validFrom: date, validUntil, details: { kind: 'INSURANCE', coverage: 'RCA', insurer: 'X', policyNumber: null } as never });
+
+  beforeEach(() => {
+    api.state.vehicles.push(aVehicle());
+    api.state.events[VIN] = [];
+  });
+
+  test('an empty car has six NOT_RECORDED items in the fixed order', async () => {
+    const { items } = await get();
+    expect(items.map((i: { kind: string }) => i.kind)).toEqual(['ITP', 'RCA', 'CASCO', 'ROVINIETA', 'FIRE_EXTINGUISHER', 'FIRST_AID_KIT']);
+    expect(items.every((i: { status: string; eventId: unknown }) => i.status === 'NOT_RECORDED' && i.eventId === null)).toBe(true);
+  });
+
+  test('30 days left is EXPIRING, 31 is VALID, today is EXPIRING with 0 left, yesterday is EXPIRED', async () => {
+    const status = async (offset: number) => {
+      api.state.events[VIN] = [rca(day(offset))];
+      return (await get()).items[1];
+    };
+    expect(await status(30)).toMatchObject({ status: 'EXPIRING', daysLeft: 30 });
+    expect(await status(31)).toMatchObject({ status: 'VALID', daysLeft: 31 });
+    expect(await status(0)).toMatchObject({ status: 'EXPIRING', daysLeft: 0 });
+    expect(await status(-1)).toMatchObject({ status: 'EXPIRED', daysLeft: -1 });
+  });
+
+  test('a renewed RCA replaces the old one and reports its event', async () => {
+    const renewed = rca(day(200), '2025-06-01');
+    api.state.events[VIN] = [rca(day(-5)), renewed];
+    expect((await get()).items[1]).toMatchObject({ status: 'VALID', eventId: renewed.id });
+  });
+
+  test('an ITP without an expiry date is UNKNOWN', async () => {
+    api.state.events[VIN] = [anEvent({ type: 'ITP', date: '2025-01-01' })];
+    expect((await get()).items[0]).toMatchObject({ status: 'UNKNOWN', validUntil: null, daysLeft: null });
+  });
+
+  test('an unknown vehicle is 404', async () => {
+    expect((await send('GET', '/vehicles/WVWZZZ1JZXW999999/deadlines', { headers: auth })).status).toBe(404);
+  });
 });

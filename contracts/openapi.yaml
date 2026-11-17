@@ -575,6 +575,26 @@ paths:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
 
+  /vehicles/{vin}/deadlines:
+    parameters:
+      - $ref: '#/components/parameters/Vin'
+    get:
+      tags: [events]
+      operationId: getDeadlines
+      summary: Status of the six documents of the VIN (always six items, in the fixed order)
+      responses:
+        '403': { $ref: '#/components/responses/ConsentRequired' }
+        '200':
+          description: One item per document kind, in the order ITP, RCA, CASCO, ROVINIETA, FIRE_EXTINGUISHER, FIRST_AID_KIT.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeadlinesResponse' }
+        '404':
+          description: Code `vehicle-not-found` (unknown, or not visible to the caller).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
   /vehicles/{vin}/scans:
     parameters:
       - $ref: '#/components/parameters/Vin'
@@ -1780,6 +1800,41 @@ components:
           oneOf: [{ $ref: '#/components/schemas/DeletionStatus' }, { type: 'null' }]
         consent: { $ref: '#/components/schemas/ConsentStatus' }
 
+    DocumentKind:
+      type: string
+      enum: [ITP, RCA, CASCO, ROVINIETA, FIRE_EXTINGUISHER, FIRST_AID_KIT]
+
+    DeadlineStatus:
+      type: string
+      enum: [VALID, EXPIRING, EXPIRED, UNKNOWN, NOT_RECORDED]
+
+    DeadlineItem:
+      type: object
+      required: [kind, status, validUntil, daysLeft, eventId]
+      additionalProperties: false
+      properties:
+        kind: { $ref: '#/components/schemas/DocumentKind' }
+        status: { $ref: '#/components/schemas/DeadlineStatus' }
+        validUntil: { type: [string, 'null'], format: date }
+        daysLeft:
+          type: [integer, 'null']
+          description: validUntil minus today; negative when expired, null without a date.
+        eventId:
+          type: [string, 'null']
+          format: uuid
+          description: The current entry of the document, null when none.
+
+    DeadlinesResponse:
+      type: object
+      required: [items]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          minItems: 6
+          maxItems: 6
+          items: { $ref: '#/components/schemas/DeadlineItem' }
+
     SettingsDto:
       type: object
       required: [language, appearance, units, notifications]
@@ -1796,7 +1851,7 @@ components:
             currency: { type: string, enum: [RON, EUR, USD] }
         notifications:
           type: object
-          required: [documentDeadlines, reminderDays, activityScans, activityPassportViews, activityTransfers, productNews]
+          required: [documentDeadlines, reminderDays, tireSeason, activityScans, activityPassportViews, activityTransfers, productNews]
           additionalProperties: false
           properties:
             documentDeadlines: { type: boolean }
@@ -1805,6 +1860,7 @@ components:
               uniqueItems: true
               maxItems: 3
               items: { type: integer, enum: [30, 7, 1] }
+            tireSeason: { type: boolean }
             activityScans: { type: boolean }
             activityPassportViews: { type: boolean }
             activityTransfers: { type: boolean }

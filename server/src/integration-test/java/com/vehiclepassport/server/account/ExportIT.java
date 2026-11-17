@@ -109,6 +109,7 @@ class ExportIT {
                 .body("profile.id", equalTo(OWNER))
                 .body("profile.email", equalTo("owner@example.com"))
                 .body("settings.language", notNullValue())
+                .body("settings.notifications.tireSeason", equalTo(true))
                 .body("vehicles", hasSize(1))
                 .body("vehicles[0].vin", equalTo(mine))
                 .body("events", hasSize(2))

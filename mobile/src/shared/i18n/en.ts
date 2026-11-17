@@ -1,4 +1,13 @@
 /* Every user-visible string. Later tasks add their own sections. */
+const KIND = {
+  ITP: 'ITP',
+  RCA: 'RCA',
+  CASCO: 'CASCO',
+  ROVINIETA: 'Rovinietă',
+  FIRE_EXTINGUISHER: 'Fire extinguisher',
+  FIRST_AID_KIT: 'First-aid kit',
+} as const;
+
 export const en = {
   tabs: {
     car: 'Car',
@@ -161,6 +170,8 @@ export const en = {
       documentDeadlines: 'Document deadlines',
       reminderLabel: 'Remind me before a deadline',
       reminder: { 30: '30 days', 7: '7 days', 1: '1 day' },
+      tireSeason: 'Tire-season reminders',
+      tireSeasonCaption: 'Winter tires on 15 October, summer tires on 1 April',
       activityGroup: 'Activity',
       activityScans: 'Scan results',
       activityPassportViews: 'Passport views',
@@ -591,6 +602,46 @@ export const en = {
     invalidItem: 'Choose an item.',
     invalidCustomFields: 'Give every custom field a name and a value.',
     tooManyCustomFields: 'Use at most 10 custom fields.',
+  },
+  deadlines: {
+    title: 'Document status',
+    status: { VALID: 'Valid', EXPIRING: 'Expiring', EXPIRED: 'Expired', UNKNOWN: 'No expiry date', NOT_RECORDED: 'Not added' },
+    kind: KIND,
+    until: (date: string, days: number) => `until ${date} · ${days === 1 ? '1 day' : `${days} days`}`,
+    expiredAgo: (days: number) => (days === 1 ? 'expired 1 day ago' : `expired ${days} days ago`),
+    addDate: 'Add the expiry date',
+    add: 'Add',
+    optionalAdd: 'Optional · Add',
+    bellLabel: 'Document status',
+    bellValue: (count: number) =>
+      count === 0 ? 'All documents in order' : count === 1 ? '1 document needs attention' : `${count} documents need attention`,
+    footerOn: (days: number[]) => {
+      const list = [...days].sort((a, b) => b - a).map(String);
+      if (list.length === 0) return 'Reminders: on the expiry day';
+      const joined = list.length === 1 ? list[0] : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`;
+      return `Reminders: ${joined} ${list[list.length - 1] === '1' ? 'day' : 'days'} before, and on the expiry day`;
+    },
+    footerOff: 'Reminders are off',
+    settingsButton: 'Notification settings',
+    loadError: "We couldn't load the document status",
+    notification: {
+      title: (kind: 'ITP' | 'RCA' | 'CASCO' | 'ROVINIETA' | 'FIRE_EXTINGUISHER' | 'FIRST_AID_KIT', days: number) => {
+        const name = KIND[kind];
+        return days === 0 ? `${name} expires today` : days === 1 ? `${name} expires in 1 day` : `${name} expires in ${days} days`;
+      },
+      body: (carName: string) => `${carName}. Open to review.`,
+      tireTitle: (season: 'winter' | 'summer') => `Time for ${season} tires`,
+      tireBody: (carName: string) => `${carName}. Check your tires.`,
+    },
+    permission: {
+      title: 'Allow reminders?',
+      body: 'We remind you before your documents expire, on this phone only. To do that we need your permission to send notifications.',
+      allow: 'Allow reminders',
+      laterNote: 'Reminders are off until you allow notifications on this phone.',
+      notNow: 'Not now',
+      deniedNote: 'Notifications are off for this app, so reminders cannot reach you. You can turn them on in your phone settings.',
+      openSettings: 'Open system settings',
+    },
   },
   scans: {
     title: 'Scans',

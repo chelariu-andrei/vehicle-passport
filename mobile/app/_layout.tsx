@@ -7,6 +7,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppLockBoundary, BiometricOfferSheet, sweepStaleExport, useConsentGate } from '@/features/account';
+import { cancelReminders, ReminderSync, useNotificationTap } from '@/features/deadlines';
 import { SettingsSync } from '@/features/settings';
 import { autoJourney } from '@/features/vehicle';
 import { createAppQueryClient, forgetVehicle } from '@/shared/api';
@@ -52,12 +53,14 @@ function ConsentGuard({ segments }: { segments: string[] }) {
 
 function Shell() {
   const { colors, scheme } = useTheme();
-  const { status } = useSession();
+  const { status, userId } = useSession();
   const insets = useSafeAreaInsets();
   const segments: string[] = useSegments();
   const inAuth = segments[0] === '(auth)';
   // The reset link signs the person in (a recovery session); they stay here until the new password is set.
   const resettingPassword = inAuth && segments[1] === 'reset-password';
+  // A tapped reminder opens its car's Document status.
+  useNotificationTap();
   return (
     <View style={{ flex: 1 }}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
@@ -74,6 +77,8 @@ function Shell() {
       {status === 'signedIn' && inAuth && !resettingPassword ? <Redirect href="/" /> : null}
       {status === 'signedIn' && !resettingPassword ? <ConsentGuard segments={segments} /> : null}
       {status === 'signedIn' ? <SettingsSync /> : null}
+      {/* Keyed by account, so a different account on this phone starts from its own plan. */}
+      {status === 'signedIn' ? <ReminderSync key={userId} /> : null}
       {status === 'signedIn' && !resettingPassword ? <BiometricOfferSheet /> : null}
       <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0 }}>
         <OfflineBanner />
@@ -110,9 +115,15 @@ export default function RootLayout() {
         queryClient.clear();
         // The next account on this phone is offered the journey afresh.
         autoJourney.reset();
+        // Reminders belong to the account that scheduled them.
+        void cancelReminders();
       }),
     [queryClient],
   );
+  // Nobody is signed in (also when a session was lost while the app was closed): no reminders may stay behind.
+  useEffect(() => {
+    if (status === 'signedOut') void cancelReminders();
+  }, [status]);
   useEffect(() => {
     if (ready) void SplashScreen.hideAsync();
   }, [ready]);

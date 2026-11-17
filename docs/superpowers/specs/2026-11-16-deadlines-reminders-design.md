@@ -1,6 +1,6 @@
 # Deadlines & reminders (document status, local notifications, tire season)
 
-Date: 2026-11-16 · Scope: `contracts/`, `server/` (event, account settings), `mobile/` · Status: draft for approval
+Date: 2026-11-16 · Scope: `contracts/`, `server/` (event, account settings), `mobile/` · Status: approved by owner 2026-11-17 (with the expiry-day reminder added, §3.7)
 Depends on: `2026-11-16-timeline-extended-design.md` (validity data, `validityStatus`, `validityEntries`). That
 spec must be merged first.
 Mobile UI (bell icon, badge, screens, components): `2026-11-16-deadlines-reminders-mobile-design.md`.
@@ -55,8 +55,10 @@ My calls (please correct):
    reminder.
 6. **`tireSeason` joins `NotificationPrefs`** (server settings, default `true`), so it follows the user across devices
    like the other switches.
-7. **No notification on the expiry day itself or after it.** The request names 30 / 7 / 1. The red row and the bell badge
-   cover "already expired".
+7. **One extra reminder on the expiry day itself (09:00 local), owner-requested.** It is always scheduled in addition
+   to the user's `reminderDays`, and is skipped when the document has been renewed (see §5.3: the plan is rebuilt from
+   the current entry, so a renewed document has a later `validUntil` and no expiry-day reminder). **Nothing after
+   expiry**: the red row and the bell badge cover "already expired".
 
 ## 4. Approaches considered
 
@@ -97,7 +99,11 @@ constant as in the timeline spec; the user's reminder days do **not** change it.
 ### 5.3 Reminder plan (pure function, on the phone)
 
 For each car and each document with status `VALID` or `EXPIRING` and a `validUntil`:
-for each `d` in `reminderDays`, fire at `validUntil − d` at 09:00 local, **only if that moment is still in the future**.
+for each `d` in `reminderDays` **plus `0` (the expiry day)**, fire at `validUntil − d` at 09:00 local, **only if that
+moment is still in the future**. The `d = 0` reminder is fixed (not user-configurable) and follows the same master
+switch `documentDeadlines`. Renewal needs no special case: the plan only reads the current entry, and a renewed
+document yields no reminder for the old date. Known limit: a renewal recorded on another device only cancels this
+device's reminder once the app is opened here and the plan is rebuilt.
 
 Plus tire season (when `tireSeason`): the next 15 Oct and the next 1 Apr after now, per car, skipped by the rule in §3.5.
 
@@ -170,4 +176,5 @@ Copy comes from `en.ts` (keys under `deadlines.notification`), for example title
 
 1. Is the grey-for-everything-missing rule (§3.1) right, or should RCA / ITP / rovinietă missing be red?
 2. Are 15 October and 1 April right for the tire-season dates?
-3. Should expired documents keep notifying (for example once a week), or stay silent as in §3.7?
+3. ~~Should expired documents keep notifying?~~ Answered 2026-11-17: no, but add one reminder on the expiry day,
+   skipped if renewed (§3.7). Questions 1 and 2 stand as written (grey for missing, 15 Oct / 1 Apr).

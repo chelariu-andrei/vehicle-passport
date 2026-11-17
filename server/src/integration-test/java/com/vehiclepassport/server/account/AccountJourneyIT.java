@@ -49,8 +49,8 @@ class AccountJourneyIT {
         given().contentType(ContentType.JSON)
                 .body("{\"language\":\"ro\",\"appearance\":\"dark\",\"units\":{\"distance\":\"km\","
                         + "\"currency\":\"EUR\"},\"notifications\":{\"documentDeadlines\":true,\"reminderDays\":[7],"
-                        + "\"activityScans\":true,\"activityPassportViews\":false,\"activityTransfers\":true,"
-                        + "\"productNews\":false}}")
+                        + "\"tireSeason\":true,\"activityScans\":true,\"activityPassportViews\":false,"
+                        + "\"activityTransfers\":true,\"productNews\":false}}")
                 .when().put("/me/settings")
                 .then().statusCode(200).body("language", equalTo("ro")).body("units.currency", equalTo("EUR"));
 

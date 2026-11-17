@@ -15,8 +15,8 @@ import { useAddEvent } from '../api/useAddEvent';
 import { uploadAttachments } from '../api/useUploadAttachments';
 import { useTimeline } from '../api/useTimeline';
 import { useUpdateEvent } from '../api/useUpdateEvent';
-import { EVENT_TYPES, eventFormSchema, formInputOf, maxEventDate, newFormInput, toEventRequest, typeDefaults } from '../model/eventForm';
-import type { EventForm, EventFormInput, EventType } from '../model/eventForm';
+import { EVENT_TYPES, eventFormSchema, formInputOf, maxEventDate, newFormInput, presetFormInput, toEventRequest, typeDefaults } from '../model/eventForm';
+import type { EventForm, EventFormInput, EventPreset, EventType } from '../model/eventForm';
 import { EVENT_TYPE_CONFIG } from '../model/eventTypes';
 import { eventSummary } from '../model/eventSummary';
 import { MAX_STAGED } from '../model/stagedFiles';
@@ -98,7 +98,7 @@ function ReadOnly({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Form({ vin, original }: { vin: string; original: EventResponse | null }) {
+function Form({ vin, original, preset }: { vin: string; original: EventResponse | null; preset?: EventPreset | null }) {
   const add = useAddEvent(vin);
   const update = useUpdateEvent(vin, original?.id ?? '');
   const save = original ? update : add;
@@ -118,7 +118,7 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
     formState: { errors },
   } = useForm<EventFormInput, unknown, EventForm>({
     resolver,
-    defaultValues: original ? formInputOf(original) : newFormInput(maxDate),
+    defaultValues: original ? formInputOf(original) : preset ? presetFormInput(maxDate, preset) : newFormInput(maxDate),
   });
   const type = useWatch({ control, name: 'type' });
   const validFrom = useWatch({ control, name: 'validFrom' });
@@ -525,10 +525,10 @@ function Form({ vin, original }: { vin: string; original: EventResponse | null }
 }
 
 /** Adds an event, or with `eventId` edits one. The original comes from the timeline already loaded for the car. */
-export function EventFormScreen({ vin, eventId }: { vin: string; eventId?: string }) {
+export function EventFormScreen({ vin, eventId, preset }: { vin: string; eventId?: string; preset?: EventPreset | null }) {
   const back = useBack('/');
   const timeline = useTimeline(vin);
-  if (eventId === undefined) return <Form vin={vin} original={null} />;
+  if (eventId === undefined) return <Form vin={vin} original={null} preset={preset} />;
   const original = timeline.data?.find((event) => event.id === eventId);
   if (original) return <Form vin={vin} original={original} />;
   return (

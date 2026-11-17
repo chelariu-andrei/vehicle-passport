@@ -1,5 +1,5 @@
 import { anEvent } from '../../../../test/fake-api';
-import { eventFormSchema, formatLocalDate, formInputOf, maxEventDate, newFormInput, parseMoney, toEventRequest, typeDefaults } from './eventForm';
+import { eventFormSchema, formatLocalDate, formInputOf, maxEventDate, newFormInput, parseMoney, parsePreset, presetFormInput, toEventRequest, typeDefaults } from './eventForm';
 import type { EventForm } from './eventForm';
 
 test('parseMoney reads a decimal point or a decimal comma', () => {
@@ -270,5 +270,36 @@ describe('form defaults', () => {
     );
     expect(input).toMatchObject({ odometerKm: '', validFrom: '2026-03-12', details: { coverage: 'CASCO', insurer: 'Allianz', policyNumber: '' }, components: ['BODY'] });
     expect(newFormInput('2026-05-01')).toMatchObject({ type: 'SERVICE', date: '2026-05-01', currency: 'RON', components: [] });
+  });
+});
+
+describe('form presets (adding a document from the deadlines screen)', () => {
+  const today = '2026-11-17';
+
+  test('RCA starts as an insurance with coverage RCA', () => {
+    const input = presetFormInput(today, { type: 'INSURANCE', coverage: 'RCA' });
+    expect(input).toMatchObject({ type: 'INSURANCE', date: today });
+    expect(input.details.coverage).toBe('RCA');
+  });
+
+  test('CASCO starts with coverage CASCO and a fire extinguisher with that item', () => {
+    expect(presetFormInput(today, { type: 'INSURANCE', coverage: 'CASCO' }).details.coverage).toBe('CASCO');
+    const kit = presetFormInput(today, { type: 'SAFETY_EQUIPMENT', item: 'FIRST_AID_KIT' });
+    expect(kit.type).toBe('SAFETY_EQUIPMENT');
+    expect(kit.details.item).toBe('FIRST_AID_KIT');
+  });
+
+  test('the type brings its own defaults, such as a rovinieta validFrom', () => {
+    expect(presetFormInput(today, { type: 'ROVINIETA' }).validFrom).toBe(today);
+  });
+
+  test('parsePreset reads the route params and ignores anything it does not know', () => {
+    expect(parsePreset({ type: 'INSURANCE', coverage: 'CASCO' })).toEqual({ type: 'INSURANCE', coverage: 'CASCO' });
+    expect(parsePreset({ type: 'SAFETY_EQUIPMENT', item: 'FIRE_EXTINGUISHER' })).toEqual({ type: 'SAFETY_EQUIPMENT', item: 'FIRE_EXTINGUISHER' });
+    expect(parsePreset({ type: 'ITP' })).toEqual({ type: 'ITP' });
+    expect(parsePreset({})).toBeNull();
+    expect(parsePreset({ type: 'NOPE' })).toBeNull();
+    expect(parsePreset({ type: 'INSURANCE', coverage: 'XYZ' })).toEqual({ type: 'INSURANCE' });
+    expect(parsePreset({ type: ['ITP'] as unknown as string })).toBeNull();
   });
 });

@@ -42,7 +42,7 @@ class SettingsServiceTest {
 
     private static Settings custom() {
         return new Settings(Language.RO, Appearance.DARK, DistanceUnit.MI, Currency.EUR,
-                new NotificationPrefs(false, List.of(7), false, true, false, true));
+                new NotificationPrefs(false, List.of(7), false, false, true, false, true));
     }
 
     @Test
