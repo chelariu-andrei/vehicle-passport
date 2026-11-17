@@ -1519,8 +1519,8 @@ components:
       required: [km, fromKm, toKm]
       properties:
         km: { type: [integer, 'null'], description: "`toKm` - `fromKm`; null when fewer than two readings are available." }
-        fromKm: { type: [integer, 'null'], description: Last reading before `from`, or else the first reading in the period. }
-        toKm: { type: [integer, 'null'], description: Last reading in the period. }
+        fromKm: { type: [integer, 'null'], description: "Last reading before `from`, or else the first reading in the period." }
+        toKm: { type: [integer, 'null'], description: "Last reading in the period." }
 
     TimelineSummary:
       type: object

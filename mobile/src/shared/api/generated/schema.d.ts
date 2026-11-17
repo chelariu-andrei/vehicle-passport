@@ -910,7 +910,7 @@ export interface components {
         Distance: {
             /** @description `toKm` - `fromKm`; null when fewer than two readings are available. */
             km: number | null;
-            /** @description Last reading before `from` */
+            /** @description Last reading before `from`, or else the first reading in the period. */
             fromKm: number | null;
             /** @description Last reading in the period. */
             toKm: number | null;
