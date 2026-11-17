@@ -551,6 +551,8 @@ export const en = {
     customFieldsFull: 'Up to 10 fields.',
     invalidLabel: 'Enter a name for this entry.',
     invalidInsurer: 'Enter the insurer.',
+    policyNumberTooLong: 'The policy number can be up to 60 characters.',
+    stationTooLong: 'The station can be up to 100 characters.',
     invalidValidFrom: 'Choose the first valid day.',
     invalidValidUntil: 'Choose the last valid day.',
     invalidPeriod: "The end can't be before the start.",

@@ -182,6 +182,7 @@ export function eventFormSchema(type: EventType, maxDate: string): z.ZodType<Eve
         const insurer = d.insurer.trim();
         const policy = d.policyNumber.trim();
         if (insurer === '' || insurer.length > 100) refuse(['details', 'insurer'], en.event.invalidInsurer);
+        if (policy.length > 60) refuse(['details', 'policyNumber'], en.event.policyNumberTooLong);
         details = { kind: 'INSURANCE', coverage: d.coverage, insurer, policyNumber: policy === '' ? null : policy };
         break;
       }
@@ -190,6 +191,7 @@ export function eventFormSchema(type: EventType, maxDate: string): z.ZodType<Eve
         break;
       case 'ITP': {
         const station = d.station.trim();
+        if (station.length > 100) refuse(['details', 'station'], en.event.stationTooLong);
         if (station !== '' || d.result !== '') details = { kind: 'ITP', station: station === '' ? null : station, result: d.result === '' ? null : d.result };
         break;
       }
@@ -209,7 +211,7 @@ export function eventFormSchema(type: EventType, maxDate: string): z.ZodType<Eve
       if (label === '' || value === '' || label.length > 40 || value.length > 200) refuse(['customFields', index], en.event.invalidCustomFields);
       else customFields.push({ label, value });
     });
-    if (v.customFields.length > MAX_CUSTOM_FIELDS) refuse(['customFields'], en.event.tooManyCustomFields);
+    if (customFields.length > MAX_CUSTOM_FIELDS) refuse(['customFields'], en.event.tooManyCustomFields);
 
     if (!valid) return z.NEVER;
     return {

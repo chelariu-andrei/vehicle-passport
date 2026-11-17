@@ -76,6 +76,8 @@ export const ro: DeepPartial<Widen<typeof en>> = {
     customFieldsFull: 'Cel mult 10 câmpuri.',
     invalidLabel: 'Introdu o denumire pentru această înregistrare.',
     invalidInsurer: 'Introdu asigurătorul.',
+    policyNumberTooLong: 'Numărul poliței poate avea cel mult 60 de caractere.',
+    stationTooLong: 'Stația poate avea cel mult 100 de caractere.',
     invalidValidFrom: 'Alege prima zi de valabilitate.',
     invalidValidUntil: 'Alege ultima zi de valabilitate.',
     invalidPeriod: 'Sfârșitul nu poate fi înaintea începutului.',

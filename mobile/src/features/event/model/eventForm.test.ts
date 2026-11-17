@@ -225,6 +225,24 @@ describe('eventFormSchema', () => {
     expect(parse('SERVICE', { customFields: [{ label: 'x'.repeat(41), value: 'v' }] }).success).toBe(false);
   });
 
+  test('policy number is at most 60 characters, station at most 100', () => {
+    const insurance = (policyNumber: string) =>
+      parse('INSURANCE', { odometerKm: '', validFrom: '2026-03-12', validUntil: '2027-03-11', details: { ...input.details, insurer: 'Allianz', policyNumber } });
+    expect(insurance('p'.repeat(60)).success).toBe(true);
+    expect(insurance('p'.repeat(61)).success).toBe(false);
+    const itp = (station: string) => parse('ITP', { details: { ...input.details, station } });
+    expect(itp('s'.repeat(100)).success).toBe(true);
+    expect(itp('s'.repeat(101)).success).toBe(false);
+  });
+
+  test('blank custom field rows do not count towards the limit of ten', () => {
+    const real = Array.from({ length: 10 }, (_, i) => ({ label: `L${i}`, value: 'v' }));
+    const blank = { label: '', value: '' };
+    const ok = parse('SERVICE', { customFields: [...real, blank] });
+    expect(ok.success && ok.data.customFields).toHaveLength(10);
+    expect(parse('SERVICE', { customFields: [...real, { label: 'L10', value: 'v' }, blank] }).success).toBe(false);
+  });
+
   test('a date after the limit is refused', () => {
     expect(parse('SERVICE', { date: '2026-06-02' }).success).toBe(false);
   });
