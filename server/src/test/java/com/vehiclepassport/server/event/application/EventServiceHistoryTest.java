@@ -30,7 +30,11 @@ class EventServiceHistoryTest {
     private static final String VIN = "WVWZZZ1JZXW000001";
 
     private static VehicleEvent event(UUID id, String createdAt) {
-        return new VehicleEvent(id, VIN, EventType.SERVICE, LocalDate.parse("2025-03-01"), 1000, BigDecimal.TEN,
+        return event(id, createdAt, 1000);
+    }
+
+    private static VehicleEvent event(UUID id, String createdAt, Integer km) {
+        return new VehicleEvent(id, VIN, EventType.SERVICE, LocalDate.parse("2025-03-01"), km, BigDecimal.TEN,
                 "RON", null, null, null, null, Set.of(), List.of(), EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL, UUID.randomUUID(),
                 UUID.randomUUID(), null, Instant.parse(createdAt), null);
     }
@@ -41,6 +45,21 @@ class EventServiceHistoryTest {
         UUID high = UUID.fromString("ffffffff-0000-0000-0000-000000000001");
         // repository order is (date, createdAt, id): the higher id was created first
         List<VehicleEvent> stored = List.of(event(high, "2025-03-02T00:00:00Z"), event(low, "2025-03-03T00:00:00Z"));
+        assertEquals(List.of(low, high), serviceOver(stored).history(VIN).stream().map(EventView::id).toList());
+    }
+
+    @Test
+    void latest_km_is_the_highest_reading_and_empty_without_one() {
+        assertEquals(Optional.empty(), serviceOver(List.of()).latestKm(VIN));
+        assertEquals(Optional.empty(),
+                serviceOver(List.of(event(UUID.randomUUID(), "2025-03-02T00:00:00Z", null))).latestKm(VIN));
+        List<VehicleEvent> stored = List.of(event(UUID.randomUUID(), "2025-03-02T00:00:00Z", 12000),
+                event(UUID.randomUUID(), "2025-03-03T00:00:00Z", null),
+                event(UUID.randomUUID(), "2025-03-04T00:00:00Z", 9000));
+        assertEquals(Optional.of(12000), serviceOver(stored).latestKm(VIN));
+    }
+
+    private static EventService serviceOver(List<VehicleEvent> stored) {
         EventRepositoryPort repo = new EventRepositoryPort() {
             public void lockTimeline(String vin) { }
             public Optional<VehicleEvent> findActive(String vin, UUID id) { return Optional.empty(); }
@@ -55,8 +74,7 @@ class EventServiceHistoryTest {
             public void detachCreator(UUID userId, UUID tombstone) { }
         };
         ActiveOwnerPort owners = (vin, user) -> new com.vehiclepassport.server.event.application.port.out.OwnedPeriod(vin, UUID.randomUUID());
-        EventService service = new EventService(repo, owners, new AttachmentServiceTest.FakeAttachments(),
+        return new EventService(repo, owners, new AttachmentServiceTest.FakeAttachments(),
                 Clock.fixed(Instant.parse("2026-01-15T10:00:00Z"), ZoneOffset.UTC));
-        assertEquals(List.of(low, high), service.history(VIN).stream().map(EventView::id).toList());
     }
 }

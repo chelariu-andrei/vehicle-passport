@@ -7,6 +7,7 @@ import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.CheckOdometerUseCase;
 import com.vehiclepassport.server.event.application.port.in.CountOwnedByOwnerUseCase;
 import com.vehiclepassport.server.event.application.port.in.DeleteEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.LatestOdometerUseCase;
 import com.vehiclepassport.server.event.application.port.in.ReadVehicleHistoryUseCase;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventCommand;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventUseCase;
@@ -69,6 +70,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -76,7 +79,7 @@ import java.util.function.Function;
 @ApplicationScoped
 public class EventService implements AddEventUseCase, GetTimelineUseCase, UpdateEventUseCase, DeleteEventUseCase,
         SaveConfirmedEventUseCase, CheckOdometerUseCase, ReadVehicleHistoryUseCase, CountOwnedByOwnerUseCase,
-        DetachOwnerUseCase, ListEventsByCreatorUseCase, GetTimelineSummaryUseCase {
+        DetachOwnerUseCase, ListEventsByCreatorUseCase, GetTimelineSummaryUseCase, LatestOdometerUseCase {
 
     private static final int MIN_LIMIT = 1;
     private static final int MAX_LIMIT = 100;
@@ -254,6 +257,13 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         } catch (OdometerInconsistentException e) {
             return false;
         }
+    }
+
+    @Override
+    @Transactional
+    public Optional<Integer> latestKm(String vin) {
+        return events.allActive(vin).stream().map(VehicleEvent::odometerKm).filter(Objects::nonNull)
+                .max(Integer::compare);
     }
 
     @Override
