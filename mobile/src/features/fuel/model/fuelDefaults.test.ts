@@ -1,5 +1,5 @@
 import { aFuelEntry } from '../../../../test/fake-api';
-import { fuelTypeChoice, initialForm } from './fuelDefaults';
+import { formOfEntry, fuelTypeChoice, initialForm } from './fuelDefaults';
 
 describe('fuelTypeChoice', () => {
   test.each([
@@ -57,5 +57,27 @@ describe('initialForm', () => {
   test('a hybrid that last charged starts on electric', () => {
     const last = aFuelEntry({ fuelType: 'ELECTRIC', unit: 'KWH' });
     expect(initialForm({ vehicleFuel: 'HYBRID', lastEntry: last, lastKm: 1000, today: '2026-11-17' }).fuelType).toBe('ELECTRIC');
+  });
+});
+
+describe('formOfEntry', () => {
+  test('an entry opens with its values, the unit price computed from quantity and total', () => {
+    const entry = aFuelEntry({ quantity: 40, total: 300, unitPrice: 7.5, odometerKm: 12000, grade: 'PREMIUM', station: 'OMV', note: null });
+    expect(formOfEntry(entry)).toEqual({
+      date: entry.date,
+      odometerKm: '12000',
+      fuelType: 'DIESEL',
+      quantity: '40',
+      unitPrice: '7.5',
+      total: '300',
+      touched: ['quantity', 'total'],
+      fullTank: true,
+      missedPrevious: false,
+      grade: 'PREMIUM',
+      chargeType: null,
+      station: 'OMV',
+      note: '',
+      currency: 'RON',
+    });
   });
 });

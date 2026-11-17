@@ -23,3 +23,8 @@ export function formatConsumption(value: number | null, type: FuelEntryType, loc
 export function formatMoney(amount: number, currency: string, locale: string): string {
   return new Intl.NumberFormat(tag(locale), { style: 'currency', currency, currencyDisplay: 'code' }).format(amount);
 }
+
+/** `84210` as `84 210`. */
+export function formatKm(km: number): string {
+  return String(km).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}

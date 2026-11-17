@@ -1,4 +1,4 @@
-import { consumptionUnit, formatConsumption, formatMoney, formatQuantity, unitOf } from './fuelDisplay';
+import { consumptionUnit, formatConsumption, formatKm, formatMoney, formatQuantity, unitOf } from './fuelDisplay';
 
 test('units follow the fuel type', () => {
   expect(unitOf('DIESEL')).toBe('L');
@@ -26,4 +26,10 @@ test('formatMoney uses the currency and the locale', () => {
   expect(formatMoney(312, 'RON', 'en')).toMatch(/312\.00/);
   expect(formatMoney(312, 'RON', 'en')).toMatch(/RON/);
   expect(formatMoney(312, 'RON', 'ro')).toMatch(/312,00/);
+});
+
+test('formatKm groups thousands with a space', () => {
+  expect(formatKm(84210)).toBe('84 210');
+  expect(formatKm(950)).toBe('950');
+  expect(formatKm(1234567)).toBe('1 234 567');
 });

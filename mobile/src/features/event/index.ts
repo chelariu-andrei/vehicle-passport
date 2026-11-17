@@ -1,6 +1,7 @@
 export { useTimeline } from './api/useTimeline';
 export { EventDetailScreen } from './components/EventDetailScreen';
 export { EventFormScreen } from './components/EventFormScreen';
+export { DateField } from './components/DateField';
 export { HistoryList } from './components/HistoryList';
 export { TimelineScreen } from './components/TimelineScreen';
 export { useTimelinePages } from './api/useTimelinePages';

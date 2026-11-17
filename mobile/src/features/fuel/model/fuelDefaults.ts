@@ -50,3 +50,23 @@ export function initialForm({ vehicleFuel, lastEntry, lastKm, today }: InitialAr
     currency: lastEntry?.currency ?? 'RON',
   };
 }
+
+/** An existing fill-up as the form edits it. Quantity and total are what was saved, so the price is the computed one. */
+export function formOfEntry(entry: FuelEntryResponse): FuelFormState {
+  return {
+    date: entry.date,
+    odometerKm: String(entry.odometerKm),
+    fuelType: entry.fuelType,
+    quantity: String(entry.quantity),
+    unitPrice: String(Math.round(entry.unitPrice * 1000) / 1000),
+    total: String(entry.total),
+    touched: ['quantity', 'total'],
+    fullTank: entry.fullTank,
+    missedPrevious: entry.missedPrevious,
+    grade: entry.grade ?? null,
+    chargeType: entry.chargeType ?? null,
+    station: entry.station ?? '',
+    note: entry.note ?? '',
+    currency: entry.currency,
+  };
+}
