@@ -6,3 +6,4 @@ export { ReminderPermissionSheet } from './components/ReminderPermissionSheet';
 export { readPermission, reminderPrompt, requestPermission } from './notifications/permission';
 export type { PermissionState } from './notifications/permission';
 export { ReminderPermissionNote } from './components/ReminderPermissionNote';
+export { cancelReminders, ReminderSync } from './notifications/ReminderSync';

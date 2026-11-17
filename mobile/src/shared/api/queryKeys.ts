@@ -10,6 +10,8 @@ export const qk = {
   timelineSummary: <F>(vin: string, f: F) => ['timeline', vin, 'summary', f] as const,
   /** Under `timeline(vin)`, so every event change (which invalidates the timeline) refreshes the document status too, and forgetting a car removes it. */
   deadlines: (vin: string) => ['timeline', vin, 'deadlines'] as const,
+  /** The date of the car's latest tire change, for the tire-season reminders. Under `timeline(vin)` for the same reason. */
+  lastTires: (vin: string) => ['timeline', vin, 'lastTires'] as const,
   attachments: (vin: string, eventId: string) => ['attachments', vin, eventId] as const,
   claims: (vin: string) => ['claims', vin] as const,
   scan: (jobId: string) => ['scan', jobId] as const,
