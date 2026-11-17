@@ -136,3 +136,18 @@ jest.mock('react-native-webview', () => ({
   WebView: 'WebView',
   default: 'WebView',
 }));
+
+/* Local notifications: tests script permissions and read what was scheduled. */
+jest.mock('expo-notifications', () => ({
+  __esModule: true,
+  SchedulableTriggerInputTypes: { DATE: 'date' },
+  AndroidImportance: { DEFAULT: 3 },
+  getPermissionsAsync: jest.fn(async () => ({ status: 'undetermined', granted: false, canAskAgain: true })),
+  requestPermissionsAsync: jest.fn(async () => ({ status: 'granted', granted: true, canAskAgain: true })),
+  cancelAllScheduledNotificationsAsync: jest.fn(async () => undefined),
+  scheduleNotificationAsync: jest.fn(async () => 'id'),
+  setNotificationChannelAsync: jest.fn(async () => null),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  getLastNotificationResponse: jest.fn(() => null),
+  getLastNotificationResponseAsync: jest.fn(async () => null),
+}));
