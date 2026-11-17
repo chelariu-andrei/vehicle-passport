@@ -1373,6 +1373,10 @@ export interface components {
                 vin: components["schemas"]["Vin"];
             })[];
             passports: components["schemas"]["PassportResponse"][];
+            /** @description Every fill-up the caller recorded, also on cars sold since (never those of the car's other owners); `vin` says which car. */
+            fuelEntries: (components["schemas"]["FuelEntryResponse"] & {
+                vin: components["schemas"]["Vin"];
+            })[];
             /** @description Support reports the caller sent, oldest first. */
             supportReports: components["schemas"]["SupportReportExport"][];
         };
