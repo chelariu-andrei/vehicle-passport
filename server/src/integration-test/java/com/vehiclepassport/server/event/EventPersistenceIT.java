@@ -486,6 +486,36 @@ class EventPersistenceIT {
         assertEquals(100000, before.nextKm());
     }
 
+    @Test
+    void validityEntriesHoldOnlyActiveValidityTypesOfTheVin() {
+        Fixture f = fixture();
+        Fixture other = fixture();
+        Validity year = new Validity(LocalDate.parse("2025-02-01"), LocalDate.parse("2026-01-31"));
+        VehicleEvent rca = full(f, EventType.INSURANCE, "2025-02-01", null, null, year,
+                new InsuranceDetails(InsuranceCoverage.RCA, "Groupama", null), EvidenceLevel.USER_CONFIRMED,
+                EventSource.MANUAL);
+        VehicleEvent rovinieta = full(f, EventType.ROVINIETA, "2025-02-01", null, null, year,
+                new RovinietaDetails(RovinietaDuration.TWELVE_MONTHS), EvidenceLevel.USER_CONFIRMED,
+                EventSource.MANUAL);
+        VehicleEvent kit = full(f, EventType.SAFETY_EQUIPMENT, "2025-02-01", null, null, year,
+                new SafetyEquipmentDetails(SafetyItem.FIRST_AID_KIT), EvidenceLevel.USER_CONFIRMED,
+                EventSource.MANUAL);
+        VehicleEvent legacyItp = full(f, EventType.ITP, "2025-01-05", 1400, null, null,
+                new ScanDetails("RAR", List.of(), null), EvidenceLevel.DOCUMENTED, EventSource.SCAN);
+        VehicleEvent service = event(f, UUID.randomUUID(), "2025-03-01", T0, 2000);
+        VehicleEvent deleted = full(f, EventType.INSURANCE, "2025-03-01", null, null, year,
+                new InsuranceDetails(InsuranceCoverage.RCA, "Allianz", null), EvidenceLevel.USER_CONFIRMED,
+                EventSource.MANUAL).deleted(T0);
+        VehicleEvent elsewhere = full(other, EventType.INSURANCE, "2025-02-01", null, null, year,
+                new InsuranceDetails(InsuranceCoverage.RCA, "Allianz", null), EvidenceLevel.USER_CONFIRMED,
+                EventSource.MANUAL);
+        saveAll(List.of(rca, rovinieta, kit, legacyItp, service, deleted, elsewhere));
+
+        List<VehicleEvent> entries = QuarkusTransaction.requiringNew().call(() -> events.validityEntries(f.vin()));
+        assertEquals(Set.of(rca.id(), rovinieta.id(), kit.id(), legacyItp.id()),
+                Set.copyOf(entries.stream().map(VehicleEvent::id).toList()));
+    }
+
     private Callable<Object> add(Fixture f, String date, int km) {
         return () -> adding.add(new AddEventCommand(f.owner(), f.vin(), new EventInput("SERVICE",
                 LocalDate.parse(date), km, BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));

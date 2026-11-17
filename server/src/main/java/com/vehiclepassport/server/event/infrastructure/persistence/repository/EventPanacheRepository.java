@@ -54,6 +54,9 @@ public class EventPanacheRepository implements EventRepositoryPort {
     /** An event without an odometer reading (allowed for some types) is no neighbour for the km check. */
     private static final String WITH_KM = " and e.odometerKm is not null";
     private static final String DESC = " order by e.eventDate desc, e.createdAt desc, e.id desc";
+    /** The types that carry a validity period (spec §5.6 groups). */
+    private static final List<String> VALIDITY_TYPES = List.of(EventType.ROVINIETA.name(),
+            EventType.INSURANCE.name(), EventType.ITP.name(), EventType.SAFETY_EQUIPMENT.name());
 
     @Inject
     EntityManager em;
@@ -181,6 +184,13 @@ public class EventPanacheRepository implements EventRepositoryPort {
     @Override
     public List<VehicleEvent> allActive(String vin) {
         return em.createQuery(ACTIVE + ASC, VehicleEventEntity.class).setParameter("vin", vin)
+                .getResultList().stream().map(EventPanacheRepository::toDomain).toList();
+    }
+
+    @Override
+    public List<VehicleEvent> validityEntries(String vin) {
+        return em.createQuery(ACTIVE + " and e.type in :types" + ASC, VehicleEventEntity.class)
+                .setParameter("vin", vin).setParameter("types", VALIDITY_TYPES)
                 .getResultList().stream().map(EventPanacheRepository::toDomain).toList();
     }
 

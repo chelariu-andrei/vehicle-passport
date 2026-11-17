@@ -21,6 +21,8 @@ import com.vehiclepassport.server.event.domain.model.ItpResult;
 import com.vehiclepassport.server.event.domain.model.RovinietaDetails;
 import com.vehiclepassport.server.event.domain.model.SafetyEquipmentDetails;
 import com.vehiclepassport.server.event.domain.model.Validity;
+import com.vehiclepassport.server.event.domain.model.ValidityStatus;
+import com.vehiclepassport.server.event.domain.model.ValidityStatusPolicy;
 import com.vehiclepassport.server.event.domain.exception.OdometerInconsistentException;
 import com.vehiclepassport.server.event.domain.exception.PriorPeriodEventException;
 import com.vehiclepassport.server.event.domain.model.Attachment;
@@ -58,11 +60,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 
 @ApplicationScoped
 public class EventService implements AddEventUseCase, GetTimelineUseCase, UpdateEventUseCase, DeleteEventUseCase,
@@ -102,7 +106,8 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
     @Transactional
     public List<CreatedEventView> listByCreator(UUID userId) {
         List<VehicleEvent> created = events.activeByCreator(userId);
-        List<EventView> views = toViews(created);
+        Map<String, Rating> byVin = new HashMap<>();
+        List<EventView> views = toViews(created, e -> byVin.computeIfAbsent(e.vin(), this::rating).of(e));
         return java.util.stream.IntStream.range(0, created.size())
                 .mapToObj(i -> new CreatedEventView(created.get(i).vin(), views.get(i))).toList();
     }
@@ -118,7 +123,7 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         Neighbours around = events.neighbours(event.vin(), event.date(), event.createdAt(), event.id());
         OdometerPolicy.check(around.previousKm(), event.odometerKm(), around.nextKm());
         events.save(event);
-        return toView(event, 0);
+        return toView(event, 0, rating(event.vin()).of(event));
     }
 
     @Override
@@ -138,7 +143,7 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
             VehicleEvent last = window.get(window.size() - 1);
             next = new TimelineCursor(order, last.date(), last.createdAt(), last.id()).encode();
         }
-        return new TimelinePage(toViews(window), next);
+        return new TimelinePage(toViews(window, rating(canonical)::of), next);
     }
 
     /** Unknown names are refused rather than ignored, so a typo never widens the result. Repeats are harmless. */
@@ -184,7 +189,7 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         Neighbours around = events.neighbours(edited.vin(), edited.date(), edited.createdAt(), edited.id());
         OdometerPolicy.check(around.previousKm(), edited.odometerKm(), around.nextKm());
         events.save(edited);
-        return toView(edited, attachments.countLive(edited.id()));
+        return toView(edited, attachments.countLive(edited.id()), rating(edited.vin()).of(edited));
     }
 
     @Override
@@ -237,7 +242,8 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
     @Transactional
     public List<EventView> history(String vin) {
         return toViews(events.allActive(vin).stream()
-                .sorted(Comparator.comparing(VehicleEvent::date).thenComparing(e -> e.id().toString())).toList());
+                .sorted(Comparator.comparing(VehicleEvent::date).thenComparing(e -> e.id().toString())).toList(),
+                rating(vin)::of);
     }
 
     /**
@@ -273,22 +279,35 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         return new ScanDetails(d.serviceName(), parts, d.labor());
     }
 
-    private List<EventView> toViews(List<VehicleEvent> list) {
-        Map<UUID, Integer> counts = attachments.countsFor(list.stream().map(VehicleEvent::id).toList());
-        return list.stream().map(e -> toView(e, counts.getOrDefault(e.id(), 0))).toList();
+    /**
+     * The validity status of the VIN's events, decided over its whole active history and never over the page
+     * being returned, so a filtered page still shows an older entry as superseded. Call it after the request's
+     * own write, so the written event counts.
+     */
+    private Rating rating(String vin) {
+        return new Rating(ValidityStatusPolicy.currentIds(events.validityEntries(vin)), LocalDate.now(clock));
     }
 
-    /**
-     * Attachments never change evidence; they only mark that a document is present. validityStatus stays null
-     * until the status policy exists.
-     */
-    private static EventView toView(VehicleEvent e, int attachmentCount) {
+    private record Rating(Set<UUID> current, LocalDate today) {
+        String of(VehicleEvent e) {
+            ValidityStatus status = ValidityStatusPolicy.status(e, current.contains(e.id()), today);
+            return status == null ? null : status.name();
+        }
+    }
+
+    private List<EventView> toViews(List<VehicleEvent> list, Function<VehicleEvent, String> status) {
+        Map<UUID, Integer> counts = attachments.countsFor(list.stream().map(VehicleEvent::id).toList());
+        return list.stream().map(e -> toView(e, counts.getOrDefault(e.id(), 0), status.apply(e))).toList();
+    }
+
+    /** Attachments never change evidence; they only mark that a document is present. */
+    private static EventView toView(VehicleEvent e, int attachmentCount, String validityStatus) {
         Validity v = e.validity();
         return new EventView(e.id(), e.type().name(), e.date(), e.odometerKm(), e.costAmount(), e.currency(),
                 e.notes(), e.customLabel(), v == null ? null : v.validFrom(), v == null ? null : v.validUntil(),
                 toView(e.details()), e.components().stream().map(Component::name).toList(),
-                e.customFields().stream().map(f -> new CustomFieldView(f.label(), f.value())).toList(), null,
-                e.evidence().name(), e.source().name(), attachmentCount > 0, attachmentCount);
+                e.customFields().stream().map(f -> new CustomFieldView(f.label(), f.value())).toList(),
+                validityStatus, e.evidence().name(), e.source().name(), attachmentCount > 0, attachmentCount);
     }
 
     /** Old scanned ITP rows still hold scan details; they are shown as SCAN, like any scan. */

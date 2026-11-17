@@ -2,6 +2,7 @@ package com.vehiclepassport.server.testsupport.fake;
 
 import com.vehiclepassport.server.event.application.port.out.EventRepositoryPort;
 import com.vehiclepassport.server.event.domain.model.EventFilter;
+import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
 import com.vehiclepassport.server.event.domain.model.TimelineOrder;
@@ -13,8 +14,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -26,6 +29,9 @@ public class FakeEventRepository implements EventRepositoryPort, Resettable {
         .comparing(VehicleEvent::date)
         .thenComparing(VehicleEvent::createdAt)
         .thenComparing(VehicleEvent::id);
+
+    private static final Set<EventType> VALIDITY_TYPES =
+        EnumSet.of(EventType.ROVINIETA, EventType.INSURANCE, EventType.ITP, EventType.SAFETY_EQUIPMENT);
 
     private final List<VehicleEvent> store = new ArrayList<>();
 
@@ -82,6 +88,11 @@ public class FakeEventRepository implements EventRepositoryPort, Resettable {
     @Override
     public List<VehicleEvent> allActive(String vin) {
         return active(vin).sorted(ORDER).toList();
+    }
+
+    @Override
+    public List<VehicleEvent> validityEntries(String vin) {
+        return active(vin).filter(e -> VALIDITY_TYPES.contains(e.type())).sorted(ORDER).toList();
     }
 
     @Override

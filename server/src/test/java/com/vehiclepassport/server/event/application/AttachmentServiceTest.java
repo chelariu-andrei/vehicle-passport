@@ -442,6 +442,10 @@ class AttachmentServiceTest {
         public List<VehicleEvent> page(String vin, EventFilter f, TimelineOrder o, TimelineCursor a, int l) { return List.of(); }
 
         public List<VehicleEvent> allActive(String vin) { return List.of(); }
+
+        public List<VehicleEvent> validityEntries(String vin) {
+            return rows.values().stream().filter(e -> e.vin().equals(vin) && e.deletedAt() == null).toList();
+        }
     }
 
     /** Enforces the (vin, sha256) uniqueness of live uploads, like the repository and its index do. */

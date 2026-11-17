@@ -48,6 +48,7 @@ class EventServiceHistoryTest {
             public void save(VehicleEvent e) { }
             public List<VehicleEvent> page(String vin, EventFilter f, TimelineOrder o, TimelineCursor a, int l) { return List.of(); }
             public List<VehicleEvent> allActive(String vin) { return stored; }
+            public List<VehicleEvent> validityEntries(String vin) { return List.of(); }
             public long countActiveByCreator(UUID userId) { return 0; }
             public List<VehicleEvent> activeByCreator(UUID userId) { return List.of(); }
             public void detachCreator(UUID userId, UUID tombstone) { }

@@ -30,6 +30,12 @@ public interface EventRepositoryPort {
 
     List<VehicleEvent> allActive(String vin);
 
+    /**
+     * Every non-deleted ROVINIETA, INSURANCE, ITP and SAFETY_EQUIPMENT event of the VIN, whatever page is being read:
+     * the validity status is decided over the whole history ({@code ValidityStatusPolicy.currentIds}).
+     */
+    List<VehicleEvent> validityEntries(String vin);
+
     /** Non-deleted events recorded by the given user. */
     long countActiveByCreator(UUID userId);
 

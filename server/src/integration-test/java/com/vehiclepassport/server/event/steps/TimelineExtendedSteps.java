@@ -11,6 +11,7 @@ import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.AttachmentUpload;
 import com.vehiclepassport.server.event.application.port.in.CustomFieldView;
+import com.vehiclepassport.server.event.application.port.in.DeleteEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.DetailsView;
 import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
@@ -33,6 +34,7 @@ import com.vehiclepassport.server.scan.domain.model.ScanResult;
 import com.vehiclepassport.server.shared.error.DomainException;
 import com.vehiclepassport.server.testsupport.World;
 import com.vehiclepassport.server.testsupport.fake.FakeScanJobRepository;
+import com.vehiclepassport.server.testsupport.fake.TestClock;
 import io.cucumber.java.en.But;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -47,6 +49,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -54,6 +57,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -69,6 +73,7 @@ public class TimelineExtendedSteps {
     private static final String NAMED_KEY = "extended.named";
     private static final String FILTERED_KEY = "extended.filtered";
     private static final String CURSOR_KEY = "extended.cursor";
+    private static final String TIMELINE_KEY = "event.timeline"; // written by EventSteps "I request the timeline"
     private static final LocalDate DATE = LocalDate.parse("2026-01-10");
     private static final byte[] PNG_BYTES = {
         (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x01};
@@ -93,6 +98,10 @@ public class TimelineExtendedSteps {
     ConfirmScanUseCase confirm;
     @Inject
     FakeScanJobRepository jobs;
+    @Inject
+    DeleteEventUseCase deleteEvent;
+    @Inject
+    TestClock clock;
 
     // ---- adding ----
 
@@ -410,6 +419,112 @@ public class TimelineExtendedSteps {
                 1)));
     }
 
+    // ---- validity status ----
+
+    @Given("today is {word}")
+    public void todayIs(String date) {
+        clock.set(LocalDate.parse(date).atTime(10, 0).toInstant(ZoneOffset.UTC));
+    }
+
+    @Given("V has an RCA valid {word} to {word} and an RCA valid {word} to {word}")
+    public void vHasTwoRcas(String from1, String until1, String from2, String until2) {
+        name("older", insured("RCA", from1, until1));
+        name("newer", insured("RCA", from2, until2));
+    }
+
+    @Given("V has a current RCA and an older CASCO that expired")
+    public void vHasACurrentRcaAndAnExpiredCasco() {
+        name("CASCO", insured("CASCO", "2025-01-01", "2025-12-31"));
+        name("RCA", insured("RCA", "2026-11-01", "2027-10-31"));
+    }
+
+    @Given("V has an RCA from 2024 and a newer RCA from 2026")
+    public void vHasAnRcaFrom2024And2026() {
+        name("2024", insured("RCA", "2024-03-01", "2025-02-28"));
+        name("2026", insured("RCA", "2026-03-01", "2027-02-28"));
+    }
+
+    @Given("V has a FIRST_AID_KIT valid until {word} and a FIRE_EXTINGUISHER that expired on {word}")
+    public void vHasAKitAndAnExpiredExtinguisher(String kitUntil, String extinguisherUntil) {
+        name("extinguisher", equipment("FIRE_EXTINGUISHER", "2025-01-01", extinguisherUntil));
+        name("first-aid kit", equipment("FIRST_AID_KIT", "2026-05-01", kitUntil));
+    }
+
+    @Given("V has a FIRE_EXTINGUISHER valid until {word}")
+    public void vHasAnExtinguisher(String until) {
+        name("older one", equipment("FIRE_EXTINGUISHER", "2025-01-01", until));
+    }
+
+    @When("I add a FIRE_EXTINGUISHER valid until {word}")
+    public void iAddAnExtinguisher(String until) {
+        add(new EventInput("SAFETY_EQUIPMENT", LocalDate.parse("2026-11-01"), null, new BigDecimal("90"), "RON",
+                null, null, null, LocalDate.parse(until),
+                kind("SAFETY_EQUIPMENT", null, null, null, null, null, null, "FIRE_EXTINGUISHER"), null, null));
+    }
+
+    @When("I delete the newer RCA")
+    public void iDeleteTheNewerRca() {
+        deleteEvent.delete(world.me(), VIN, named("newer"));
+    }
+
+    @When("I change the older RCA's insurer")
+    public void iChangeTheOlderRcasInsurer() {
+        EventView v = find(named("older"));
+        world.attempt(() -> world.put(RESULT_KEY, updateEvent.update(new UpdateEventCommand(world.me(), VIN, v.id(),
+                inputOf(v, v.costAmount(), v.type(), v.validFrom(), v.validUntil(), insurance("RCA", "Groupama"),
+                        v.components(), v.customFields())))));
+    }
+
+    @When("I confirm a scan as ITP without validUntil")
+    public void iConfirmAnItpScanWithoutValidUntil() {
+        confirmScan("ITP", "RAR Iasi", 120000, null, "PASSED");
+    }
+
+    @Then("the {word} RCA has validityStatus {word}")
+    public void theRcaHasValidityStatus(String name, String status) {
+        assertEquals(status, seen(named(name)).validityStatus());
+    }
+
+    @Then("^the (RCA|CASCO|first-aid kit|extinguisher) is (VALID|EXPIRING|EXPIRED|SUPERSEDED|UNKNOWN)$")
+    public void theEntryIs(String name, String status) {
+        assertEquals(status, seen(named(name)).validityStatus());
+    }
+
+    @Then("the RCA is VALID or EXPIRING")
+    public void theRcaIsLive() {
+        String status = seen(named("RCA")).validityStatus();
+        assertTrue("VALID".equals(status) || "EXPIRING".equals(status), status);
+    }
+
+    @Then("the older one has validityStatus {word} and stays in the timeline")
+    public void theOlderOneHasValidityStatus(String status) {
+        assertNoError();
+        assertEquals(status, find(named("older one")).validityStatus());
+    }
+
+    @Then("the new one has validityStatus {word}")
+    public void theNewOneHasValidityStatus(String status) {
+        EventView added = added();
+        assertEquals(status, added.validityStatus(), "the add response carries the status");
+        assertEquals(status, find(added.id()).validityStatus());
+    }
+
+    @Then("the changed RCA comes back with validityStatus {word}")
+    public void theChangedRcaComesBackWith(String status) {
+        EventView changed = added();
+        assertEquals("Groupama", changed.details().insurer());
+        assertEquals(status, changed.validityStatus(), "the update response carries the status");
+    }
+
+    @Then("the ITP has validityStatus {word}")
+    public void theItpHasValidityStatus(String status) {
+        assertNoError();
+        EventView itp = seen(world.get(RESULT_KEY));
+        assertEquals("ITP", itp.type());
+        assertNull(itp.validUntil());
+        assertEquals(status, itp.validityStatus());
+    }
+
     // ---- outcomes ----
 
     @Then("the answer is {int} {string}")
@@ -531,6 +646,48 @@ public class TimelineExtendedSteps {
         world.attempt(() -> world.put(RESULT_KEY, confirm.confirm(new ConfirmScanCommand(world.me(), job.id(),
                 type, r.date().value(), km, serviceName, parts, r.labor().value(), r.total().value(), null, null,
                 validUntil, result))));
+    }
+
+    /** An INSURANCE event dated on its first valid day. */
+    private UUID insured(String coverage, String from, String until) {
+        LocalDate start = LocalDate.parse(from);
+        return addEvent.add(new AddEventCommand(world.me(), VIN, new EventInput("INSURANCE", start, null,
+                new BigDecimal("1200"), "RON", null, null, start, LocalDate.parse(until),
+                insurance(coverage, "Allianz"), null, null))).id();
+    }
+
+    private UUID equipment(String item, String date, String until) {
+        return addEvent.add(new AddEventCommand(world.me(), VIN, new EventInput("SAFETY_EQUIPMENT",
+                LocalDate.parse(date), null, new BigDecimal("90"), "RON", null, null, null, LocalDate.parse(until),
+                kind("SAFETY_EQUIPMENT", null, null, null, null, null, null, item), null, null))).id();
+    }
+
+    private void name(String name, UUID id) {
+        Map<String, UUID> named = world.get(NAMED_KEY);
+        if (named == null) {
+            named = new HashMap<>();
+            world.put(NAMED_KEY, named);
+        }
+        named.put(name, id);
+    }
+
+    private UUID named(String name) {
+        Map<String, UUID> named = fromWorld(NAMED_KEY);
+        return Objects.requireNonNull(named.get(name), name);
+    }
+
+    /**
+     * The event as the last timeline read returned it: the filtered page when one was read, else the plain
+     * timeline ("I request the timeline", from EventSteps). Fails when the event is not on that page.
+     */
+    private EventView seen(UUID id) {
+        assertNoError();
+        List<EventView> items = world.get(FILTERED_KEY);
+        if (items == null) {
+            items = fromWorld(TIMELINE_KEY);
+        }
+        return items.stream().filter(e -> e.id().equals(id)).findFirst()
+                .orElseThrow(() -> new AssertionError(id + " is not on the page read"));
     }
 
     private EventView find(UUID id) {

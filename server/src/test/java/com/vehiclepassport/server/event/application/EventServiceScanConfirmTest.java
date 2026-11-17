@@ -53,6 +53,7 @@ class EventServiceScanConfirmTest {
         public void save(VehicleEvent e) { saved.add(e); }
         public List<VehicleEvent> page(String vin, EventFilter f, TimelineOrder o, TimelineCursor a, int l) { return List.of(); }
         public List<VehicleEvent> allActive(String vin) { return saved; }
+        public List<VehicleEvent> validityEntries(String vin) { return saved; }
         public long countActiveByCreator(UUID userId) { return 0; }
         public List<VehicleEvent> activeByCreator(UUID userId) { return List.of(); }
         public void detachCreator(UUID userId, UUID tombstone) { }

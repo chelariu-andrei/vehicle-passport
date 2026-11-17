@@ -119,6 +119,59 @@ Feature: Extended timeline
     When I request the timeline with from=2025-12-31&to=2025-01-01
     Then the answer is 400 "validation-failed"
 
+  Scenario: Only the current policy carries a live status
+    Given today is 2026-11-16
+    And V has an RCA valid 2024-11-01 to 2025-10-31 and an RCA valid 2025-11-01 to 2026-12-01
+    When I request the timeline
+    Then the older RCA has validityStatus SUPERSEDED
+    And the newer RCA has validityStatus EXPIRING
+
+  Scenario: RCA and CASCO are separate groups
+    Given today is 2026-11-16
+    And V has a current RCA and an older CASCO that expired
+    When I request the timeline
+    Then the RCA is VALID or EXPIRING
+    And the CASCO is EXPIRED
+
+  Scenario: The status is right on a filtered page
+    Given today is 2026-11-16
+    And V has an RCA from 2024 and a newer RCA from 2026
+    When I request the timeline with to=2024-12-31
+    Then the 2024 RCA has validityStatus SUPERSEDED
+
+  Scenario: Extinguisher and first-aid kit are separate groups
+    Given today is 2026-11-16
+    And V has a FIRST_AID_KIT valid until 2027-05-01 and a FIRE_EXTINGUISHER that expired on 2026-01-01
+    When I request the timeline
+    Then the first-aid kit is VALID
+    And the extinguisher is EXPIRED
+
+  Scenario: A renewed extinguisher supersedes the old one
+    Given today is 2026-11-16
+    And V has a FIRE_EXTINGUISHER valid until 2026-01-01
+    When I add a FIRE_EXTINGUISHER valid until 2027-01-01
+    Then the older one has validityStatus SUPERSEDED and stays in the timeline
+    And the new one has validityStatus VALID
+
+  Scenario: Deleting the current entry revives the previous one
+    Given today is 2026-11-16
+    And V has an RCA valid 2025-11-01 to 2026-12-01 and an RCA valid 2026-11-01 to 2027-10-31
+    When I delete the newer RCA
+    And I request the timeline
+    Then the older RCA has validityStatus EXPIRING
+
+  Scenario: A changed entry is rated against the whole history
+    Given today is 2026-11-16
+    And V has an RCA valid 2024-11-01 to 2025-10-31 and an RCA valid 2025-11-01 to 2026-12-01
+    When I change the older RCA's insurer
+    Then the changed RCA comes back with validityStatus SUPERSEDED
+
+  Scenario: A scanned ITP without expiry is the current ITP with an unknown status
+    Given today is 2026-11-16
+    When I confirm a scan as ITP without validUntil
+    And I request the timeline
+    Then the ITP has validityStatus UNKNOWN
+
   Scenario Outline: An unknown filter value is refused
     When I request the timeline with <query>
     Then the answer is 400 "validation-failed"
