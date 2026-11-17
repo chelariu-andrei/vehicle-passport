@@ -289,6 +289,66 @@ class EventResourceIT {
     @Test
     @TestSecurity(user = "e1")
     @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void summary_matches_the_contract_shape() {
+        String vin = registerAs(ME);
+        addTagged(vin, "SERVICE", "2024-12-20", 90000, "ENGINE");
+        adding.add(new AddEventCommand(UUID.fromString(ME), vin, new EventInput("REPAIR",
+                LocalDate.parse("2025-06-01"), 95000, new BigDecimal("340.5"), "RON", null, null, null, null, null,
+                List.of("BRAKES"), null)));
+        adding.add(new AddEventCommand(UUID.fromString(ME), vin, new EventInput("TIRES",
+                LocalDate.parse("2025-12-01"), 102000, new BigDecimal("40"), "EUR", null, null, null, null, null,
+                List.of(), null)));
+
+        String json = given().queryParam("from", "2025-01-01").queryParam("to", "2025-12-31")
+                .queryParam("type", "REPAIR", "TIRES")
+                .when().get("/vehicles/" + vin + "/timeline/summary")
+                .then().statusCode(200)
+                .body("eventCount", equalTo(2))
+                .body("countsByType.type", equalTo(List.of("REPAIR", "TIRES")))
+                .body("countsByType.count", equalTo(List.of(1, 1)))
+                .body("costByCurrency.currency", equalTo(List.of("RON", "EUR")))
+                .body("distance.km", equalTo(12000))
+                .body("distance.fromKm", equalTo(90000))
+                .body("distance.toKm", equalTo(102000))
+                .body("years", equalTo(List.of(2025, 2024)))
+                .extract().asString();
+        assertTrue(json.contains("\"amount\":340.50") && json.contains("\"amount\":40.00"), json);
+
+        given().queryParam("from", "2030-01-01").when().get("/vehicles/" + vin + "/timeline/summary")
+                .then().statusCode(200)
+                .body("eventCount", equalTo(0))
+                .body("countsByType", hasSize(0))
+                .body("costByCurrency", hasSize(0))
+                .body("distance", hasKey("km"))
+                .body("distance.km", nullValue())
+                .body("distance.fromKm", equalTo(102000))
+                .body("distance.toKm", nullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void summary_bad_filters_400_and_foreign_vin_404() {
+        String vin = registerAs(ME);
+        List<Map<String, String>> bad = List.of(
+                Map.of("type", "PAINTING"),
+                Map.of("component", "WING"),
+                Map.of("from", "2025-02-30"),
+                Map.of("to", "25-01-01"),
+                Map.of("from", "2025-12-31", "to", "2025-01-01"));
+        for (Map<String, String> params : bad) {
+            given().queryParams(params).when().get("/vehicles/" + vin + "/timeline/summary")
+                    .then().statusCode(400)
+                    .contentType(startsWith("application/problem+json"))
+                    .body("code", equalTo("validation-failed"));
+        }
+        given().when().get("/vehicles/" + registerAs(OTHER) + "/timeline/summary")
+                .then().statusCode(404).body("code", equalTo("vehicle-not-found"));
+    }
+
+    @Test
+    @TestSecurity(user = "e1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
     void ascending_cursor_with_desc_order_is_400_invalid_cursor() {
         String vin = registerAs(ME);
         addAs(ME, vin, "2025-03-01", 1000);

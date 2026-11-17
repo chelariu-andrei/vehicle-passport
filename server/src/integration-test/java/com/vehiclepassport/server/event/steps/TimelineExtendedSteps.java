@@ -10,7 +10,11 @@ import com.vehiclepassport.server.event.application.port.in.AddAttachmentUseCase
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.AttachmentUpload;
+import com.vehiclepassport.server.event.application.port.in.CurrencyAmountView;
 import com.vehiclepassport.server.event.application.port.in.CustomFieldView;
+import com.vehiclepassport.server.event.application.port.in.GetTimelineSummaryUseCase;
+import com.vehiclepassport.server.event.application.port.in.TimelineSummaryView;
+import com.vehiclepassport.server.event.application.port.in.TypeCountView;
 import com.vehiclepassport.server.event.application.port.in.DeleteEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.DetailsView;
 import com.vehiclepassport.server.event.application.port.in.EventInput;
@@ -73,6 +77,7 @@ public class TimelineExtendedSteps {
     private static final String NAMED_KEY = "extended.named";
     private static final String FILTERED_KEY = "extended.filtered";
     private static final String CURSOR_KEY = "extended.cursor";
+    private static final String SUMMARY_KEY = "extended.summary";
     private static final String TIMELINE_KEY = "event.timeline"; // written by EventSteps "I request the timeline"
     private static final LocalDate DATE = LocalDate.parse("2026-01-10");
     private static final byte[] PNG_BYTES = {
@@ -102,6 +107,8 @@ public class TimelineExtendedSteps {
     DeleteEventUseCase deleteEvent;
     @Inject
     TestClock clock;
+    @Inject
+    GetTimelineSummaryUseCase summaries;
 
     // ---- adding ----
 
@@ -336,25 +343,33 @@ public class TimelineExtendedSteps {
     /** {@code query} is a URL-style query string: type, component, from, to, order (repeatable lists). */
     @When("I request the timeline with {word}")
     public void iRequestTheTimelineWith(String query) {
-        List<String> types = new ArrayList<>();
-        List<String> components = new ArrayList<>();
-        LocalDate from = null;
-        LocalDate to = null;
-        String order = null;
-        for (String pair : query.split("&")) {
-            String[] kv = pair.split("=", 2);
-            switch (kv[0]) {
-                case "type" -> types.add(kv[1]);
-                case "component" -> components.add(kv[1]);
-                case "from" -> from = LocalDate.parse(kv[1]);
-                case "to" -> to = LocalDate.parse(kv[1]);
-                case "order" -> order = kv[1];
-                default -> throw new IllegalArgumentException("Unknown query parameter " + kv[0]);
-            }
-        }
-        TimelineQuery q = new TimelineQuery(world.me(), VIN, new TimelineFilterView(types, components, from, to),
-                order, null, 100);
+        Query parsed = Query.parse(query);
+        TimelineQuery q = new TimelineQuery(world.me(), VIN, parsed.filter(), parsed.order(), null, 100);
         world.attempt(() -> world.put(FILTERED_KEY, timeline.get(q).items()));
+    }
+
+    /** A URL-style query string: type, component, from, to, order (repeatable lists). */
+    private record Query(TimelineFilterView filter, String order) {
+
+        static Query parse(String query) {
+            List<String> types = new ArrayList<>();
+            List<String> components = new ArrayList<>();
+            LocalDate from = null;
+            LocalDate to = null;
+            String order = null;
+            for (String pair : query.split("&")) {
+                String[] kv = pair.split("=", 2);
+                switch (kv[0]) {
+                    case "type" -> types.add(kv[1]);
+                    case "component" -> components.add(kv[1]);
+                    case "from" -> from = LocalDate.parse(kv[1]);
+                    case "to" -> to = LocalDate.parse(kv[1]);
+                    case "order" -> order = kv[1];
+                    default -> throw new IllegalArgumentException("Unknown query parameter " + kv[0]);
+                }
+            }
+            return new Query(new TimelineFilterView(types, components, from, to), order);
+        }
     }
 
     /** Narrow on purpose: "I see the same public URL ..." and "I see all N events ..." belong to other steps. */
@@ -523,6 +538,140 @@ public class TimelineExtendedSteps {
         assertEquals("ITP", itp.type());
         assertNull(itp.validUntil());
         assertEquals(status, itp.validityStatus());
+    }
+
+    // ---- summary ----
+
+    @Given("V has events costing {int} {word}, {int} {word} and {int} {word}")
+    public void vHasEventsCosting(int a1, String c1, int a2, String c2, int a3, String c3) {
+        LocalDate day = LocalDate.parse("2025-03-01");
+        costing(day, 1000, a1, c1);
+        costing(day, 1001, a2, c2);
+        costing(day, 1002, a3, c3);
+    }
+
+    @Given("V has readings {int} km on {word}, {int} km on {word} and {int} km on {word}")
+    public void vHasReadings(int km1, String d1, int km2, String d2, int km3, String d3) {
+        addEvent.add(new AddEventCommand(world.me(), VIN, service(LocalDate.parse(d1), km1)));
+        addEvent.add(new AddEventCommand(world.me(), VIN, service(LocalDate.parse(d2), km2)));
+        addEvent.add(new AddEventCommand(world.me(), VIN, service(LocalDate.parse(d3), km3)));
+    }
+
+    @Given("V has a SERVICE at {int} km and a REPAIR at {int} km in {int}")
+    public void vHasAServiceAndARepair(int serviceKm, int repairKm, int year) {
+        addEvent.add(new AddEventCommand(world.me(), VIN, service(LocalDate.of(year, 3, 1), serviceKm)));
+        addEvent.add(new AddEventCommand(world.me(), VIN, new EventInput("REPAIR", LocalDate.of(year, 9, 1),
+                repairKm, BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
+        // An insurance without km in the period changes nothing about the distance.
+        LocalDate rca = LocalDate.of(year, 10, 1);
+        addEvent.add(new AddEventCommand(world.me(), VIN, new EventInput("INSURANCE", rca, null,
+                new BigDecimal("1200"), "RON", null, null, rca, rca.plusYears(1).minusDays(1),
+                insurance("RCA", "Allianz"), null, null)));
+    }
+
+    @Given("V has one reading in {int}")
+    public void vHasOneReadingIn(int year) {
+        addEvent.add(new AddEventCommand(world.me(), VIN, service(LocalDate.of(year, 5, 1), 80000)));
+        // A later reading, outside the period, is no second reading for it.
+        addEvent.add(new AddEventCommand(world.me(), VIN, service(LocalDate.of(year + 1, 1, 5), 85000)));
+    }
+
+    @Given("V has events in {int} and {int}")
+    public void vHasEventsIn(int y1, int y2) {
+        addEvent.add(new AddEventCommand(world.me(), VIN, service(LocalDate.of(y1, 4, 1), 50000)));
+        addEvent.add(new AddEventCommand(world.me(), VIN, service(LocalDate.of(y2, 4, 1), 70000)));
+        addEvent.add(new AddEventCommand(world.me(), VIN, service(LocalDate.of(y2, 8, 1), 75000)));
+    }
+
+    @When("I request the summary")
+    public void iRequestTheSummary() {
+        summarise(null);
+    }
+
+    @When("I request the summary with {word}")
+    public void iRequestTheSummaryWith(String query) {
+        summarise(Query.parse(query).filter());
+    }
+
+    @When("I request the summary for {int}")
+    public void iRequestTheSummaryFor(int year) {
+        summarise(year(year, List.of()));
+    }
+
+    @When("I request the summary for {int} with no earlier readings")
+    public void iRequestTheSummaryForWithNoEarlierReadings(int year) {
+        summarise(year(year, List.of()));
+    }
+
+    @When("I request the summary for {int} with {word}")
+    public void iRequestTheSummaryForWith(int year, String query) {
+        summarise(year(year, Query.parse(query).filter().types()));
+    }
+
+    @Then("costByCurrency is {int} {word} and {int} {word}")
+    public void costByCurrencyIs(int a1, String c1, int a2, String c2) {
+        assertEquals(List.of(new CurrencyAmountView(c1, new BigDecimal(a1).setScale(2)),
+                new CurrencyAmountView(c2, new BigDecimal(a2).setScale(2))), summary().costByCurrency());
+        assertEquals(3, summary().eventCount());
+    }
+
+    @Then("distance is {int} km from {int} to {int}")
+    public void distanceIsFromTo(int km, int from, int to) {
+        TimelineSummaryView s = summary();
+        assertEquals(km, s.distanceKm());
+        assertEquals(from, s.fromKm());
+        assertEquals(to, s.toKm());
+    }
+
+    @Then("distance is {int} km")
+    public void distanceIs(int km) {
+        assertEquals(km, summary().distanceKm());
+    }
+
+    @Then("distance km is empty")
+    public void distanceKmIsEmpty() {
+        TimelineSummaryView s = summary();
+        assertNull(s.distanceKm());
+        assertNull(s.fromKm(), "the only reading cannot be both ends");
+        assertEquals(80000, s.toKm());
+    }
+
+    @Then("years are {int} and {int}")
+    public void yearsAre(int y1, int y2) {
+        assertEquals(List.of(y1, y2), summary().years());
+    }
+
+    @Then("the summary counts {int} {word}")
+    public void theSummaryCounts(int count, String type) {
+        TimelineSummaryView s = summary();
+        assertEquals(count, s.eventCount());
+        assertEquals(List.of(new TypeCountView(type, count)), s.countsByType());
+    }
+
+    @Then("the summary counts no events")
+    public void theSummaryCountsNoEvents() {
+        TimelineSummaryView s = summary();
+        assertEquals(0, s.eventCount());
+        assertEquals(List.of(), s.countsByType());
+        assertEquals(List.of(), s.costByCurrency());
+    }
+
+    private void costing(LocalDate date, int km, int amount, String currency) {
+        addEvent.add(new AddEventCommand(world.me(), VIN, new EventInput("SERVICE", date, km,
+                BigDecimal.valueOf(amount), currency, null, null, null, null, null, null, null)));
+    }
+
+    private static TimelineFilterView year(int year, List<String> types) {
+        return new TimelineFilterView(types, List.of(), LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31));
+    }
+
+    private void summarise(TimelineFilterView filter) {
+        world.attempt(() -> world.put(SUMMARY_KEY, summaries.summary(world.me(), VIN, filter)));
+    }
+
+    private TimelineSummaryView summary() {
+        assertNoError();
+        return fromWorld(SUMMARY_KEY);
     }
 
     // ---- outcomes ----

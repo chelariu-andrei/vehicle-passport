@@ -443,6 +443,10 @@ class AttachmentServiceTest {
 
         public List<VehicleEvent> allActive(String vin) { return List.of(); }
 
+        public com.vehiclepassport.server.event.domain.model.TimelineSummary summary(String vin, EventFilter f) {
+            return null;
+        }
+
         public List<VehicleEvent> validityEntries(String vin) {
             return rows.values().stream().filter(e -> e.vin().equals(vin) && e.deletedAt() == null).toList();
         }

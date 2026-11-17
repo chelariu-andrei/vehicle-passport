@@ -30,6 +30,7 @@ import com.vehiclepassport.server.event.domain.model.SafetyItem;
 import com.vehiclepassport.server.event.domain.model.ScanDetails;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
 import com.vehiclepassport.server.event.domain.model.TimelineOrder;
+import com.vehiclepassport.server.event.domain.model.TimelineSummary;
 import com.vehiclepassport.server.event.domain.model.Validity;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import com.vehiclepassport.server.shared.error.DomainException;
@@ -49,6 +50,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -514,6 +516,115 @@ class EventPersistenceIT {
         List<VehicleEvent> entries = QuarkusTransaction.requiringNew().call(() -> events.validityEntries(f.vin()));
         assertEquals(Set.of(rca.id(), rovinieta.id(), kit.id(), legacyItp.id()),
                 Set.copyOf(entries.stream().map(VehicleEvent::id).toList()));
+    }
+
+    private static VehicleEvent costed(Fixture f, EventType type, String date, Integer km, String cost,
+            String currency, Set<Component> components) {
+        return new VehicleEvent(UUID.randomUUID(), f.vin(), type, LocalDate.parse(date), km, new BigDecimal(cost),
+                currency, null, null, null, null, components, List.of(), EvidenceLevel.USER_CONFIRMED,
+                EventSource.MANUAL, f.owner(), f.period(), null, T0, null);
+    }
+
+    private TimelineSummary summary(String vin, EventFilter filter) {
+        return QuarkusTransaction.requiringNew().call(() -> events.summary(vin, filter));
+    }
+
+    @Test
+    void summaryCountsAndCostsHonourEveryFilter() {
+        Fixture f = fixture();
+        Fixture other = fixture();
+        saveAll(List.of(
+                costed(f, EventType.SERVICE, "2024-06-01", 1000, "100.00", "RON", Set.of(Component.ENGINE)),
+                costed(f, EventType.SERVICE, "2025-02-01", 2000, "250.50", "RON", Set.of(Component.ENGINE)),
+                costed(f, EventType.REPAIR, "2025-03-01", 3000, "40.25", "EUR", Set.of(Component.BRAKES)),
+                costed(f, EventType.INSURANCE, "2025-12-31", null, "1200.00", "RON", Set.of()),
+                costed(f, EventType.REPAIR, "2025-04-01", 3500, "9.99", "USD", Set.of(Component.BRAKES))
+                        .deleted(T0.plusSeconds(1)),
+                costed(other, EventType.REPAIR, "2025-04-01", 3500, "77.00", "USD", Set.of())));
+
+        TimelineSummary all = summary(f.vin(), EventFilter.none());
+        assertEquals(4, all.eventCount());
+        assertEquals(Map.of(EventType.SERVICE, 2L, EventType.REPAIR, 1L, EventType.INSURANCE, 1L),
+                all.countsByType());
+        assertEquals(List.of(Map.entry("RON", new BigDecimal("1550.50")), Map.entry("EUR", new BigDecimal("40.25"))),
+                List.copyOf(all.costByCurrency().entrySet()), "sorted by amount, descending");
+
+        TimelineSummary filtered = summary(f.vin(), new EventFilter(Set.of(EventType.SERVICE, EventType.REPAIR),
+                Set.of(Component.ENGINE, Component.BRAKES), LocalDate.parse("2025-01-01"),
+                LocalDate.parse("2025-12-31")));
+        assertEquals(2, filtered.eventCount());
+        assertEquals(Map.of(EventType.SERVICE, 1L, EventType.REPAIR, 1L), filtered.countsByType());
+        assertEquals(List.of(Map.entry("RON", new BigDecimal("250.50")), Map.entry("EUR", new BigDecimal("40.25"))),
+                List.copyOf(filtered.costByCurrency().entrySet()));
+
+        TimelineSummary none = summary(f.vin(), new EventFilter(Set.of(EventType.ITP), null, null, null));
+        assertEquals(0, none.eventCount());
+        assertEquals(Map.of(), none.countsByType());
+        assertEquals(Map.of(), none.costByCurrency());
+    }
+
+    @Test
+    void summaryReadingsIgnoreTypeAndComponentAndEventsWithoutKm() {
+        Fixture f = fixture();
+        VehicleEvent before = costed(f, EventType.SERVICE, "2024-12-20", 90000, "1", "RON", Set.of());
+        VehicleEvent tieFirst = costed(f, EventType.REPAIR, "2025-06-01", 95000, "1", "RON", Set.of());
+        VehicleEvent tieLast = new VehicleEvent(UUID.randomUUID(), f.vin(), EventType.TIRES,
+                LocalDate.parse("2025-06-01"), 96000, BigDecimal.ONE, "RON", null, null, null, null, Set.of(),
+                List.of(), EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL, f.owner(), f.period(), null,
+                T0.plusSeconds(5), null);
+        VehicleEvent noKm = costed(f, EventType.INSURANCE, "2025-12-15", null, "1", "RON", Set.of());
+        VehicleEvent deleted = costed(f, EventType.SERVICE, "2025-12-20", 999999, "1", "RON", Set.of())
+                .deleted(T0.plusSeconds(1));
+        VehicleEvent after = costed(f, EventType.SERVICE, "2026-01-05", 104000, "1", "RON", Set.of());
+        saveAll(List.of(before, tieFirst, tieLast, noKm, deleted, after));
+        LocalDate from = LocalDate.parse("2025-01-01");
+        LocalDate to = LocalDate.parse("2025-12-31");
+
+        TimelineSummary year = summary(f.vin(), new EventFilter(Set.of(EventType.INSURANCE), Set.of(Component.BODY),
+                from, to));
+        assertEquals(90000, year.fromKm(), "the last reading before the period");
+        assertEquals(96000, year.toKm(), "the last reading of the period, ties broken by createdAt");
+        assertEquals(6000, year.distanceKm());
+
+        TimelineSummary whole = summary(f.vin(), EventFilter.none());
+        assertEquals(90000, whole.fromKm(), "no from: the first reading");
+        assertEquals(104000, whole.toKm());
+        assertEquals(14000, whole.distanceKm());
+
+        TimelineSummary untilJune = summary(f.vin(), new EventFilter(null, null, null, LocalDate.parse("2025-06-30")));
+        assertEquals(90000, untilJune.fromKm());
+        assertEquals(96000, untilJune.toKm());
+
+        TimelineSummary noEarlier = summary(f.vin(), new EventFilter(null, null, LocalDate.parse("2024-01-01"),
+                LocalDate.parse("2024-12-31")));
+        assertNull(noEarlier.fromKm(), "the only reading of the period is not also its start");
+        assertEquals(90000, noEarlier.toKm());
+        assertNull(noEarlier.distanceKm());
+
+        TimelineSummary nothingInPeriod = summary(f.vin(), new EventFilter(null, null,
+                LocalDate.parse("2025-07-01"), LocalDate.parse("2025-12-31")));
+        assertEquals(96000, nothingInPeriod.fromKm(), "an earlier reading still starts the period");
+        assertNull(nothingInPeriod.toKm(), "the insurance has no km and the deleted reading does not count");
+        assertNull(nothingInPeriod.distanceKm());
+
+        TimelineSummary beforeAny = summary(f.vin(), new EventFilter(null, null, null, LocalDate.parse("2024-01-01")));
+        assertNull(beforeAny.fromKm());
+        assertNull(beforeAny.toKm());
+    }
+
+    @Test
+    void summaryYearsAreUnfilteredDistinctAndNewestFirst() {
+        Fixture f = fixture();
+        saveAll(List.of(
+                costed(f, EventType.SERVICE, "2023-04-01", 1000, "1", "RON", Set.of()),
+                costed(f, EventType.SERVICE, "2025-04-01", 2000, "1", "RON", Set.of()),
+                costed(f, EventType.REPAIR, "2025-08-01", 3000, "1", "RON", Set.of()),
+                costed(f, EventType.REPAIR, "2021-08-01", 500, "1", "RON", Set.of()).deleted(T0)));
+
+        TimelineSummary s = summary(f.vin(), new EventFilter(Set.of(EventType.ITP), null,
+                LocalDate.parse("2030-01-01"), null));
+        assertEquals(List.of(2025, 2023), s.years());
+        assertEquals(List.of(), summary(EventTestVins.random(), EventFilter.none()).years());
     }
 
     private Callable<Object> add(Fixture f, String date, int km) {

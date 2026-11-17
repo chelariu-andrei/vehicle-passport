@@ -1,7 +1,9 @@
 package com.vehiclepassport.server.event.api;
 
 import com.vehiclepassport.server.event.api.dto.TimelinePageResponse;
+import com.vehiclepassport.server.event.api.dto.TimelineSummaryResponse;
 import com.vehiclepassport.server.event.api.mapper.EventDtoMapper;
+import com.vehiclepassport.server.event.application.port.in.GetTimelineSummaryUseCase;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
 import com.vehiclepassport.server.shared.security.CurrentUser;
 import jakarta.inject.Inject;
@@ -27,6 +29,8 @@ public class TimelineResource {
     EventDtoMapper mapper;
     @Inject
     GetTimelineUseCase timeline;
+    @Inject
+    GetTimelineSummaryUseCase summaries;
 
     /**
      * The limit and dates are taken as text so that a malformed value fails validation (400) like an out-of-range
@@ -42,5 +46,16 @@ public class TimelineResource {
             @QueryParam("order") @DefaultValue("asc") @Pattern(regexp = "asc|desc") String order) {
         return mapper.toResponse(timeline.get(mapper.toTimelineQuery(currentUser.id(), vin, types, components, from,
                 to, order, cursor, Integer.parseInt(limit))));
+    }
+
+    /** The same filter parameters and validation as the timeline, without cursor, limit or order. */
+    @GET
+    @Path("summary")
+    public TimelineSummaryResponse summary(@PathParam("vin") String vin, @QueryParam("type") List<String> types,
+            @QueryParam("component") List<String> components,
+            @QueryParam("from") @Pattern(regexp = DATE) String from,
+            @QueryParam("to") @Pattern(regexp = DATE) String to) {
+        return mapper.toResponse(summaries.summary(currentUser.id(), vin,
+                mapper.toFilter(types, components, from, to)));
     }
 }

@@ -22,6 +22,7 @@ import com.vehiclepassport.server.event.domain.model.SafetyItem;
 import com.vehiclepassport.server.event.domain.model.ScanDetails;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
 import com.vehiclepassport.server.event.domain.model.TimelineOrder;
+import com.vehiclepassport.server.event.domain.model.TimelineSummary;
 import com.vehiclepassport.server.event.domain.model.Validity;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import com.vehiclepassport.server.event.infrastructure.persistence.entity.VehicleEventEntity;
@@ -33,11 +34,15 @@ import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -54,6 +59,11 @@ public class EventPanacheRepository implements EventRepositoryPort {
     /** An event without an odometer reading (allowed for some types) is no neighbour for the km check. */
     private static final String WITH_KM = " and e.odometerKm is not null";
     private static final String DESC = " order by e.eventDate desc, e.createdAt desc, e.id desc";
+    /** The native counterparts, over vehicle_passport.vehicle_event aliased {@code e}. */
+    private static final String ACTIVE_ROWS =
+            " from vehicle_passport.vehicle_event e where e.vin = :vin and e.deleted_at is null";
+    private static final String NATIVE_ASC = " order by e.event_date, e.created_at, e.id";
+    private static final String NATIVE_DESC = " order by e.event_date desc, e.created_at desc, e.id desc";
     /** The types that carry a validity period (spec §5.6 groups). */
     private static final List<String> VALIDITY_TYPES = List.of(EventType.ROVINIETA.name(),
             EventType.INSURANCE.name(), EventType.ITP.name(), EventType.SAFETY_EQUIPMENT.name());
@@ -137,8 +147,79 @@ public class EventPanacheRepository implements EventRepositoryPort {
     @SuppressWarnings("unchecked")
     public List<VehicleEvent> page(String vin, EventFilter filter, TimelineOrder order, TimelineCursor after,
             int limit) {
-        StringBuilder sql = new StringBuilder(
-                "select * from vehicle_passport.vehicle_event e where e.vin = :vin and e.deleted_at is null");
+        StringBuilder sql = new StringBuilder("select *").append(ACTIVE_ROWS).append(where(filter));
+        boolean desc = order == TimelineOrder.DESC;
+        if (after != null) {
+            String beyond = desc ? "<" : ">";
+            sql.append(" and (e.event_date ").append(beyond).append(" :d")
+                    .append(" or (e.event_date = :d and e.created_at ").append(beyond).append(" :c)")
+                    .append(" or (e.event_date = :d and e.created_at = :c and e.id ").append(beyond).append(" :id))");
+        }
+        sql.append(desc ? NATIVE_DESC : NATIVE_ASC);
+        Query query = bind(em.createNativeQuery(sql.toString(), VehicleEventEntity.class), vin, filter);
+        if (after != null) {
+            query.setParameter("d", after.date()).setParameter("c", micros(after.createdAt()))
+                    .setParameter("id", after.id());
+        }
+        List<VehicleEventEntity> rows = query.setMaxResults(limit).getResultList();
+        return rows.stream().map(EventPanacheRepository::toDomain).toList();
+    }
+
+    /**
+     * Aggregates in SQL, with the same filter fragments and bound parameters as {@link #page}. The readings use
+     * only the period of the filter; each is read with its id, so a period backed by one event alone is seen as
+     * such and reports no {@code fromKm}.
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public TimelineSummary summary(String vin, EventFilter filter) {
+        String matching = ACTIVE_ROWS + where(filter);
+        Map<EventType, Long> counts = new EnumMap<>(EventType.class);
+        long total = 0;
+        List<Object[]> byType = bind(em.createNativeQuery("select e.type, count(*)" + matching
+                + " group by e.type"), vin, filter).getResultList();
+        for (Object[] row : byType) {
+            long count = ((Number) row[1]).longValue();
+            counts.put(stored(EventType.class, (String) row[0]), count);
+            total += count;
+        }
+        Map<String, BigDecimal> costs = new LinkedHashMap<>();
+        List<Object[]> byCurrency = bind(em.createNativeQuery("select e.currency, round(sum(e.cost_amount), 2)"
+                + matching + " group by e.currency order by 2 desc, 1"), vin, filter).getResultList();
+        for (Object[] row : byCurrency) {
+            costs.put((String) row[0], (BigDecimal) row[1]);
+        }
+
+        EventFilter period = new EventFilter(null, null, filter.from(), filter.to());
+        Object[] last = reading(vin, period, true);
+        // Dates are whole days: "before from" is "on or before the day before from".
+        Object[] first = filter.from() == null ? null
+                : reading(vin, new EventFilter(null, null, null, filter.from().minusDays(1)), true);
+        if (first == null) {
+            first = reading(vin, period, false);
+        }
+        Integer toKm = last == null ? null : ((Number) last[1]).intValue();
+        Integer fromKm = first == null || (last != null && first[0].equals(last[0])) ? null
+                : ((Number) first[1]).intValue();
+
+        List<Number> years = em.createNativeQuery("select distinct cast(extract(year from e.event_date) as integer)"
+                + ACTIVE_ROWS + " order by 1 desc").setParameter("vin", vin).getResultList();
+        return new TimelineSummary(total, counts, costs, fromKm, toKm,
+                years.stream().map(Number::intValue).toList());
+    }
+
+    /** {id, km} of the first or last event with a reading that matches the filter, or null when there is none. */
+    @SuppressWarnings("unchecked")
+    private Object[] reading(String vin, EventFilter filter, boolean last) {
+        List<Object[]> rows = bind(em.createNativeQuery("select e.id, e.odometer_km" + ACTIVE_ROWS + where(filter)
+                + " and e.odometer_km is not null" + (last ? NATIVE_DESC : NATIVE_ASC)), vin, filter)
+                .setMaxResults(1).getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** The filter as fixed SQL fragments over {@code e}, each value a named parameter set by {@link #bind}. */
+    private static String where(EventFilter filter) {
+        StringBuilder sql = new StringBuilder();
         if (!filter.types().isEmpty()) {
             sql.append(" and e.type in (:types)");
         }
@@ -151,16 +232,11 @@ public class EventPanacheRepository implements EventRepositoryPort {
         if (filter.to() != null) {
             sql.append(" and e.event_date <= :to");
         }
-        boolean desc = order == TimelineOrder.DESC;
-        if (after != null) {
-            String beyond = desc ? "<" : ">";
-            sql.append(" and (e.event_date ").append(beyond).append(" :d")
-                    .append(" or (e.event_date = :d and e.created_at ").append(beyond).append(" :c)")
-                    .append(" or (e.event_date = :d and e.created_at = :c and e.id ").append(beyond).append(" :id))");
-        }
-        sql.append(desc ? " order by e.event_date desc, e.created_at desc, e.id desc"
-                : " order by e.event_date, e.created_at, e.id");
-        Query query = em.createNativeQuery(sql.toString(), VehicleEventEntity.class).setParameter("vin", vin);
+        return sql.toString();
+    }
+
+    private static Query bind(Query query, String vin, EventFilter filter) {
+        query.setParameter("vin", vin);
         if (!filter.types().isEmpty()) {
             query.setParameter("types", filter.types().stream().map(EventType::name).toList());
         }
@@ -173,12 +249,7 @@ public class EventPanacheRepository implements EventRepositoryPort {
         if (filter.to() != null) {
             query.setParameter("to", filter.to());
         }
-        if (after != null) {
-            query.setParameter("d", after.date()).setParameter("c", micros(after.createdAt()))
-                    .setParameter("id", after.id());
-        }
-        List<VehicleEventEntity> rows = query.setMaxResults(limit).getResultList();
-        return rows.stream().map(EventPanacheRepository::toDomain).toList();
+        return query;
     }
 
     @Override

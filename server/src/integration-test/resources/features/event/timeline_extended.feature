@@ -180,3 +180,30 @@ Feature: Extended timeline
       | query          |
       | type=PAINTING  |
       | component=WING |
+
+  Scenario: Summary per currency
+    Given V has events costing 100 RON, 250 RON and 40 EUR
+    When I request the summary
+    Then costByCurrency is 350 RON and 40 EUR
+
+  Scenario: Kilometres driven in a year
+    Given V has readings 90000 km on 2024-12-20, 95000 km on 2025-06-01 and 102000 km on 2025-12-01
+    When I request the summary for 2025
+    Then distance is 12000 km from 90000 to 102000
+
+  Scenario: Kilometres ignore the type filter
+    Given V has a SERVICE at 100000 km and a REPAIR at 104000 km in 2025
+    When I request the summary for 2025 with type=SERVICE
+    Then distance is 4000 km
+    And the summary counts 1 SERVICE
+
+  Scenario: Not enough readings
+    Given V has one reading in 2025
+    When I request the summary for 2025 with no earlier readings
+    Then distance km is empty
+
+  Scenario: Years ignore filters
+    Given V has events in 2023 and 2025
+    When I request the summary with type=ITP
+    Then years are 2025 and 2023
+    And the summary counts no events

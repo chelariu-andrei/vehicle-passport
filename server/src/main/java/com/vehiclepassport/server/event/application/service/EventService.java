@@ -31,7 +31,12 @@ import com.vehiclepassport.server.event.domain.model.PartLine;
 import java.time.LocalDate;
 import com.vehiclepassport.server.event.application.port.in.DetailsView;
 import com.vehiclepassport.server.event.application.port.in.EventView;
+import com.vehiclepassport.server.event.application.port.in.GetTimelineSummaryUseCase;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
+import com.vehiclepassport.server.event.application.port.in.CurrencyAmountView;
+import com.vehiclepassport.server.event.application.port.in.TimelineSummaryView;
+import com.vehiclepassport.server.event.application.port.in.TypeCountView;
+import com.vehiclepassport.server.event.domain.model.TimelineSummary;
 import com.vehiclepassport.server.event.application.port.in.PartView;
 import com.vehiclepassport.server.event.application.port.in.TimelineFilterView;
 import com.vehiclepassport.server.event.application.port.in.TimelinePage;
@@ -71,7 +76,7 @@ import java.util.function.Function;
 @ApplicationScoped
 public class EventService implements AddEventUseCase, GetTimelineUseCase, UpdateEventUseCase, DeleteEventUseCase,
         SaveConfirmedEventUseCase, CheckOdometerUseCase, ReadVehicleHistoryUseCase, CountOwnedByOwnerUseCase,
-        DetachOwnerUseCase, ListEventsByCreatorUseCase {
+        DetachOwnerUseCase, ListEventsByCreatorUseCase, GetTimelineSummaryUseCase {
 
     private static final int MIN_LIMIT = 1;
     private static final int MAX_LIMIT = 100;
@@ -144,6 +149,19 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
             next = new TimelineCursor(order, last.date(), last.createdAt(), last.id()).encode();
         }
         return new TimelinePage(toViews(window, rating(canonical)::of), next);
+    }
+
+    @Override
+    @Transactional
+    public TimelineSummaryView summary(UUID userId, String vin, TimelineFilterView filter) {
+        String canonical = owners.assertActiveOwner(vin, userId).vin();
+        TimelineSummary s = events.summary(canonical, filter(filter));
+        return new TimelineSummaryView(s.eventCount(),
+                s.countsByType().entrySet().stream()
+                        .map(e -> new TypeCountView(e.getKey().name(), e.getValue())).toList(),
+                s.costByCurrency().entrySet().stream()
+                        .map(e -> new CurrencyAmountView(e.getKey(), e.getValue())).toList(),
+                s.distanceKm(), s.fromKm(), s.toKm(), s.years());
     }
 
     /** Unknown names are refused rather than ignored, so a typo never widens the result. Repeats are harmless. */

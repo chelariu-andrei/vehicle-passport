@@ -4,6 +4,7 @@ import com.vehiclepassport.server.event.domain.model.EventFilter;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
 import com.vehiclepassport.server.event.domain.model.TimelineOrder;
+import com.vehiclepassport.server.event.domain.model.TimelineSummary;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -27,6 +28,19 @@ public interface EventRepositoryPort {
      * that direction (from the start when null), at most limit. The cursor must have been issued for that order.
      */
     List<VehicleEvent> page(String vin, EventFilter filter, TimelineOrder order, TimelineCursor after, int limit);
+
+    /**
+     * Aggregates of the VIN's active events, computed by the store rather than by loading every event:
+     * <ul>
+     * <li>count, counts by type and cost by currency honour the whole filter;</li>
+     * <li>the readings ignore the type and component filters and events without km. {@code toKm} is the last
+     * reading with {@code from <= date <= to} (open bounds when null). {@code fromKm} is the last reading dated
+     * before {@code from}, or else the first reading of the period, and is null when that is the same event as
+     * {@code toKm};</li>
+     * <li>years ignore the filter entirely.</li>
+     * </ul>
+     */
+    TimelineSummary summary(String vin, EventFilter filter);
 
     List<VehicleEvent> allActive(String vin);
 

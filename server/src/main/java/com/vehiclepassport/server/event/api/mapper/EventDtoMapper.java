@@ -6,6 +6,10 @@ import com.vehiclepassport.server.event.api.dto.EventRequest;
 import com.vehiclepassport.server.event.api.dto.EventResponse;
 import com.vehiclepassport.server.event.api.dto.PartResponse;
 import com.vehiclepassport.server.event.api.dto.TimelinePageResponse;
+import com.vehiclepassport.server.event.api.dto.TimelineSummaryResponse;
+import com.vehiclepassport.server.event.api.dto.TimelineSummaryResponse.CurrencyAmountDto;
+import com.vehiclepassport.server.event.api.dto.TimelineSummaryResponse.DistanceDto;
+import com.vehiclepassport.server.event.api.dto.TimelineSummaryResponse.TypeCountDto;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.CustomFieldView;
 import com.vehiclepassport.server.event.application.port.in.DetailsView;
@@ -15,6 +19,7 @@ import com.vehiclepassport.server.event.application.port.in.PartView;
 import com.vehiclepassport.server.event.application.port.in.TimelineFilterView;
 import com.vehiclepassport.server.event.application.port.in.TimelinePage;
 import com.vehiclepassport.server.event.application.port.in.TimelineQuery;
+import com.vehiclepassport.server.event.application.port.in.TimelineSummaryView;
 import com.vehiclepassport.server.event.application.port.in.UpdateEventCommand;
 import com.vehiclepassport.server.event.domain.exception.InvalidTimelineFilterException;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -46,8 +51,19 @@ public class EventDtoMapper {
     /** Dates arrive as text already shaped yyyy-MM-dd; one that does not exist (2025-02-30) is refused here. */
     public TimelineQuery toTimelineQuery(UUID userId, String vin, List<String> types, List<String> components,
             String from, String to, String order, String cursor, int limit) {
-        return new TimelineQuery(userId, vin, new TimelineFilterView(types, components, date(from), date(to)), order,
-                cursor, limit);
+        return new TimelineQuery(userId, vin, toFilter(types, components, from, to), order, cursor, limit);
+    }
+
+    /** The same filter as {@link #toTimelineQuery}, with the same date handling. */
+    public TimelineFilterView toFilter(List<String> types, List<String> components, String from, String to) {
+        return new TimelineFilterView(types, components, date(from), date(to));
+    }
+
+    public TimelineSummaryResponse toResponse(TimelineSummaryView s) {
+        return new TimelineSummaryResponse(s.eventCount(),
+                s.countsByType().stream().map(c -> new TypeCountDto(c.type(), c.count())).toList(),
+                s.costByCurrency().stream().map(c -> new CurrencyAmountDto(c.currency(), c.amount())).toList(),
+                new DistanceDto(s.distanceKm(), s.fromKm(), s.toKm()), s.years());
     }
 
     private static LocalDate date(String raw) {
