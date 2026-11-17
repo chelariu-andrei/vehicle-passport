@@ -44,7 +44,7 @@ class SettingsResourceIT {
     private static String body(String language, String days) {
         return "{\"language\":\"" + language + "\",\"appearance\":\"dark\",\"units\":{\"distance\":\"mi\","
                 + "\"currency\":\"EUR\"},\"notifications\":{\"documentDeadlines\":false,\"reminderDays\":" + days
-                + ",\"activityScans\":false,\"activityPassportViews\":true,\"activityTransfers\":false,"
+                + ",\"tireSeason\":false,\"activityScans\":false,\"activityPassportViews\":true,\"activityTransfers\":false,"
                 + "\"productNews\":true}}";
     }
 
@@ -66,6 +66,7 @@ class SettingsResourceIT {
                 .body("units.currency", equalTo("RON"))
                 .body("notifications.documentDeadlines", equalTo(true))
                 .body("notifications.reminderDays", contains(30, 7, 1))
+                .body("notifications.tireSeason", equalTo(true))
                 .body("notifications.productNews", equalTo(false));
         assertEquals(0, rows(NEWBIE));
     }
@@ -87,6 +88,7 @@ class SettingsResourceIT {
                 .body("units.currency", equalTo("EUR"))
                 .body("notifications.documentDeadlines", equalTo(false))
                 .body("notifications.reminderDays", contains(7, 1))
+                .body("notifications.tireSeason", equalTo(false))
                 .body("notifications.activityPassportViews", equalTo(true))
                 .body("notifications.productNews", equalTo(true));
         // second PUT replaces (upsert), including an empty list
@@ -131,6 +133,10 @@ class SettingsResourceIT {
                 .then().statusCode(400)
                 .contentType(startsWith("application/problem+json"))
                 .body("code", equalTo("validation-failed"));
+        // like every other flag, tireSeason is required on PUT
+        String withoutTireSeason = body("ro", "[7]").replace("\"tireSeason\":false,", "");
+        given().contentType(ContentType.JSON).body(withoutTireSeason)
+                .when().put("/me/settings").then().statusCode(400).body("code", equalTo("validation-failed"));
         String nestedExtra = body("ro", "[7]").replace("\"currency\":\"EUR\"", "\"currency\":\"EUR\",\"x\":1");
         given().contentType(ContentType.JSON).body(nestedExtra)
                 .when().put("/me/settings").then().statusCode(400).body("code", equalTo("validation-failed"));

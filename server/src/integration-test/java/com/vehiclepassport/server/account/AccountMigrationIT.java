@@ -89,6 +89,17 @@ class AccountMigrationIT {
     }
 
     @Test
+    void tire_season_defaults_to_true_for_rows_written_without_it() throws SQLException {
+        UUID id = UUID.randomUUID();
+        update("insert into vehicle_passport.user_settings "
+                + "(user_id, language, appearance, distance_unit, currency, notif_document_deadlines, "
+                + "notif_reminder_days, notif_scans, notif_passport_views, notif_transfers) "
+                + "values (?, 'ro', 'system', 'km', 'RON', true, '{30}', true, true, true)", id);
+        assertEquals(List.of("t"), query("select notif_tire_season from vehicle_passport.user_settings "
+                + "where user_id = '" + id + "'"));
+    }
+
+    @Test
     void settings_and_support_checks() {
         UUID id = UUID.randomUUID();
         assertThrows(SQLException.class, () -> update("insert into vehicle_passport.user_settings "

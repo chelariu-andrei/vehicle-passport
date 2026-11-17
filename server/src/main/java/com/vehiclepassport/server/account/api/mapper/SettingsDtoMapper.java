@@ -16,7 +16,7 @@ public class SettingsDtoMapper {
         SettingsDto.Notifications n = d.notifications();
         return new Settings(Language.fromValue(d.language()), Appearance.fromValue(d.appearance()),
                 DistanceUnit.fromValue(d.units().distance()), Currency.fromValue(d.units().currency()),
-                new NotificationPrefs(n.documentDeadlines(), n.reminderDays(), n.activityScans(),
+                new NotificationPrefs(n.documentDeadlines(), n.reminderDays(), n.tireSeason(), n.activityScans(),
                         n.activityPassportViews(), n.activityTransfers(), n.productNews()));
     }
 
@@ -24,7 +24,7 @@ public class SettingsDtoMapper {
         NotificationPrefs n = s.notifications();
         return new SettingsDto(s.language().value(), s.appearance().value(),
                 new SettingsDto.Units(s.distance().value(), s.currency().value()),
-                new SettingsDto.Notifications(n.documentDeadlines(), n.reminderDays(), n.activityScans(),
+                new SettingsDto.Notifications(n.documentDeadlines(), n.reminderDays(), n.tireSeason(), n.activityScans(),
                         n.activityPassportViews(), n.activityTransfers(), n.productNews()));
     }
 }

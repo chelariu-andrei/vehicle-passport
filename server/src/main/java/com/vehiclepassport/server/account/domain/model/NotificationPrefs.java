@@ -7,6 +7,7 @@ import java.util.Set;
 public record NotificationPrefs(
         boolean documentDeadlines,
         List<Integer> reminderDays,
+        boolean tireSeason,
         boolean activityScans,
         boolean activityPassportViews,
         boolean activityTransfers,
@@ -30,6 +31,6 @@ public record NotificationPrefs(
     }
 
     public static NotificationPrefs defaults() {
-        return new NotificationPrefs(true, List.of(30, 7, 1), true, true, true, false);
+        return new NotificationPrefs(true, List.of(30, 7, 1), true, true, true, true, false);
     }
 }

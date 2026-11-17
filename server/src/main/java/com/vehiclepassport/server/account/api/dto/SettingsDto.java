@@ -21,6 +21,7 @@ public record SettingsDto(
     public record Notifications(
             @NotNull Boolean documentDeadlines,
             @NotNull List<Integer> reminderDays,
+            @NotNull Boolean tireSeason,
             @NotNull Boolean activityScans,
             @NotNull Boolean activityPassportViews,
             @NotNull Boolean activityTransfers,
