@@ -7,6 +7,8 @@ import { publicHandlers } from './legal';
 import type { Ctx, FakeState, Reply, UploadForm } from './handlers';
 
 export * from './builders';
+export { aFuelEntry, aFuelStats } from './fuel';
+export type { FuelEntryResponse, FuelStatsResponse } from './fuel';
 export type { FakeState } from './handlers';
 export { operations } from './contract';
 export { handlers } from './handlers';
@@ -66,6 +68,8 @@ export function installFakeApi(): FakeApi {
     scans: {},
     passports: [],
     attachments: {},
+    fuel: {},
+    fuelStats: {},
     account: initialAccount(),
   };
   const scanVins = new Map<string, string>();

@@ -12,6 +12,9 @@ export const qk = {
   deadlines: (vin: string) => ['timeline', vin, 'deadlines'] as const,
   /** The date of the car's latest tire change, for the tire-season reminders. Under `timeline(vin)` for the same reason. */
   lastTires: (vin: string) => ['timeline', vin, 'lastTires'] as const,
+  /** All fuel data of a car; stats sit under it so one invalidation refreshes list and stats. */
+  fuel: (vin: string) => ['fuel', vin] as const,
+  fuelStats: (vin: string, period: string) => ['fuel', vin, 'stats', period] as const,
   attachments: (vin: string, eventId: string) => ['attachments', vin, eventId] as const,
   claims: (vin: string) => ['claims', vin] as const,
   scan: (jobId: string) => ['scan', jobId] as const,

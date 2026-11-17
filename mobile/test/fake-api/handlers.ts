@@ -2,6 +2,7 @@
 import { daysBetween, rovinietaEnd } from '@/features/event/model/validity';
 import type { components } from '@/shared/api/generated/schema';
 import { accountHandlers, type AccountState } from './account';
+import { fuelHandlers, type FuelEntryResponse, type FuelStatsResponse } from './fuel';
 import type { AttachmentResponse, EventResponse, PassportResponse, PendingClaimResponse, ScanJobResponse, VehicleResponse } from './builders';
 
 type Schemas = components['schemas'];
@@ -15,6 +16,10 @@ export interface FakeState {
   passports: PassportResponse[];
   /** Attachments by event id. */
   attachments: Record<string, AttachmentResponse[]>;
+  /** Fuel entries by VIN. */
+  fuel: Record<string, FuelEntryResponse[]>;
+  /** Pins the stats answer of a car (alert, grade comparison); otherwise stats are derived from `fuel`. */
+  fuelStats: Record<string, FuelStatsResponse>;
   account: AccountState;
 }
 
@@ -643,4 +648,5 @@ export const handlers: Record<string, Handler> = {
   getPassportPdf,
   getPassportQr,
   ...accountHandlers,
+  ...fuelHandlers,
 };

@@ -21,17 +21,17 @@ const send = (method: string, path: string, init: { headers?: Record<string, str
 const register = (body: object) => send('POST', '/vehicles', { headers: json, body: JSON.stringify(body) });
 const carBody = { vin: VIN, make: 'Dacia', model: 'Logan', year: 2020, fuel: 'PETROL' };
 
-test('has a handler for all 41 authenticated operations', () => {
+test('has a handler for all 46 authenticated operations', () => {
   const doc = parse(readFileSync(resolve(__dirname, '../../../contracts/openapi.yaml'), 'utf8'));
   const ids: string[] = Object.values<Record<string, any>>(doc.paths)
     .flatMap((item) => ['get', 'put', 'post', 'patch', 'delete'].map((m) => item[m]).filter(Boolean))
     .filter((op) => !(Array.isArray(op.security) && op.security.length === 0))
     .map((op) => op.operationId);
-  expect(ids).toHaveLength(41);
+  expect(ids).toHaveLength(46);
   expect(ids).not.toContain('getPublicPassport');
   expect(ids).not.toContain('getPublicPassportPdf');
   expect(Object.keys(handlers).sort()).toEqual([...ids].sort());
-  expect(operations.filter((o) => o.authenticated)).toHaveLength(41);
+  expect(operations.filter((o) => o.authenticated)).toHaveLength(46);
 });
 
 test('an unknown JSON field answers 400 validation-failed and is recorded in violations', async () => {
@@ -569,5 +569,66 @@ describe('deadlines', () => {
 
   test('an unknown vehicle is 404', async () => {
     expect((await send('GET', '/vehicles/WVWZZZ1JZXW999999/deadlines', { headers: auth })).status).toBe(404);
+  });
+});
+
+describe('fuel operations', () => {
+  const entry = (o: object = {}) => ({
+    date: '2026-10-01', odometerKm: 10_000, fuelType: 'PETROL', quantity: 40, total: 300, currency: 'RON', ...o,
+  });
+  const addCar = () => register(carBody);
+  const post = (body: object) => send('POST', `/vehicles/${VIN}/fuel-entries`, { headers: json, body: JSON.stringify(body) });
+
+  test('fake_fuel_entries_roundtrip', async () => {
+    await addCar();
+    const created = await post(entry());
+    expect(created.status).toBe(201);
+    const body = await created.json();
+    expect(body.unit).toBe('L');
+    expect(body.unitPrice).toBe(7.5);
+    const list = await send('GET', `/vehicles/${VIN}/fuel-entries`, { headers: auth });
+    expect((await list.json()).items).toHaveLength(1);
+    const del = await send('DELETE', `/vehicles/${VIN}/fuel-entries/${body.id}`, { headers: auth });
+    expect(del.status).toBe(204);
+    const gone = await send('DELETE', `/vehicles/${VIN}/fuel-entries/${body.id}`, { headers: auth });
+    expect(gone.status).toBe(404);
+    expect(api.violations).toEqual([]);
+  });
+
+  test('fake_fuel_refuses_lower_odometer_and_wrong_fuel', async () => {
+    await addCar();
+    await post(entry());
+    const lower = await post(entry({ date: '2026-10-20', odometerKm: 9_000 }));
+    expect(lower.status).toBe(422);
+    expect((await lower.json()).code).toBe('odometer-inconsistent');
+    const electric = await post(entry({ fuelType: 'ELECTRIC', date: '2026-10-21', odometerKm: 11_000 }));
+    expect(electric.status).toBe(422);
+    expect((await electric.json()).code).toBe('invalid-fuel-entry');
+  });
+
+  test('fake_fuel_stats_returns_consumption_between_full_tanks', async () => {
+    await addCar();
+    await post(entry());
+    const second = await post(entry({ date: '2026-10-20', odometerKm: 10_600, quantity: 42, total: 315 }));
+    expect((await second.json()).consumption).toBe(7);
+    const stats = await send('GET', `/vehicles/${VIN}/fuel/stats`, { headers: auth });
+    const s = await stats.json();
+    expect(s.byFuelType[0].avgConsumption).toBe(7);
+    expect(s.lastOdometerKm).toBe(10_600);
+    expect(api.violations).toEqual([]);
+  });
+
+  test('fake_fuel_stats_empty_car_is_200_with_nulls', async () => {
+    await addCar();
+    const res = await send('GET', `/vehicles/${VIN}/fuel/stats`, { headers: auth });
+    expect(res.status).toBe(200);
+    const s = await res.json();
+    expect(s.byFuelType).toEqual([]);
+    expect(s.costPerKm).toBeNull();
+  });
+
+  test('fake_fuel_other_owners_car_is_404', async () => {
+    const res = await send('GET', `/vehicles/${VIN}/fuel-entries`, { headers: auth });
+    expect(res.status).toBe(404);
   });
 });
