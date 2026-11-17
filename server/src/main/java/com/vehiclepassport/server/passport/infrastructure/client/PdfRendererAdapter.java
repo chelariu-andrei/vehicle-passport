@@ -2,6 +2,8 @@ package com.vehiclepassport.server.passport.infrastructure.client;
 
 import com.vehiclepassport.server.passport.application.port.out.PassportDocument;
 import com.vehiclepassport.server.passport.application.port.out.PdfRendererPort;
+import com.vehiclepassport.server.passport.domain.model.SnapshotCustomField;
+import com.vehiclepassport.server.passport.domain.model.SnapshotDetails;
 import com.vehiclepassport.server.passport.domain.model.SnapshotEvent;
 import com.vehiclepassport.server.passport.domain.model.SnapshotPart;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -83,9 +85,16 @@ public class PdfRendererAdapter implements PdfRendererPort {
 
         private void event(SnapshotEvent e) throws IOException {
             float full = width - 2 * MARGIN;
-            String head = e.date() + "  " + e.type() + (e.odometerKm() == null ? "" : "  " + e.odometerKm() + " km")
+            String label = e.customLabel() != null && !e.customLabel().isBlank() ? e.customLabel() : e.type();
+            String summary = detailsSummary(e.details());
+            String head = e.date() + "  " + label + (summary.isEmpty() ? "" : " · " + summary)
+                    + (e.odometerKm() == null ? "" : "  " + e.odometerKm() + " km")
                     + (e.costAmount() != null ? "  " + e.costAmount().toPlainString() + " " + nz(e.currency()) : "");
             line(head, BODY, 0, full);
+            if (e.validFrom() != null || e.validUntil() != null) {
+                line("valid " + (e.validFrom() == null ? "" : e.validFrom()) + "–"
+                        + (e.validUntil() == null ? "" : e.validUntil()), BODY, 12, full);
+            }
             if (e.serviceName() != null && !e.serviceName().isBlank()) {
                 line("Service: " + e.serviceName(), BODY, 12, full);
             }
@@ -101,7 +110,30 @@ public class PdfRendererAdapter implements PdfRendererPort {
             if (e.labor() != null) {
                 line("Labor: " + e.labor().toPlainString(), BODY, 12, full);
             }
+            if (e.components() != null && !e.components().isEmpty()) {
+                line("Components: " + String.join(", ", e.components()), BODY, 12, full);
+            }
+            if (e.customFields() != null) {
+                for (SnapshotCustomField f : e.customFields()) {
+                    line(f.label() + ": " + f.value(), BODY, 12, full);
+                }
+            }
             y -= 5;
+        }
+
+        /** The kind's own facts in one phrase, e.g. "CASCO · Allianz" or "ITP Station · PASSED". */
+        private static String detailsSummary(SnapshotDetails d) {
+            if (d == null) {
+                return "";
+            }
+            List<String> bits = new ArrayList<>();
+            for (String v : List.of(nz(d.coverage()), nz(d.insurer()), nz(d.duration()), nz(d.station()),
+                    nz(d.result()), nz(d.item()))) {
+                if (!v.isBlank()) {
+                    bits.add(v);
+                }
+            }
+            return String.join(" · ", bits);
         }
 
         private static String nz(String s) {

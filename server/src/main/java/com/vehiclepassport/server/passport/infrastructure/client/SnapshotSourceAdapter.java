@@ -4,6 +4,8 @@ import com.vehiclepassport.server.event.application.port.in.DetailsView;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.ReadVehicleHistoryUseCase;
 import com.vehiclepassport.server.passport.application.port.out.SnapshotSourcePort;
+import com.vehiclepassport.server.passport.domain.model.SnapshotCustomField;
+import com.vehiclepassport.server.passport.domain.model.SnapshotDetails;
 import com.vehiclepassport.server.passport.domain.model.SnapshotEvent;
 import com.vehiclepassport.server.passport.domain.model.SnapshotPart;
 import com.vehiclepassport.server.passport.domain.model.SnapshotVehicle;
@@ -39,13 +41,24 @@ public class SnapshotSourceAdapter implements SnapshotSourcePort {
                 events);
     }
 
-    /** Only scan details are written so far (flat, as before); the other kinds join the snapshot later. */
+    /**
+     * Scan details stay flat on the event, exactly as old snapshots hold them; the other kinds (a documented ITP
+     * included) travel as {@code details}. The validity status is left out on purpose.
+     */
     private static SnapshotEvent toEvent(EventView e) {
-        DetailsView d = e.details() != null && "SCAN".equals(e.details().kind()) ? e.details() : null;
-        List<SnapshotPart> parts = d == null ? null
-                : d.parts().stream().map(p -> new SnapshotPart(p.name(), p.qty(), p.price())).toList();
+        DetailsView d = e.details();
+        boolean scan = d != null && "SCAN".equals(d.kind());
+        DetailsView flat = scan ? d : null;
+        List<SnapshotPart> parts = flat == null || flat.parts() == null ? null
+                : flat.parts().stream().map(p -> new SnapshotPart(p.name(), p.qty(), p.price())).toList();
+        SnapshotDetails typed = d == null || scan ? null
+                : new SnapshotDetails(d.kind(), d.coverage(), d.insurer(), d.policyNumber(), d.duration(),
+                        d.station(), d.result(), d.item());
+        List<SnapshotCustomField> fields = e.customFields() == null ? null
+                : e.customFields().stream().map(f -> new SnapshotCustomField(f.label(), f.value())).toList();
         return new SnapshotEvent(e.id(), e.type(), e.date(), e.odometerKm(), e.costAmount(), e.currency(),
-                e.notes(), d == null ? null : d.serviceName(), parts, d == null ? null : d.labor(), e.evidence(),
-                e.documentPresent());
+                e.notes(), flat == null ? null : flat.serviceName(), parts, flat == null ? null : flat.labor(),
+                e.evidence(), e.documentPresent(), e.customLabel(), e.validFrom(), e.validUntil(), typed,
+                e.components(), fields);
     }
 }

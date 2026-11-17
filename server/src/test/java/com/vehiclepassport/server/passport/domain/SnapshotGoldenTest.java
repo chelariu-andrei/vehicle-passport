@@ -1,8 +1,12 @@
 package com.vehiclepassport.server.passport.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.passport.domain.model.Snapshot;
+import com.vehiclepassport.server.passport.domain.model.SnapshotCustomField;
+import com.vehiclepassport.server.passport.domain.model.SnapshotDetails;
 import com.vehiclepassport.server.passport.domain.model.SnapshotEvent;
 import com.vehiclepassport.server.passport.domain.model.SnapshotPart;
 import com.vehiclepassport.server.passport.domain.model.SnapshotVehicle;
@@ -43,6 +47,36 @@ class SnapshotGoldenTest {
     private static SnapshotEvent noOdometer() {
         return new SnapshotEvent(UUID.fromString("00000000-0000-0000-0000-000000000004"), "SERVICE",
                 LocalDate.of(2025, 4, 1), null, null, null, null, null, null, null, "USER_CONFIRMED", false);
+    }
+
+    private static SnapshotEvent extended(String type, String customLabel, LocalDate from, LocalDate until,
+            SnapshotDetails details, List<String> components, List<SnapshotCustomField> fields) {
+        return new SnapshotEvent(UUID.fromString("00000000-0000-0000-0000-000000000009"), type,
+                LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, "USER_CONFIRMED", false,
+                customLabel, from, until, details, components, fields);
+    }
+
+    @Test
+    void newFieldsAppearOnlyWhenSet() {
+        String bare = Snapshot.of(VEHICLE, List.of(extended("SERVICE", null, null, null, null, List.of(), List.of())))
+                .canonicalJson();
+        for (String k : List.of("customLabel", "validFrom", "validUntil", "details", "components", "customFields",
+                "validityStatus")) {
+            assertFalse(bare.contains("\"" + k + "\""), k + " in " + bare);
+        }
+
+        String full = Snapshot.of(VEHICLE, List.of(extended("INSURANCE", "CASCO", LocalDate.of(2025, 5, 1),
+                LocalDate.of(2026, 4, 30),
+                new SnapshotDetails("INSURANCE", "CASCO", "Allianz", "P-1", null, null, null, null),
+                List.of("Engine", "Brakes"), List.of(new SnapshotCustomField("Layers", "3"))))).canonicalJson();
+        assertTrue(full.contains("\"customLabel\":\"CASCO\""), full);
+        assertTrue(full.contains("\"validFrom\":\"2025-05-01\""), full);
+        assertTrue(full.contains("\"validUntil\":\"2026-04-30\""), full);
+        assertTrue(full.contains("\"details\":{\"coverage\":\"CASCO\",\"insurer\":\"Allianz\","
+                + "\"kind\":\"INSURANCE\",\"policyNumber\":\"P-1\"}"), full);
+        assertTrue(full.contains("\"components\":[\"Engine\",\"Brakes\"]"), full);
+        assertTrue(full.contains("\"customFields\":[{\"label\":\"Layers\",\"value\":\"3\"}]"), full);
+        assertFalse(full.contains("validityStatus"), full);
     }
 
     @Test
