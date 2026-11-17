@@ -257,8 +257,17 @@ function Form({ vin, vehicleFuel, initial, original, lastKm, today }: FormProps)
           ) : (
             <ChipGroup label={en.fuelLog.grade.label} options={GRADES} value={state.grade} labelOf={(g) => en.fuelLog.grade[g]} onChange={set('grade')} />
           )}
-          <Field label={f.station} value={state.station} onChangeText={set('station')} maxLength={120} />
-          <Field label={f.note} value={state.note} onChangeText={set('note')} multiline maxLength={500} />
+          <Field
+            label={f.currency}
+            value={state.currency}
+            onChangeText={(value) => set('currency')(value.toUpperCase())}
+            onBlur={blur('currency')}
+            autoCapitalize="characters"
+            maxLength={3}
+            error={fieldError('currency')}
+          />
+          <Field label={f.station} value={state.station} onChangeText={set('station')} maxLength={60} />
+          <Field label={f.note} value={state.note} onChangeText={set('note')} multiline maxLength={200} />
           <View>
             <Switch label={f.missed} value={state.missedPrevious} onValueChange={set('missedPrevious')} />
             <Text variant="caption" color="ink-muted">

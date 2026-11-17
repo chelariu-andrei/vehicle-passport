@@ -64,6 +64,26 @@ test('saving posts only quantity and total, then goes back with a toast', async 
   await waitFor(() => expect(screen).toHavePathname(`/vehicles/${SAMPLE_VIN}/fuel`));
 });
 
+test('the currency can be changed under More details and is what gets sent', async () => {
+  const fake = await open(newUrl, seedWith());
+  await type(f.odometer, '84210');
+  await type(f.quantityLitres, '38.2');
+  await type(f.totalIn('RON'), '312');
+  await fireEvent.press(await screen.findByRole('button', { name: f.moreDetails }));
+  await type(f.currency, 'eur');
+  expect(screen.getByLabelText(f.totalIn('EUR'))).toBeTruthy();
+  await fireEvent.press(saveButton());
+  await waitFor(() => expect(fake.callsTo('addFuelEntry')).toHaveLength(1));
+  expect(fake.callsTo('addFuelEntry')[0].body).toMatchObject({ currency: 'EUR' });
+});
+
+test('station and note stop at the limits the server accepts', async () => {
+  await open(newUrl, seedWith());
+  await fireEvent.press(await screen.findByRole('button', { name: f.moreDetails }));
+  expect(await screen.findByLabelText(f.station)).toHaveProp('maxLength', 60);
+  expect(screen.getByLabelText(f.note)).toHaveProp('maxLength', 200);
+});
+
 test('a fill-up that closes a full-tank segment says its consumption in the toast', async () => {
   await open(newUrl, seedWith({}, (api) => (api.state.fuel[SAMPLE_VIN] = [aFuelEntry({ date: '2026-10-01', odometerKm: 10000 })])));
   await waitFor(() => expect(screen.getByLabelText(f.odometer)).toHaveDisplayValue('10000'));

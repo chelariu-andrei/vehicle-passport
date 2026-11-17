@@ -118,6 +118,12 @@ describe('validateFuelForm', () => {
     expect(validateFuelForm(editAmount(filled, 'quantity', '200'), ctx).confirmLargeQuantity).toBe(false);
   });
 
+  test('a currency must be three capital letters', () => {
+    expect(validateFuelForm({ ...filled, currency: 'EUR' }, ctx).errors.currency).toBeUndefined();
+    expect(validateFuelForm({ ...filled, currency: 'eu' }, ctx).errors.currency).toBe('invalid');
+    expect(validateFuelForm({ ...filled, currency: '' }, ctx).errors.currency).toBe('required');
+  });
+
   test('the kWh limit is 150', () => {
     const e = { lastKm: null, isElectric: true };
     expect(validateFuelForm(editAmount(filled, 'quantity', '151'), e).confirmLargeQuantity).toBe(true);
@@ -141,6 +147,16 @@ describe('toFuelEntryRequest', () => {
       missedPrevious: false,
     });
     expect(body).not.toHaveProperty('unitPrice');
+  });
+
+  test('amounts are rounded to what the server stores: 3 decimals of quantity, 2 of total', () => {
+    const body = toFuelEntryRequest({ ...filled, quantity: '38.1234', total: '312.346' });
+    expect(body.quantity).toBe(38.123);
+    expect(body.total).toBe(312.35);
+  });
+
+  test('the chosen currency is sent', () => {
+    expect(toFuelEntryRequest({ ...filled, currency: 'EUR' }).currency).toBe('EUR');
   });
 
   test('electric drops the grade and keeps the charge type', () => {

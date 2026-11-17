@@ -91,6 +91,9 @@ export function validateFuelForm(state: FuelFormState, ctx: FuelFormContext): Fu
   if (state.total.trim() === '') errors.total = 'required';
   else if (parseDecimal(state.total) === null) errors.total = 'invalid';
 
+  if (state.currency.trim() === '') errors.currency = 'required';
+  else if (!/^[A-Z]{3}$/.test(state.currency)) errors.currency = 'invalid';
+
   if (state.fuelType === null) errors.fuelType = 'required';
 
   const limit = ctx.isElectric ? MAX_KWH : MAX_LITRES;
@@ -106,8 +109,9 @@ export function toFuelEntryRequest(state: FuelFormState): FuelEntryRequest {
     date: state.date,
     odometerKm: Number(state.odometerKm.trim()),
     fuelType: state.fuelType!,
-    quantity: parseDecimal(state.quantity)!,
-    total: parseDecimal(state.total)!,
+    // The server keeps 3 decimals of quantity and 2 of total, so that is what it is sent.
+    quantity: round(parseDecimal(state.quantity)!, 3),
+    total: round(parseDecimal(state.total)!, 2),
     currency: state.currency,
     fullTank: state.fullTank,
     missedPrevious: state.missedPrevious,

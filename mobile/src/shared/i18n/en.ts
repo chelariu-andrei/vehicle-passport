@@ -644,6 +644,7 @@ export const en = {
       invalidEntry: 'These values do not fit this car.',
       saveError: "We couldn't save the fill-up",
       fuelType: 'Fuel',
+      currency: 'Currency',
       totalIn: (currency: string) => `Total (${currency})`,
       computed: 'Calculated from the other two',
       dateChip: (date: string) => `Fill-up date, ${date}. Change it in More details`,
