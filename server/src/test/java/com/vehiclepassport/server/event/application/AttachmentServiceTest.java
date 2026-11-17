@@ -54,6 +54,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -404,7 +405,7 @@ class AttachmentServiceTest {
 
     private static VehicleEvent event(String vin, UUID periodId, EvidenceLevel evidence, EventSource source) {
         return new VehicleEvent(UUID.randomUUID(), vin, EventType.SERVICE, LocalDate.parse("2026-03-01"), 1000,
-                BigDecimal.TEN, "RON", null, null, evidence, source, UUID.randomUUID(), periodId, null,
+                BigDecimal.TEN, "RON", null, null, null, null, Set.of(), List.of(), evidence, source, UUID.randomUUID(), periodId, null,
                 Instant.parse("2026-03-01T10:00:00Z"), null);
     }
 

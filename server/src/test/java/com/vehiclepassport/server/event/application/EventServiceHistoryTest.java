@@ -19,6 +19,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -28,7 +29,7 @@ class EventServiceHistoryTest {
 
     private static VehicleEvent event(UUID id, String createdAt) {
         return new VehicleEvent(id, VIN, EventType.SERVICE, LocalDate.parse("2025-03-01"), 1000, BigDecimal.TEN,
-                "RON", null, null, EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL, UUID.randomUUID(),
+                "RON", null, null, null, null, Set.of(), List.of(), EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL, UUID.randomUUID(),
                 UUID.randomUUID(), null, Instant.parse(createdAt), null);
     }
 

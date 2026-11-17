@@ -5,8 +5,10 @@ import com.vehiclepassport.server.event.domain.model.EventDetails;
 import com.vehiclepassport.server.event.domain.model.EventSource;
 import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.EvidenceLevel;
+import com.vehiclepassport.server.event.domain.model.ItpDetails;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
 import com.vehiclepassport.server.event.domain.model.PartLine;
+import com.vehiclepassport.server.event.domain.model.ScanDetails;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import com.vehiclepassport.server.event.infrastructure.persistence.entity.VehicleEventEntity;
@@ -21,6 +23,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -144,12 +147,19 @@ public class EventPanacheRepository implements EventRepositoryPort {
         return instant.truncatedTo(ChronoUnit.MICROS);
     }
 
+    /**
+     * Interim until typed details are persisted: the column holds only the scan shape, so a scanned ITP keeps its
+     * station as the service name, and the other kinds (not reachable through the API yet) are not stored.
+     */
     private static DetailsJson toJson(EventDetails d) {
-        if (d == null) {
-            return null;
+        if (d instanceof ScanDetails s) {
+            return new DetailsJson(s.serviceName(),
+                    s.parts().stream().map(p -> new PartJson(p.name(), p.qty(), p.price())).toList(), s.labor());
         }
-        return new DetailsJson(d.serviceName(),
-                d.parts().stream().map(p -> new PartJson(p.name(), p.qty(), p.price())).toList(), d.labor());
+        if (d instanceof ItpDetails i) {
+            return new DetailsJson(i.station(), List.of(), null);
+        }
+        return null;
     }
 
     private static EventDetails toDomain(DetailsJson d) {
@@ -158,13 +168,14 @@ public class EventPanacheRepository implements EventRepositoryPort {
         }
         List<PartLine> parts = d.parts() == null ? List.of()
                 : d.parts().stream().map(p -> new PartLine(p.name(), p.qty(), p.price())).toList();
-        return new EventDetails(d.serviceName(), parts, d.labor());
+        return new ScanDetails(d.serviceName(), parts, d.labor());
     }
 
     private static VehicleEvent toDomain(VehicleEventEntity e) {
         return new VehicleEvent(e.id, e.vin, EventType.valueOf(e.type), e.eventDate, e.odometerKm, e.costAmount,
-                e.currency, e.notes, toDomain(e.details), EvidenceLevel.valueOf(e.evidence),
-                EventSource.valueOf(e.source), e.createdBy, e.periodId, e.documentKey, e.createdAt, e.deletedAt);
+                e.currency, null, e.notes, null, toDomain(e.details), Set.of(), List.of(),
+                EvidenceLevel.valueOf(e.evidence), EventSource.valueOf(e.source), e.createdBy, e.periodId,
+                e.documentKey, e.createdAt, e.deletedAt);
     }
 
     @Override

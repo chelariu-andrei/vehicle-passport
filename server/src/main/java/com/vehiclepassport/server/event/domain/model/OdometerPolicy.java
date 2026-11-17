@@ -7,8 +7,11 @@ public final class OdometerPolicy {
     private OdometerPolicy() {
     }
 
-    /** Passes when previousKm <= km <= nextKm; a null bound is open. */
-    public static void check(Integer previousKm, int km, Integer nextKm) {
+    /** Passes when previousKm <= km <= nextKm; a null bound is open, and an event without km is not checked. */
+    public static void check(Integer previousKm, Integer km, Integer nextKm) {
+        if (km == null) {
+            return;
+        }
         if (previousKm != null && km < previousKm) {
             throw new OdometerInconsistentException(
                     "Odometer " + km + " km is below " + previousKm + " km recorded earlier");

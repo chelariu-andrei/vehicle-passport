@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.vehiclepassport.server.event.domain.exception.DocumentedEventImmutableException;
 import com.vehiclepassport.server.event.domain.exception.InvalidEventException;
+import com.vehiclepassport.server.event.domain.model.EventAnnotations;
+import com.vehiclepassport.server.event.domain.model.EventFacts;
 import com.vehiclepassport.server.event.domain.model.EventSource;
 import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.EvidenceLevel;
@@ -15,6 +17,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -24,9 +28,17 @@ class VehicleEventTest {
     private static final UUID USER = UUID.randomUUID();
     private static final UUID PERIOD = UUID.randomUUID();
 
+    private static EventFacts facts(EventType type, LocalDate date, Integer km, BigDecimal cost, String currency) {
+        return new EventFacts(type, date, km, cost, currency, null, null, null, null);
+    }
+
+    private static EventAnnotations notes(String notes) {
+        return new EventAnnotations(notes, Set.of(), List.of());
+    }
+
     private static VehicleEvent manual(LocalDate date, int km, BigDecimal cost, String currency) {
-        return VehicleEvent.manual("WVWZZZ1JZXW000001", EventType.SERVICE, date, km, cost, currency, "n",
-                USER, PERIOD, CLOCK);
+        return VehicleEvent.manual("WVWZZZ1JZXW000001", facts(EventType.SERVICE, date, km, cost, currency),
+                notes("n"), USER, PERIOD, CLOCK);
     }
 
     @Test
@@ -40,6 +52,10 @@ class VehicleEventTest {
         assertNull(e.deletedAt());
         assertNull(e.details());
         assertNull(e.documentKey());
+        assertNull(e.validity());
+        assertNull(e.customLabel());
+        assertEquals(Set.of(), e.components());
+        assertEquals(List.of(), e.customFields());
     }
 
     @Test
@@ -88,8 +104,9 @@ class VehicleEventTest {
     }
 
     private static VehicleEvent documented(int km) {
-        return VehicleEvent.documented("WVWZZZ1JZXW000001", EventType.SERVICE, LocalDate.parse("2025-03-01"), km,
-                new BigDecimal("450.00"), "RON", "n", null, USER, PERIOD, CLOCK);
+        return VehicleEvent.documented("WVWZZZ1JZXW000001",
+                facts(EventType.SERVICE, LocalDate.parse("2025-03-01"), km, new BigDecimal("450.00"), "RON"),
+                notes("n"), USER, PERIOD, CLOCK);
     }
 
     @Test
@@ -103,27 +120,30 @@ class VehicleEventTest {
     @Test
     void editing_keeps_evidence_level() {
         VehicleEvent e = manual(LocalDate.parse("2025-03-01"), 120000, new BigDecimal("450"), "RON");
-        VehicleEvent edited = e.edited(EventType.REPAIR, LocalDate.parse("2025-03-02"), 121000, BigDecimal.TEN,
-                "eur", "x", Clock.fixed(Instant.parse("2026-02-01T00:00:00Z"), ZoneOffset.UTC));
+        VehicleEvent edited = e.edited(facts(EventType.REPAIR, LocalDate.parse("2025-03-02"), 121000, BigDecimal.TEN,
+                "eur"), notes("x"), Clock.fixed(Instant.parse("2026-02-01T00:00:00Z"), ZoneOffset.UTC));
         assertEquals(EvidenceLevel.USER_CONFIRMED, edited.evidence());
         assertEquals(e.id(), edited.id());
         assertEquals(e.createdAt(), edited.createdAt());
         assertEquals("EUR", edited.currency());
         assertEquals(121000, edited.odometerKm());
+        assertEquals("x", edited.notes());
     }
 
     @Test
     void documented_rejects_km_change() {
         VehicleEvent e = documented(120000);
         DocumentedEventImmutableException ex = assertThrows(DocumentedEventImmutableException.class,
-                () -> e.edited(e.type(), e.date(), 121000, e.costAmount(), e.currency(), e.notes(), CLOCK));
+                () -> e.edited(facts(e.type(), e.date(), 121000, e.costAmount(), e.currency()), notes(e.notes()),
+                        CLOCK));
         assertEquals("documented-event-immutable", ex.code());
     }
 
     @Test
     void documented_accepts_notes_change() {
         VehicleEvent e = documented(120000);
-        VehicleEvent edited = e.edited(e.type(), e.date(), 120000, new BigDecimal("450"), "ron", "new", CLOCK);
+        VehicleEvent edited = e.edited(facts(e.type(), e.date(), 120000, new BigDecimal("450"), "ron"),
+                notes("new"), CLOCK);
         assertEquals("new", edited.notes());
         assertEquals(EvidenceLevel.DOCUMENTED, edited.evidence());
         assertEquals(new BigDecimal("450.00"), edited.costAmount());

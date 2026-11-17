@@ -13,7 +13,9 @@ import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.EvidenceLevel;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
 import com.vehiclepassport.server.event.domain.model.PartLine;
+import com.vehiclepassport.server.event.domain.model.ScanDetails;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
+import com.vehiclepassport.server.event.domain.model.TimelineOrder;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import com.vehiclepassport.server.shared.error.DomainException;
 import com.vehiclepassport.server.testsupport.smoke.PersistenceProfile;
@@ -30,6 +32,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -69,8 +72,8 @@ class EventPersistenceIT {
 
     private static VehicleEvent event(Fixture f, UUID id, String date, Instant createdAt, int km) {
         return new VehicleEvent(id, f.vin(), EventType.SERVICE, LocalDate.parse(date), km, new BigDecimal("10.50"),
-                "RON", null, null, EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL, f.owner(), f.period(), null,
-                createdAt, null);
+                "RON", null, null, null, null, Set.of(), List.of(), EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL,
+                f.owner(), f.period(), null, createdAt, null);
     }
 
     private void saveAll(List<VehicleEvent> toSave) {
@@ -107,7 +110,7 @@ class EventPersistenceIT {
         saveAll(all);
         VehicleEvent second = all.get(1);
 
-        List<VehicleEvent> rest = page(f.vin(), new TimelineCursor(second.date(), second.createdAt(), second.id()), 10);
+        List<VehicleEvent> rest = page(f.vin(), new TimelineCursor(TimelineOrder.ASC, second.date(), second.createdAt(), second.id()), 10);
 
         assertEquals(all.subList(2, 5).stream().map(VehicleEvent::id).toList(),
                 rest.stream().map(VehicleEvent::id).toList());
@@ -138,7 +141,7 @@ class EventPersistenceIT {
                     break;
                 }
                 VehicleEvent last = fetched.get(fetched.size() - 1);
-                cursor = new TimelineCursor(last.date(), last.createdAt(), last.id());
+                cursor = new TimelineCursor(TimelineOrder.ASC, last.date(), last.createdAt(), last.id());
             }
             assertEquals(expected, seen, "page size " + size);
         }
@@ -168,13 +171,13 @@ class EventPersistenceIT {
     @Test
     void details_json_round_trips() {
         Fixture f = fixture();
-        EventDetails details = new EventDetails("Service Auto și țiri",
+        EventDetails details = new ScanDetails("Service Auto și țiri",
                 List.of(new PartLine("Filtru ulei", new BigDecimal("2"), new BigDecimal("45.50")),
                         new PartLine("Ulei \"5W-30\"", new BigDecimal("4.5"), new BigDecimal("30.00"))),
                 new BigDecimal("120.00"));
         VehicleEvent documented = new VehicleEvent(UUID.randomUUID(), f.vin(), EventType.SERVICE,
-                LocalDate.parse("2025-05-05"), 7000, new BigDecimal("450.00"), "RON", "scan",
-                details, EvidenceLevel.DOCUMENTED, EventSource.SCAN, f.owner(), f.period(), "docs/k.pdf", T0, null);
+                LocalDate.parse("2025-05-05"), 7000, new BigDecimal("450.00"), "RON", null, "scan", null,
+                details, Set.of(), List.of(), EvidenceLevel.DOCUMENTED, EventSource.SCAN, f.owner(), f.period(), "docs/k.pdf", T0, null);
         VehicleEvent plain = event(f, UUID.randomUUID(), "2025-05-06", T0, 7100);
         saveAll(List.of(documented, plain));
 
@@ -182,7 +185,7 @@ class EventPersistenceIT {
                 .call(() -> events.findActive(f.vin(), documented.id())).orElseThrow();
 
         assertEquals(documented, loaded);
-        assertEquals(new BigDecimal("45.50"), loaded.details().parts().get(0).price());
+        assertEquals(new BigDecimal("45.50"), ((ScanDetails) loaded.details()).parts().get(0).price());
         assertNull(QuarkusTransaction.requiringNew().call(() -> events.findActive(f.vin(), plain.id()))
                 .orElseThrow().details());
     }
@@ -192,7 +195,8 @@ class EventPersistenceIT {
         Fixture f = fixture();
         String notes = Notes.TRICKY;
         VehicleEvent e = new VehicleEvent(UUID.randomUUID(), f.vin(), EventType.REPAIR, LocalDate.parse("2025-05-05"),
-                7000, new BigDecimal("1.00"), "RON", notes, null, EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL,
+                7000, new BigDecimal("1.00"), "RON", null, notes, null, null, Set.of(), List.of(),
+                EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL,
                 f.owner(), f.period(), null, T0, null);
         saveAll(List.of(e));
 

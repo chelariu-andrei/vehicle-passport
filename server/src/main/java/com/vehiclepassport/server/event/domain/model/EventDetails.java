@@ -1,11 +1,8 @@
 package com.vehiclepassport.server.event.domain.model;
 
-import java.math.BigDecimal;
-import java.util.List;
+/** Typed details of an event, one record per {@link DetailsKind}. The kind must match the event type's rule. */
+public sealed interface EventDetails
+        permits ScanDetails, InsuranceDetails, RovinietaDetails, ItpDetails, SafetyEquipmentDetails {
 
-public record EventDetails(String serviceName, List<PartLine> parts, BigDecimal labor) {
-
-    public EventDetails {
-        parts = parts == null ? List.of() : List.copyOf(parts);
-    }
+    DetailsKind kind();
 }

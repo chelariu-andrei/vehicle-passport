@@ -28,7 +28,12 @@ import com.vehiclepassport.server.event.application.port.out.ActiveOwnerPort;
 import com.vehiclepassport.server.event.application.port.out.AttachmentRepositoryPort;
 import com.vehiclepassport.server.event.application.port.out.OwnedPeriod;
 import com.vehiclepassport.server.event.application.port.out.EventRepositoryPort;
+import com.vehiclepassport.server.event.domain.model.EventAnnotations;
 import com.vehiclepassport.server.event.domain.model.EventDetails;
+import com.vehiclepassport.server.event.domain.model.EventFacts;
+import com.vehiclepassport.server.event.domain.model.ItpDetails;
+import com.vehiclepassport.server.event.domain.model.ScanDetails;
+import com.vehiclepassport.server.event.domain.model.TimelineOrder;
 import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
 import com.vehiclepassport.server.event.domain.model.OdometerPolicy;
@@ -42,6 +47,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -92,8 +98,10 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
     public EventView add(AddEventCommand c) {
         OwnedPeriod owned = owners.assertActiveOwner(c.vin(), c.userId());
         UUID periodId = owned.periodId();
-        VehicleEvent event = VehicleEvent.manual(owned.vin(), EventType.parse(c.type()), c.date(), c.odometerKm(),
-                c.costAmount(), c.currency(), c.notes(), c.userId(), periodId, clock);
+        EventFacts facts = new EventFacts(EventType.parse(c.type()), c.date(), c.odometerKm(), c.costAmount(),
+                c.currency(), null, null, null, null);
+        VehicleEvent event = VehicleEvent.manual(owned.vin(), facts, annotations(c.notes()), c.userId(), periodId,
+                clock);
         events.lockTimeline(event.vin());
         Neighbours around = events.neighbours(event.vin(), event.date(), event.createdAt(), event.id());
         OdometerPolicy.check(around.previousKm(), event.odometerKm(), around.nextKm());
@@ -106,14 +114,14 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
     public TimelinePage get(UUID userId, String vin, String cursor, int limit) {
         String canonical = owners.assertActiveOwner(vin, userId).vin();
         int size = Math.max(MIN_LIMIT, Math.min(MAX_LIMIT, limit));
-        TimelineCursor after = cursor == null || cursor.isBlank() ? null : TimelineCursor.decode(cursor);
+        TimelineCursor after = cursor == null || cursor.isBlank() ? null : TimelineCursor.decode(cursor, TimelineOrder.ASC);
         List<VehicleEvent> fetched = events.page(canonical, after, size + 1);
         boolean more = fetched.size() > size;
         List<VehicleEvent> window = more ? fetched.subList(0, size) : fetched;
         String next = null;
         if (more) {
             VehicleEvent last = window.get(window.size() - 1);
-            next = new TimelineCursor(last.date(), last.createdAt(), last.id()).encode();
+            next = new TimelineCursor(TimelineOrder.ASC, last.date(), last.createdAt(), last.id()).encode();
         }
         return new TimelinePage(toViews(window), next);
     }
@@ -122,8 +130,14 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
     @Transactional
     public EventView update(UpdateEventCommand c) {
         VehicleEvent current = loadOwned(c.vin(), c.userId(), c.eventId());
-        VehicleEvent edited = current.edited(EventType.parse(c.type()), c.date(), c.odometerKm(), c.costAmount(),
-                c.currency(), c.notes(), clock);
+        EventType type = EventType.parse(c.type());
+        // This command carries only the original fields; the others keep their current value while the type stays.
+        EventFacts kept = type == current.type() ? current.facts()
+                : new EventFacts(type, null, null, null, null, null, null, null, null);
+        EventFacts facts = new EventFacts(type, c.date(), c.odometerKm(), c.costAmount(), c.currency(),
+                kept.customLabel(), kept.validFrom(), kept.validUntil(), kept.details());
+        VehicleEvent edited = current.edited(facts,
+                new EventAnnotations(c.notes(), current.components(), current.customFields()), clock);
         Neighbours around = events.neighbours(edited.vin(), edited.date(), edited.createdAt(), edited.id());
         OdometerPolicy.check(around.previousKm(), edited.odometerKm(), around.nextKm());
         events.save(edited);
@@ -145,8 +159,11 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
     public UUID save(SaveConfirmedEventCommand c) {
         OwnedPeriod owned = owners.assertActiveOwner(c.vin(), c.userId());
         UUID periodId = owned.periodId();
-        VehicleEvent event = VehicleEvent.documented(owned.vin(), EventType.parse(c.type()), c.date(), c.odometerKm(),
-                c.total(), c.currency(), c.notes(), toDomain(c.details()), c.userId(), periodId, clock);
+        EventType type = EventType.parse(c.type());
+        EventFacts facts = new EventFacts(type, c.date(), c.odometerKm(), c.total(), c.currency(), null, null, null,
+                toDomain(type, c.details()));
+        VehicleEvent event = VehicleEvent.documented(owned.vin(), facts, annotations(c.notes()), c.userId(),
+                periodId, clock);
         events.lockTimeline(event.vin());
         Neighbours around = events.neighbours(event.vin(), event.date(), event.createdAt(), event.id());
         OdometerPolicy.check(around.previousKm(), event.odometerKm(), around.nextKm());
@@ -193,13 +210,21 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
         return event;
     }
 
-    private static EventDetails toDomain(DetailsView d) {
+    private static EventAnnotations annotations(String notes) {
+        return new EventAnnotations(notes, Set.of(), List.of());
+    }
+
+    /** A scanned ITP keeps only the station, read from the reviewed service name; other types keep the scan. */
+    private static EventDetails toDomain(EventType type, DetailsView d) {
+        if (type == EventType.ITP) {
+            return new ItpDetails(d == null ? null : d.serviceName(), null);
+        }
         if (d == null) {
             return null;
         }
         List<PartLine> parts = d.parts() == null ? List.of()
                 : d.parts().stream().map(p -> new PartLine(p.name(), p.qty(), p.price())).toList();
-        return new EventDetails(d.serviceName(), parts, d.labor());
+        return new ScanDetails(d.serviceName(), parts, d.labor());
     }
 
     private List<EventView> toViews(List<VehicleEvent> list) {
@@ -214,11 +239,15 @@ public class EventService implements AddEventUseCase, GetTimelineUseCase, Update
                 attachmentCount);
     }
 
+    /** Until the API exposes typed details, only scan details and an ITP station are shown. */
     private static DetailsView toView(EventDetails d) {
-        if (d == null) {
-            return null;
+        if (d instanceof ScanDetails s) {
+            return new DetailsView(s.serviceName(),
+                    s.parts().stream().map(p -> new PartView(p.name(), p.qty(), p.price())).toList(), s.labor());
         }
-        return new DetailsView(d.serviceName(),
-                d.parts().stream().map(p -> new PartView(p.name(), p.qty(), p.price())).toList(), d.labor());
+        if (d instanceof ItpDetails i) {
+            return new DetailsView(i.station(), List.of(), null);
+        }
+        return null;
     }
 }
