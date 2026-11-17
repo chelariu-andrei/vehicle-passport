@@ -17,6 +17,8 @@ async function ensureChannel(mod: NotificationsModule): Promise<void> {
   if (Platform.OS !== 'android') return;
   await mod.setNotificationChannelAsync(CHANNEL_ID, {
     name: en.deadlines.title,
+    // The package re-exports this enum through `export *`, which the namespace rule cannot follow.
+    // eslint-disable-next-line import/namespace
     importance: Notifications.AndroidImportance.DEFAULT,
   });
 }

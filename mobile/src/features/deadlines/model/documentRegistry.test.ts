@@ -1,6 +1,6 @@
 import { en } from '@/shared/i18n/en';
 
-import { EVENT_TYPE_CONFIG } from '@/features/event/model/eventTypes';
+import { EVENT_TYPE_CONFIG } from '@/features/event';
 import { DOCUMENT_CONFIG, DOCUMENT_ORDER } from './documentRegistry';
 
 describe('document registry', () => {

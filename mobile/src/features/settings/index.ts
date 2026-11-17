@@ -3,3 +3,4 @@ export { LanguageScreen } from './components/LanguageScreen';
 export { NotificationsScreen } from './components/NotificationsScreen';
 export { SettingsSync } from './components/SettingsSync';
 export { UnitsScreen } from './components/UnitsScreen';
+export { useSettings } from './api/useSettings';
