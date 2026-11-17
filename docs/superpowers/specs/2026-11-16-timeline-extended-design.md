@@ -205,7 +205,9 @@ For `ITP` and `SAFETY_EQUIPMENT`, `validFrom` is the event date.
 - "Today" is the server's `Clock` in UTC, the same clock used for the not-in-the-future rule.
 - The 30-day threshold is a constant in the domain.
 - The status is computed by the `event` application service. It looks up each group's current entry for the VIN
-  with one query (`EventRepositoryPort.currentValidityEntries(vin)`), so it is correct on a filtered page too.
+  with one query (`EventRepositoryPort.validityEntries(vin)`), so it is correct on a filtered page too. The repository
+  returns the validity-bearing entries and the domain picks the current ones (`ValidityStatusPolicy.currentIds`),
+  so the "current" rule lives in one tested place.
 - It is **not** written to the passport snapshot, because it depends on the date. `web/` computes the same status
   from the snapshot's full event list, using the same rules (see §8.6).
 
@@ -291,7 +293,8 @@ For `ITP` and `SAFETY_EQUIPMENT`, `validFrom` is the event date.
   - `GetTimelineUseCase.get` takes a `TimelineQuery(vin, types, components, from, to, order, cursor, limit)`.
   - `EventRepositoryPort.page(...)` takes the same filters and order.
   - New `GetTimelineSummaryUseCase` + `EventRepositoryPort.summary(TimelineFilter)` for the aggregates.
-  - `EventRepositoryPort.currentValidityEntries(vin)` returns the current entry id per validity group. The service
+  - `EventRepositoryPort.validityEntries(vin)` returns the active validity-bearing entries of the VIN (the repository
+    does not pick the current one; the domain does, via `ValidityStatusPolicy.currentIds`). The service
     attaches `validityStatus` to every `EventView` it returns (timeline, single event, after add/update).
   - `EventService` skips `OdometerPolicy` for null km. Neighbour lookups ignore null km.
 - **Infrastructure**:
@@ -645,7 +648,7 @@ Feature: Extended timeline
     Given V has a DOCUMENTED event
     When I change its components to BRAKES and add a custom field
     Then the change is saved
-    But changing its cost is refused with 409 "documented-event-immutable"
+    But changing its cost is refused with 422 "documented-event-immutable"
 
   Scenario Outline: Filtering the timeline
     Given V has a SERVICE tagged ENGINE in 2024, a REPAIR tagged BRAKES in 2025 and an INSURANCE RCA in 2025
@@ -864,3 +867,15 @@ Feature: Full timeline
 - Infinite scroll vs. "Load more" on the full Timeline screen.
 - The exact rail visuals (dot size, ring for evidence) within the design tokens.
 - Separate `ScanEventType` schema vs. refusing new types at scan confirm (separate schema preferred).
+
+## 12. Implementation notes (as built)
+
+- `documented-event-immutable` is HTTP **422** (contract, `edit_delete.feature` and the mobile i18n agree), not 409.
+- Web validity status is `UNKNOWN` for any current entry with a null `validUntil`, matching the server
+  `ValidityStatusPolicy`.
+- `PUT` replaces the whole event. A legacy 6-field `PUT` on a scanned documented ITP returns 422, so the mobile form
+  echoes `details` and `validity` back (and omits `SCAN` details, which the client never sends).
+- The input mapping lives in `EventInputService` (application/service; the `*Service` suffix is forced by ArchUnit
+  naming), producing `EventFacts` and `EventAnnotations`. The mobile details renderers are looked up through
+  `DETAILS_VIEW` (`event/components/details/index.ts`).
+- `Distance.fromKm` is null when it would be the same reading as `toKm`.

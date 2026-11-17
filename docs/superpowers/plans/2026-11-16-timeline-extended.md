@@ -52,7 +52,7 @@
   - summary/timeline page size on mobile: 20
 - `DOCUMENTED` evidence comes **only** from a confirmed scan. Attachments never raise evidence, and no task may add
   a manual path to `DOCUMENTED`.
-- Error codes: reuse `validation-failed` (400), `invalid-cursor` (400), `documented-event-immutable` (409),
+- Error codes: reuse `validation-failed` (400), `invalid-cursor` (400), `documented-event-immutable` (422),
   `odometer-inconsistent` (422), `vehicle-not-found` (404).
 - Rovinietă end date (spec §10 leaves it to the builder). The plan pins it as:
   - an N-day vignette ends on `validFrom + (N − 1) days`;
