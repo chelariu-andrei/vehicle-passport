@@ -50,6 +50,10 @@ export const ro: DeepPartial<Widen<typeof en>> = {
       expired: 'Expirat',
     },
   },
+  vehicle: {
+    openTimeline: 'Deschide cronologia completă',
+    timelineTitle: 'Cronologie',
+  },
   tabs: {
     car: 'Mașină',
     scans: 'Scanări',

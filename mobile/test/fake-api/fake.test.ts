@@ -21,17 +21,17 @@ const send = (method: string, path: string, init: { headers?: Record<string, str
 const register = (body: object) => send('POST', '/vehicles', { headers: json, body: JSON.stringify(body) });
 const carBody = { vin: VIN, make: 'Dacia', model: 'Logan', year: 2020, fuel: 'PETROL' };
 
-test('has a handler for all 39 authenticated operations', () => {
+test('has a handler for all 40 authenticated operations', () => {
   const doc = parse(readFileSync(resolve(__dirname, '../../../contracts/openapi.yaml'), 'utf8'));
   const ids: string[] = Object.values<Record<string, any>>(doc.paths)
     .flatMap((item) => ['get', 'put', 'post', 'patch', 'delete'].map((m) => item[m]).filter(Boolean))
     .filter((op) => !(Array.isArray(op.security) && op.security.length === 0))
     .map((op) => op.operationId);
-  expect(ids).toHaveLength(39);
+  expect(ids).toHaveLength(40);
   expect(ids).not.toContain('getPublicPassport');
   expect(ids).not.toContain('getPublicPassportPdf');
   expect(Object.keys(handlers).sort()).toEqual([...ids].sort());
-  expect(operations.filter((o) => o.authenticated)).toHaveLength(39);
+  expect(operations.filter((o) => o.authenticated)).toHaveLength(40);
 });
 
 test('an unknown JSON field answers 400 validation-failed and is recorded in violations', async () => {
@@ -484,5 +484,39 @@ describe('account operations', () => {
     expect(exported.supportReports).toHaveLength(1);
     expect(exported.consents).toHaveLength(3);
     expect(api.violations).toEqual([]);
+  });
+});
+
+describe('timeline filters and summary', () => {
+  beforeEach(() => {
+    api.state.vehicles.push(aVehicle());
+    api.state.events[VIN] = [
+      anEvent({ date: '2023-01-10', odometerKm: 1000, costAmount: 100, components: ['BRAKES'] }),
+      anEvent({ type: 'ITP', date: '2024-02-10', odometerKm: 2000, costAmount: 50 }),
+      anEvent({ type: 'REPAIR', date: '2024-06-10', odometerKm: null, costAmount: 300, components: ['ENGINE'] }),
+    ];
+  });
+
+  test('filters narrow the page and the summary; years and distance ignore them', async () => {
+    const page = await send('GET', `/vehicles/${VIN}/timeline?type=ITP&type=REPAIR&from=2024-01-01&order=desc`, { headers: auth }).then((r) => r.json());
+    expect(page.items.map((e: { type: string }) => e.type)).toEqual(['REPAIR', 'ITP']);
+    const summary = await send('GET', `/vehicles/${VIN}/timeline/summary?component=ENGINE&from=2024-01-01`, { headers: auth }).then((r) => r.json());
+    expect(summary).toEqual({
+      eventCount: 1,
+      countsByType: [{ type: 'REPAIR', count: 1 }],
+      costByCurrency: [{ currency: 'RON', amount: 300 }],
+      distance: { km: 1000, fromKm: 1000, toKm: 2000 },
+      years: [2024, 2023],
+    });
+    expect((await send('GET', `/vehicles/${VIN}/timeline/summary?from=2025-01-01&to=2024-01-01`, { headers: auth })).status).toBe(400);
+  });
+
+  test('only the newest entry of a kind has a live validity status', async () => {
+    api.state.events[VIN] = [
+      anEvent({ type: 'ITP', date: '2022-02-10', validUntil: '2099-01-01' }),
+      anEvent({ type: 'ITP', date: '2024-02-10', validUntil: '2099-01-01' }),
+    ];
+    const page = await send('GET', `/vehicles/${VIN}/timeline`, { headers: auth }).then((r) => r.json());
+    expect(page.items.map((e: { validityStatus: string }) => e.validityStatus)).toEqual(['SUPERSEDED', 'VALID']);
   });
 });

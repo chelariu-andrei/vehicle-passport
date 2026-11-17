@@ -315,6 +315,8 @@ export const en = {
     createPassport: 'Create passport',
     history: 'History',
     historyCount: (n: number) => `${n} entries`,
+    openTimeline: 'Open full timeline',
+    timelineTitle: 'Timeline',
     noHistoryTitle: 'No history yet',
     noHistoryBody: 'Scan a service invoice and the first entry writes itself.',
     edit: 'Edit vehicle',

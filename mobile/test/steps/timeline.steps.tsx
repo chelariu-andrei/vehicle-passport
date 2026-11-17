@@ -55,7 +55,7 @@ async function startAddEvent(cost: string) {
 }
 
 defineFeature(feature, (test) => {
-  test('Newest first across pages', ({ given, when, then }) => {
+  test('Newest first across pages', ({ given, when, then, and }) => {
     let seed: (api: FakeApi) => void;
     given('the API returns events oldest first over 3 pages', () => {
       // 201 events: pages of 100, 100 and 1. Dates and kilometres ascend with the index.
@@ -78,6 +78,55 @@ defineFeature(feature, (test) => {
       expect(items).toHaveLength(201);
       expect(within(items[0]).getByText('Event 200')).toBeTruthy();
       expect(within(items[200]).getByText('Event 0')).toBeTruthy();
+    });
+    and('every page was requested with order "desc"', () => {
+      for (const call of fake.callsTo('getTimeline')) expect(call.path).toContain('order=desc');
+    });
+  });
+
+  test('The latest kilometres skip entries without kilometres', ({ given, when, then }) => {
+    let seed: (api: FakeApi) => void;
+    given(/^the newest entry has no kilometres and an older one has (\d+)$/, (km: string) => {
+      seed = withEvents(
+        anEvent({ date: '2024-01-10', odometerKm: Number(km) }),
+        anEvent({ type: 'ROVINIETA', date: '2024-06-10', odometerKm: null }),
+      );
+    });
+    when('I open the vehicle', async () => {
+      fake = await openApp(detailUrl, { seed });
+    });
+    then(/^the car shows (\d+) km$/, async (km: string) => {
+      const facts = await screen.findByTestId('car-facts');
+      await waitFor(() => expect(within(facts).getByText(en.garage.odometer(Number(km)))).toBeTruthy());
+    });
+  });
+
+  test('Only the current policy shows a marker', ({ given, when, then }) => {
+    let seed: (api: FakeApi) => void;
+    given('two insurance entries, the older superseded by the newer', () => {
+      seed = withEvents(
+        anEvent({ type: 'INSURANCE', date: '2023-05-01', validFrom: '2023-05-01', validUntil: '2099-04-30' }),
+        anEvent({ type: 'INSURANCE', date: '2024-05-01', validFrom: '2024-05-01', validUntil: '2099-12-31' }),
+      );
+    });
+    when('I open the vehicle', async () => {
+      fake = await openApp(detailUrl, { seed });
+      expect(await screen.findAllByTestId('timeline-item')).toHaveLength(2);
+    });
+    then('exactly one validity marker is shown', () => {
+      expect(screen.getAllByText(/^Valid until /)).toHaveLength(1);
+      expect(screen.getByText(en.event.validity.validUntil('31 Dec 2099'))).toBeTruthy();
+    });
+  });
+
+  test('The compact history opens the full timeline', ({ given, when, then }) => {
+    given('a car with history', () => undefined);
+    when(/^I tap "(.*)"$/, async (label: string) => {
+      fake = await openApp(detailUrl, { seed: withEvents(anEvent()) });
+      await fireEvent.press(await screen.findByRole('button', { name: label }));
+    });
+    then(/^I am on the route "(.*)"$/, async (route: string) => {
+      await waitFor(() => expect(screen).toHavePathname(route.replace('/V/', `/${SAMPLE_VIN}/`)));
     });
   });
 

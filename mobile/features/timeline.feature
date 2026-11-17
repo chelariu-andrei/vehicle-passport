@@ -3,6 +3,22 @@ Feature: Timeline
     Given the API returns events oldest first over 3 pages
     When I open the vehicle
     Then all events are shown newest first
+    And every page was requested with order "desc"
+
+  Scenario: The latest kilometres skip entries without kilometres
+    Given the newest entry has no kilometres and an older one has 84200
+    When I open the vehicle
+    Then the car shows 84200 km
+
+  Scenario: Only the current policy shows a marker
+    Given two insurance entries, the older superseded by the newer
+    When I open the vehicle
+    Then exactly one validity marker is shown
+
+  Scenario: The compact history opens the full timeline
+    Given a car with history
+    When I tap "Open full timeline"
+    Then I am on the route "/vehicles/V/timeline"
 
   Scenario: Documented entries only allow notes
     Given a DOCUMENTED event
