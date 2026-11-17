@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
-import { parseMoney } from '@/features/event';
+import { EVENT_TYPE_CONFIG, parseMoney } from '@/features/event';
 import type { components } from '@/shared/api/generated/schema';
 
 import { REVIEW_EVENT_TYPES } from './parseFields';
-import type { DraftPart, Field, ReviewDraft } from './parseFields';
+import type { DraftPart, Field, ItpResult, ReviewDraft } from './parseFields';
 
 export type ConfirmScanRequest = components['schemas']['ConfirmScanRequest'];
 
@@ -19,6 +19,8 @@ export type ReviewForm = {
   type: ReviewDraft['type'];
   currency: string;
   notes: string;
+  validUntil: string;
+  itpResult: ItpResult | '';
 };
 
 const num = (n: number | null): string => (n === null ? '' : String(n));
@@ -34,6 +36,8 @@ export function toForm(d: ReviewDraft): ReviewForm {
     type: d.type,
     currency: d.currency,
     notes: d.notes ?? '',
+    validUntil: d.validUntil ?? '',
+    itpResult: d.itpResult ?? '',
   };
 }
 
@@ -84,12 +88,16 @@ export const reviewFormSchema = z
     type: z.enum(REVIEW_EVENT_TYPES),
     currency: z.string().transform((c) => c.trim().toUpperCase()),
     notes: z.string().max(2000).transform((n) => n.trim()),
+    validUntil: date,
+    itpResult: z.enum(['', 'PASSED', 'PASSED_WITH_REMARKS', 'FAILED']),
   })
   .transform(
     (form): ReviewDraft => ({
       ...form,
       partsFlagged: false,
       notes: form.notes === '' ? null : form.notes,
+      validUntil: form.validUntil.value,
+      itpResult: form.itpResult === '' ? null : form.itpResult,
     }),
   );
 
@@ -114,7 +122,7 @@ export function toConfirmRequest(d: ReviewDraft): ConfirmScanRequest | { missing
   });
   if (!/^[A-Z]{3}$/.test(d.currency)) missing.push('currency');
   if (missing.length > 0) return { missing };
-  return {
+  const request: ConfirmScanRequest = {
     type: d.type,
     serviceName: d.serviceName.value,
     date: d.date.value!,
@@ -125,4 +133,10 @@ export function toConfirmRequest(d: ReviewDraft): ConfirmScanRequest | { missing
     currency: d.currency,
     notes: d.notes,
   };
+  // The server refuses an expiry or a result on anything but an ITP, so a leftover from another type is never sent.
+  if (EVENT_TYPE_CONFIG[d.type].details === 'ITP') {
+    if (d.validUntil !== null) request.validUntil = d.validUntil;
+    if (d.itpResult !== null) request.itpResult = d.itpResult;
+  }
+  return request;
 }

@@ -42,10 +42,16 @@ export function formatDate(iso: string): string {
  * The server computes the same value; this is the preview.
  */
 export function rovinietaEnd(from: string, duration: RovinietaDuration): string {
+  if (duration === 'TWELVE_MONTHS') return monthsEnd(from, 12);
   const { y, m, d } = parse(from);
-  if (duration !== 'TWELVE_MONTHS') return format(Date.UTC(y, m - 1, d + DAYS[duration] - 1));
-  const lastDayOfMonth = new Date(Date.UTC(y + 1, m, 0)).getUTCDate();
-  return format(Date.UTC(y + 1, m - 1, Math.min(d, lastDayOfMonth)) - DAY_MS);
+  return format(Date.UTC(y, m - 1, d + DAYS[duration] - 1));
+}
+
+/** The last day of a period of `months` months from `from`: the day before the same calendar day `months` later (the last day of the month when that day does not exist). */
+export function monthsEnd(from: string, months: number): string {
+  const { y, m, d } = parse(from);
+  const lastDayOfMonth = new Date(Date.UTC(y, m + months, 0)).getUTCDate();
+  return format(Date.UTC(y, m - 1 + months, Math.min(d, lastDayOfMonth)) - DAY_MS);
 }
 
 /** The line under a validity event: how long it is good for. Null when the server has no verdict to show. */

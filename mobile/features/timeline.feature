@@ -62,3 +62,53 @@ Feature: Timeline
     When saving an event answers 422 "odometer-inconsistent"
     Then I am told "This mileage doesn't fit the car's history. Check the date and kilometres."
     And my input is kept
+
+  Scenario: Adding insurance asks for what insurance needs
+    When I add an event of type Insurance
+    Then I am asked for coverage, insurer and the validity period
+    And kilometres are optional
+
+  Scenario: Rovinieta shows its computed end
+    When I add a Rovinieta from 15 Jan 2026 for 12 months
+    Then the form previews the end date
+    And the request carries no validUntil
+
+  Scenario: Other needs a name
+    When I add an event of type Other without a name
+    Then I cannot save
+
+  Scenario: Safety equipment asks for item and expiry
+    When I add an event of type Safety equipment
+    Then I choose between fire extinguisher and first-aid kit
+    And "valid until" is required
+
+  Scenario Outline: Paperwork can carry its file
+    When I add an event of type <type>
+    Then the documents section says "<hint>"
+    And I can attach a photo or PDF before saving
+
+    Examples:
+      | type             | hint                                       |
+      | Insurance        | Attach the policy (photo or PDF)           |
+      | ITP              | Attach the inspection report               |
+      | Rovinieta        | Attach the receipt                         |
+      | Safety equipment | Attach the receipt or a photo of the label |
+
+  Scenario: A CASCO saved with its policy file
+    When I add a CASCO with insurer "Allianz" and attach "polita.pdf"
+    Then the event is created and the file is uploaded to it
+    And the entry shows 1 document and evidence "confirmed"
+
+  Scenario: Components are suggested by type
+    When I add an event of type Tires
+    Then component "Tires and wheels" is preselected
+
+  Scenario: Custom fields
+    When I add two custom fields to an event
+    Then they are saved on the event in the order I added them
+
+  Scenario: A scanned event lets me tag it
+    Given a DOCUMENTED event
+    When I edit it
+    Then notes, components and custom fields can be changed
+    And the request resends the original facts

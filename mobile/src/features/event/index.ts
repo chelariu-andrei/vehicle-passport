@@ -13,3 +13,6 @@ export { useOpenAttachment } from './api/useOpenAttachment';
 export { uploadAttachments, useUploadAttachments } from './api/useUploadAttachments';
 export type { UploadOutcome } from './api/useUploadAttachments';
 export type { PreparedFile } from './model/preparedFile';
+export { EVENT_TYPE_CONFIG } from './model/eventTypes';
+export { ItpDetailsFields } from './components/details/ItpDetailsFields';
+export type { ItpResult } from './components/details/ItpDetailsFields';

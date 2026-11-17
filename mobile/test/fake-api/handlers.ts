@@ -511,6 +511,7 @@ const confirmScan: Handler = (c) => {
   if (!vin) return problem(409, 'scan-state-conflict');
   const b = c.body as Schemas['ConfirmScanRequest'];
   const events = (c.state.events[vin] ??= []);
+  if ((b.type ?? 'SERVICE') !== 'ITP' && (b.validUntil != null || b.itpResult != null)) return problem(400, 'validation-failed');
   const refused = checkEventRules(events, b.date, b.odometerKm);
   if (refused) return refused;
   const event: EventResponse = {
@@ -521,6 +522,7 @@ const confirmScan: Handler = (c) => {
     costAmount: b.total,
     currency: b.currency ?? 'RON',
     notes: b.notes ?? null,
+    validUntil: b.validUntil ?? null,
     details: { kind: 'SCAN', serviceName: b.serviceName ?? null, parts: b.parts ?? [], labor: b.labor ?? null },
     components: [],
     customFields: [],

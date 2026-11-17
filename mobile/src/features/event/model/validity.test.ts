@@ -1,6 +1,6 @@
 import { anEvent } from '../../../../test/fake-api';
 import type { EventResponse } from './timeline';
-import { rovinietaEnd, validityMarker } from './validity';
+import { monthsEnd, rovinietaEnd, validityMarker } from './validity';
 
 describe('rovinietaEnd', () => {
   test.each([
@@ -39,5 +39,19 @@ describe('validityMarker', () => {
     expect(validityMarker(at('UNKNOWN'), today)).toBeNull();
     expect(validityMarker(at(null), today)).toBeNull();
     expect(validityMarker(at(undefined), today)).toBeNull();
+  });
+});
+
+describe('monthsEnd', () => {
+  test.each([
+    ['2026-03-12', 1, '2026-04-11'],
+    ['2026-03-12', 6, '2026-09-11'],
+    ['2026-03-12', 12, '2027-03-11'],
+    ['2026-01-31', 1, '2026-02-27'],
+    ['2026-08-31', 6, '2027-02-27'],
+    ['2026-12-15', 1, '2027-01-14'],
+    ['2026-01-15', 12, '2027-01-14'],
+  ] as const)('%s + %s months ends %s', (from, months, expected) => {
+    expect(monthsEnd(from, months)).toBe(expected);
   });
 });

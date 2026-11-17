@@ -3,11 +3,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { File } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import type { FieldError, FieldPath } from 'react-hook-form';
 import { Image, Pressable, View } from 'react-native';
 import type { z } from 'zod';
 
+import { EVENT_TYPE_CONFIG, ItpDetailsFields } from '@/features/event';
 import { errorMessage, isApiError, qk } from '@/shared/api';
 import { ActionBar, AppBar, Button, ConfirmSheet, ErrorState, Icon, Screen, Skeleton, Text, tokens, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
@@ -130,6 +131,7 @@ function Form({ jobId, scan, local, batchmates }: FormProps) {
     defaultValues: toForm(read),
   });
 
+  const config = EVENT_TYPE_CONFIG[useWatch({ control, name: 'type' })];
   // Editing clears a settled server error. A request in flight must never be reset: that would detach its callbacks.
   const edited = () => {
     if (confirm.isError) confirm.reset();
@@ -334,6 +336,42 @@ function Form({ jobId, scan, local, batchmates }: FormProps) {
           />
         )}
       />
+      {config.details === 'ITP' ? (
+        <>
+          <Controller
+            control={control}
+            name="validUntil"
+            render={({ field }) => (
+              <ScanFieldRow
+                label={r.validUntil}
+                value={field.value}
+                onChangeText={(text) => {
+                  edited();
+                  field.onChange(text);
+                }}
+                onBlur={field.onBlur}
+                placeholder="2027-01-31"
+                autoCorrect={false}
+                maxLength={10}
+                error={rhfMessage(errors.validUntil)}
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="itpResult"
+            render={({ field }) => (
+              <ItpDetailsFields
+                result={field.value}
+                onResult={(result) => {
+                  edited();
+                  field.onChange(result);
+                }}
+              />
+            )}
+          />
+        </>
+      ) : null}
       <Controller
         control={control}
         name="currency"
