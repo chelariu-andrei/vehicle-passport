@@ -43,8 +43,8 @@ describe('operations covered', () => {
   const operations = authenticatedOperations();
   const code = sources(join(root, 'src/features')).join('\n');
 
-  it('reads 41 authenticated operations from the contract', () => {
-    expect(operations).toHaveLength(41);
+  it('reads 46 authenticated operations from the contract', () => {
+    expect(operations).toHaveLength(46);
   });
 
   const isCalled = (op: Operation) =>
