@@ -12,6 +12,10 @@ export type DeepPartial<T> = T extends (...args: never[]) => unknown ? T : T ext
 
 /** Romanian covers the account, sign-in, legal, consent, settings and validation texts; everything else is English until translated. */
 export const ro: DeepPartial<Widen<typeof en>> = {
+  common: {
+    dismiss: 'Închide',
+    done: 'Gata',
+  },
   event: {
     type: {
       REPAIR: 'Reparație',
