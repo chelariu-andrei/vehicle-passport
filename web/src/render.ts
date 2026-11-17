@@ -1,6 +1,7 @@
 import { html, raw } from 'hono/html';
 import type { HtmlEscapedString } from 'hono/utils/html';
-import type { Part, Snapshot, SnapshotEvent } from './snapshot.ts';
+import type { EventDetails, Part, Snapshot, SnapshotEvent } from './snapshot.ts';
+import { daysBetween, validityStatuses, type ValidityStatus } from './validity.ts';
 import { tokensCss } from './tokens.generated.ts';
 
 export const UNAVAILABLE = 'This passport is no longer available.';
@@ -20,7 +21,21 @@ const EVIDENCE_NOTE: Record<string, string> = {
 };
 // Class names avoid the evidence words so the page never contains "Verified" unless the API said so.
 const TONE: Record<string, number> = { ESTIMATED: 1, USER_CONFIRMED: 2, DOCUMENTED: 3, VERIFIED: 4 };
-const TYPES: Record<string, string> = { SERVICE: 'Service', REPAIR: 'Repair', TIRES: 'Tires', ITP: 'ITP' };
+const TYPES: Record<string, string> = {
+  SERVICE: 'Service',
+  REPAIR: 'Repair',
+  TIRES: 'Tires',
+  ITP: 'ITP',
+  ROVINIETA: 'Rovinieta',
+  INSURANCE: 'Insurance',
+  SAFETY_EQUIPMENT: 'Safety equipment',
+  OTHER: 'Other',
+};
+const SAFETY_ITEMS: Record<string, string> = { FIRE_EXTINGUISHER: 'Fire extinguisher', FIRST_AID_KIT: 'First-aid kit' };
+const humanize = (v: string) => {
+  const t = v.toLowerCase().replaceAll('_', ' ');
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
 
 const css = `${tokensCss}
 *{box-sizing:border-box}
@@ -44,6 +59,14 @@ ol{list-style:none;margin:0;padding:0;display:grid;gap:var(--space-3)}
 .badge{display:inline-block;border:1px solid currentColor;border-radius:var(--radius-sm);padding:2px var(--space-2);font-size:var(--caption-size);font-weight:650;margin-top:var(--space-2)}
 .tone-1{color:var(--evidence-estimated)}.tone-2{color:var(--evidence-confirmed)}
 .tone-3{color:var(--evidence-documented)}.tone-4{color:var(--evidence-top)}
+.validity{display:inline-block;margin:var(--space-2) 0 0 var(--space-2);font-size:var(--caption-size);font-weight:650}
+.mk-ok{color:var(--evidence-confirmed)}
+.mk-soon{color:var(--warning)}
+.mk-late{color:var(--danger)}
+.chips{display:flex;flex-wrap:wrap;gap:var(--space-2);margin:var(--space-3) 0 0;padding:0;list-style:none}
+.chips li{border:1px solid var(--line-strong);border-radius:var(--radius-pill);padding:2px var(--space-3);font-size:var(--caption-size)}
+.fields{list-style:none;padding:0;margin:var(--space-3) 0 0;font-size:var(--body-size);overflow-wrap:anywhere}
+.fields li{padding:var(--space-1) 0;border-top:1px solid var(--line)}
 .note{font-size:var(--caption-size);color:var(--ink-muted);margin:var(--space-1) 0 0}
 .notes{white-space:pre-wrap;overflow-wrap:anywhere;margin:var(--space-3) 0 0;font-size:var(--body-size)}
 table{width:100%;border-collapse:collapse;margin-top:var(--space-3);font-size:var(--body-size)}
@@ -89,14 +112,60 @@ function partRows(parts: Part[]) {
 </table>`;
 }
 
-function eventItem(e: SnapshotEvent) {
+function title(e: SnapshotEvent): string {
+  const d = e.details;
+  if (e.type === 'OTHER') return e.customLabel || TYPES.OTHER;
+  if (d?.kind === 'SAFETY_EQUIPMENT') return SAFETY_ITEMS[d.item] ?? TYPES.SAFETY_EQUIPMENT;
+  if (d?.kind === 'INSURANCE') return [TYPES.INSURANCE, d.coverage, d.insurer].filter(Boolean).join(' · ');
+  return TYPES[e.type] ?? e.type;
+}
+
+function detailLine(d: EventDetails | null): string | null {
+  switch (d?.kind) {
+    case 'INSURANCE':
+      return d.policyNumber ? `Policy ${d.policyNumber}` : null;
+    case 'ROVINIETA':
+      return d.duration ? `Duration: ${humanize(d.duration)}` : null;
+    case 'ITP': {
+      const parts = [d.station ? `Station: ${d.station}` : null, d.result ? `Result: ${humanize(d.result)}` : null];
+      return parts.filter(Boolean).join(' · ') || null;
+    }
+    default:
+      return null;
+  }
+}
+
+function marker(status: ValidityStatus | undefined, e: SnapshotEvent, today: string) {
+  if (status === undefined || e.validUntil === null) return '';
+  if (status === 'VALID') return html`<span class="validity mk-ok" data-validity="VALID">Valid until ${e.validUntil}</span>`;
+  if (status === 'EXPIRED') return html`<span class="validity mk-late" data-validity="EXPIRED">Expired</span>`;
+  if (status === 'EXPIRING') {
+    const n = daysBetween(today, e.validUntil);
+    const text = n === 0 ? 'Expires today' : `Expires in ${n} ${n === 1 ? 'day' : 'days'}`;
+    return html`<span class="validity mk-soon" data-validity="EXPIRING">${text}</span>`;
+  }
+  return ''; // SUPERSEDED and UNKNOWN show no marker
+}
+
+function eventItem(e: SnapshotEvent, status: ValidityStatus | undefined, today: string) {
   const label = EVIDENCE[e.evidence] ?? 'Unknown';
   const note = EVIDENCE_NOTE[e.evidence] ?? '';
   const cost = money(e.costAmount, e.currency);
+  const range =
+    e.validFrom || e.validUntil ? `Valid ${e.validFrom ?? '…'} to ${e.validUntil ?? '…'}` : null;
+  const detail = detailLine(e.details);
   const meta = [e.date, e.odometerKm === null ? null : `${e.odometerKm} km`, cost || null].filter(Boolean).join(' · ');
   return html`<li class="event">
-<h3>${TYPES[e.type] ?? e.type}${e.serviceName ? html` · ${e.serviceName}` : ''}</h3>
+<h3>${title(e)}${e.serviceName ? html` · ${e.serviceName}` : ''}</h3>
 <p class="meta">${meta}</p>
+${range ? html`<p class="meta">${range}${marker(status, e, today)}</p>` : ''}
+${detail ? html`<p class="meta">${detail}</p>` : ''}
+${e.components.length > 0 ? html`<ul class="chips">${e.components.map((c) => html`<li>${humanize(c)}</li>`)}</ul>` : ''}
+${
+  e.customFields.length > 0
+    ? html`<ul class="fields">${e.customFields.map((f) => html`<li>${f.label}: ${f.value}</li>`)}</ul>`
+    : ''
+}
 <span class="badge tone-${TONE[e.evidence] ?? 1}">Evidence: ${label}</span>
 <p class="note">${note}</p>
 ${e.documentPresent ? html`<p class="note">An invoice was attached when this entry was recorded.</p>` : ''}
@@ -106,7 +175,14 @@ ${e.labor !== null ? html`<p class="meta">Labor: ${money(e.labor, e.currency)}</
 </li>`;
 }
 
-export function passportPage(snapshot: Snapshot, hash: string, algorithm: string, pdfHref: string) {
+export function passportPage(
+  snapshot: Snapshot,
+  hash: string,
+  algorithm: string,
+  pdfHref: string,
+  today: string = new Date().toISOString().slice(0, 10),
+) {
+  const statuses = validityStatuses(snapshot.events, today);
   const v = snapshot.vehicle;
   const name = [v.make, v.model].filter(Boolean).join(' ') || 'Vehicle';
   const facts: [string, string | number | null][] = [
@@ -128,7 +204,7 @@ export function passportPage(snapshot: Snapshot, hash: string, algorithm: string
 ${
   snapshot.events.length === 0
     ? html`<p class="meta">No entries were recorded.</p>`
-    : html`<ol>${snapshot.events.map(eventItem)}</ol>`
+    : html`<ol>${snapshot.events.map((e) => eventItem(e, statuses.get(e), today))}</ol>`
 }
 <section class="integrity">
 <h2 style="margin:0;font-size:var(--title-size)">Integrity hash</h2>
