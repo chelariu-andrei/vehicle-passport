@@ -5,7 +5,7 @@ import { fireEvent, screen, waitFor } from 'expo-router/testing-library';
 
 import { en } from '@/shared/i18n/en';
 
-import { aClaim, aVehicle, SAMPLE_VIN } from '../fake-api';
+import { aClaim, aFuelStats, aVehicle, SAMPLE_VIN } from '../fake-api';
 import { openApp } from '../harness';
 
 afterEach(() => jest.restoreAllMocks());
@@ -76,4 +76,62 @@ test('approving the active car\'s claim moves the app on to the next car, with n
   await waitFor(() => expect(screen).toHavePathname('/'));
   expect(screen.queryByText('Volkswagen Golf')).toBeNull();
   expect(screen.queryByText(en.vehicle.gone)).toBeNull();
+});
+
+describe('the Fuel row', () => {
+  const fuelRow = () => screen.findByRole('button', { name: en.fuelLog.carRow });
+  const stats = aFuelStats({
+    currency: 'RON',
+    entryCount: 3,
+    byFuelType: [
+      { fuelType: 'DIESEL', unit: 'L', avgConsumption: 6.94, lastConsumption: 7, avgUnitPrice: 7.2, segmentCount: 2, points: [], alert: null, gradeComparison: [] },
+    ],
+  });
+
+  test('opens the fuel screen', async () => {
+    await openApp('/', { seed, routes: { 'vehicles/[vin]/fuel/index': stub } });
+    await fireEvent.press(await fuelRow());
+    await waitFor(() => expect(screen).toHavePathname(`/vehicles/${SAMPLE_VIN}/fuel`));
+  });
+
+  test('shows the average consumption once the stats are in, and nothing while they load', async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await openApp('/', {
+      seed: (api) => {
+        seed(api);
+        api.state.fuelStats[SAMPLE_VIN] = stats;
+        // The stats answer waits until the test lets it through.
+        const real = globalThis.fetch;
+        globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = input instanceof Request ? input.url : String(input);
+          if (url.includes('/fuel/stats')) await held;
+          return real(input, init);
+        }) as typeof fetch;
+      },
+    });
+    const row = await fuelRow();
+    expect(row.props.accessibilityValue?.text).toBeUndefined();
+    release();
+    await waitFor(async () => expect((await fuelRow()).props.accessibilityValue?.text).toBe('6.9 L/100 km'));
+  });
+
+  test('shows no subtitle when the stats fail', async () => {
+    const fake = await openApp('/', {
+      seed: (api) => {
+        seed(api);
+        api.failNext('getFuelStats', 500, null);
+      },
+    });
+    const row = await fuelRow();
+    await waitFor(() => expect(fake.callsTo('getFuelStats').length).toBeGreaterThan(0));
+    expect(row.props.accessibilityValue?.text).toBeUndefined();
+  });
+
+  test('shows no subtitle before two full tanks', async () => {
+    const fake = await openApp('/', { seed });
+    const row = await fuelRow();
+    await waitFor(() => expect(fake.callsTo('getFuelStats').length).toBeGreaterThan(0));
+    expect(row.props.accessibilityValue?.text).toBeUndefined();
+  });
 });
