@@ -298,6 +298,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vehicles/{vin}/fuel-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+            };
+            cookie?: never;
+        };
+        /** The fuel entries of the car, newest first (active owner only) */
+        get: operations["listFuelEntries"];
+        put?: never;
+        /** Log a fill-up or charge (active owner only) */
+        post: operations["addFuelEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vehicles/{vin}/fuel-entries/{entryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace a fuel entry (active owner only) */
+        put: operations["updateFuelEntry"];
+        post?: never;
+        /** Delete a fuel entry (active owner only) */
+        delete: operations["deleteFuelEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vehicles/{vin}/fuel/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+            };
+            cookie?: never;
+        };
+        /** Consumption, cost and price statistics, computed on read */
+        get: operations["getFuelStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/vehicles/{vin}/scans": {
         parameters: {
             query?: never;
@@ -916,6 +976,130 @@ export interface components {
             items: components["schemas"]["EventResponse"][];
             /** @description Null on the last page. */
             nextCursor?: string | null;
+        };
+        /** @enum {string} */
+        FuelEntryType: "PETROL" | "DIESEL" | "LPG" | "ELECTRIC";
+        /** @enum {string} */
+        FuelGrade: "STANDARD" | "PREMIUM";
+        /** @enum {string} */
+        ChargeType: "HOME" | "AC_PUBLIC" | "DC_FAST";
+        /** @enum {string} */
+        FuelUnit: "L" | "KWH";
+        FuelEntryRequest: {
+            /** Format: date */
+            date: string;
+            odometerKm: number;
+            fuelType: components["schemas"]["FuelEntryType"];
+            /** @description Litres */
+            quantity: number;
+            total: number;
+            currency: string;
+            /** @default true */
+            fullTank: boolean;
+            /**
+             * @description The previous fill-up was not logged; no consumption is computed across the gap.
+             * @default false
+             */
+            missedPrevious: boolean;
+            grade?: components["schemas"]["FuelGrade"];
+            chargeType?: components["schemas"]["ChargeType"];
+            station?: string;
+            note?: string;
+        };
+        FuelEntryResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date */
+            date: string;
+            odometerKm: number;
+            fuelType: components["schemas"]["FuelEntryType"];
+            quantity: number;
+            unit: components["schemas"]["FuelUnit"];
+            total: number;
+            /** @description total / quantity */
+            unitPrice: number;
+            currency: string;
+            fullTank: boolean;
+            missedPrevious: boolean;
+            grade?: components["schemas"]["FuelGrade"] | null;
+            chargeType?: components["schemas"]["ChargeType"] | null;
+            station?: string | null;
+            note?: string | null;
+            /** @description Per 100 km. Set on the full fill-up that closes an included consumption segment; otherwise null. */
+            consumption?: number | null;
+        };
+        FuelEntryPage: {
+            items: components["schemas"]["FuelEntryResponse"][];
+            /** @description Null on the last page. */
+            nextCursor?: string | null;
+        };
+        FuelStatsPoint: {
+            /** Format: uuid */
+            entryId: string;
+            /** Format: date */
+            date: string;
+            odometerKm: number;
+            unitPrice: number;
+            consumption?: number | null;
+        };
+        FuelConsumptionAlert: {
+            latest: number;
+            baseline: number;
+            deltaPct: number;
+            /** Format: uuid */
+            entryId: string;
+        };
+        FuelGradeComparison: {
+            grade: components["schemas"]["FuelGrade"];
+            avgConsumption: number;
+            segmentCount: number;
+        };
+        FuelTypeStats: {
+            fuelType: components["schemas"]["FuelEntryType"];
+            unit: components["schemas"]["FuelUnit"];
+            avgConsumption?: number | null;
+            lastConsumption?: number | null;
+            avgUnitPrice?: number | null;
+            segmentCount: number;
+            /** @description Every entry of this fuel type, chronological. */
+            points: components["schemas"]["FuelStatsPoint"][];
+            alert?: components["schemas"]["FuelConsumptionAlert"] | null;
+            /** @description Empty unless both grades have at least 3 segments. */
+            gradeComparison: components["schemas"]["FuelGradeComparison"][];
+        };
+        FuelMonthCost: {
+            month: string;
+            cost: number;
+            quantity: number;
+            entries: number;
+            distanceKm?: number | null;
+        };
+        FuelMonthEstimate: {
+            month: string;
+            spentSoFar: number;
+            /** @description Null with fewer than 3 entries in the last 60 days. */
+            projected?: number | null;
+        };
+        FuelStatsPeriod: {
+            /** Format: date */
+            from?: string | null;
+            /** Format: date */
+            to?: string | null;
+        };
+        FuelStatsResponse: {
+            /** @description The currency with the most entries in the period; null with no entries. */
+            currency?: string | null;
+            period: components["schemas"]["FuelStatsPeriod"];
+            /** @description Highest km across events and fuel entries. */
+            lastOdometerKm?: number | null;
+            entryCount: number;
+            /** @description Entries left out because they use another currency. */
+            ignoredEntries: number;
+            totalCost: number;
+            costPerKm?: number | null;
+            monthly: components["schemas"]["FuelMonthCost"][];
+            monthEstimate: components["schemas"]["FuelMonthEstimate"];
+            byFuelType: components["schemas"]["FuelTypeStats"][];
         };
         TypeCount: {
             type: components["schemas"]["EventType"];
@@ -2126,6 +2310,234 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeadlinesResponse"];
+                };
+            };
+            403: components["responses"]["ConsentRequired"];
+            /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listFuelEntries: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from a previous page's `nextCursor`. */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FuelEntryPage"];
+                };
+            };
+            /** @description Code `validation-failed` (limit out of range or malformed cursor). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: components["responses"]["ConsentRequired"];
+            /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    addFuelEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FuelEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description The saved entry. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FuelEntryResponse"];
+                };
+            };
+            /** @description Code `validation-failed` (request shape). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: components["responses"]["ConsentRequired"];
+            /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Code `odometer-inconsistent` or `invalid-fuel-entry`. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updateFuelEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FuelEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated entry. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FuelEntryResponse"];
+                };
+            };
+            /** @description Code `validation-failed` (request shape). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: components["responses"]["ConsentRequired"];
+            /** @description Codes `vehicle-not-found` or `fuel-entry-not-found`. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Code `odometer-inconsistent` or `invalid-fuel-entry`. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    deleteFuelEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["ConsentRequired"];
+            /** @description Codes `vehicle-not-found` or `fuel-entry-not-found`. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getFuelStats: {
+        parameters: {
+            query?: {
+                period?: "3m" | "6m" | "12m" | "all";
+            };
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Statistics. Always 200 for an owned car, with nulls and empty arrays when there is too little data. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FuelStatsResponse"];
+                };
+            };
+            /** @description Code `validation-failed` (unknown period). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             403: components["responses"]["ConsentRequired"];
