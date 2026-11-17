@@ -126,6 +126,21 @@ public class FuelEntryPanacheRepository implements FuelEntryRepositoryPort {
         }
     }
 
+    @Override
+    public List<FuelEntry> allByCreator(UUID createdBy) {
+        return em.createQuery("from FuelEntryEntity e where e.createdBy = :by and e.deletedAt is null",
+                        FuelEntryEntity.class)
+                .setParameter("by", createdBy)
+                .getResultStream().map(FuelEntryPanacheRepository::toDomain).toList();
+    }
+
+    @Override
+    public void deleteByCreator(UUID createdBy) {
+        em.createQuery("delete from FuelEntryEntity e where e.createdBy = :by")
+                .setParameter("by", createdBy)
+                .executeUpdate();
+    }
+
     private static FuelEntry toDomain(FuelEntryEntity e) {
         return new FuelEntry(e.id, e.vin, e.periodId, e.createdBy, e.entryDate, e.odometerKm,
                 FuelEntryType.valueOf(e.fuelType), e.quantity, e.total, e.unitPrice, e.currency,

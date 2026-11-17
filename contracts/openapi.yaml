@@ -2215,7 +2215,7 @@ components:
     AccountExport:
       type: object
       description: Everything stored about the caller, delivered as an attachment download (Content-Disposition attachment).
-      required: [exportedAt, profile, settings, consents, vehicles, events, passports, supportReports]
+      required: [exportedAt, profile, settings, consents, vehicles, events, passports, fuelEntries, supportReports]
       properties:
         exportedAt: { type: string, format: date-time }
         profile: { $ref: '#/components/schemas/MeResponse' }
@@ -2239,6 +2239,16 @@ components:
         passports:
           type: array
           items: { $ref: '#/components/schemas/PassportResponse' }
+        fuelEntries:
+          type: array
+          description: Every fill-up the caller recorded, also on cars sold since (never those of the car's other owners); `vin` says which car.
+          items:
+            allOf:
+              - $ref: '#/components/schemas/FuelEntryResponse'
+              - type: object
+                required: [vin]
+                properties:
+                  vin: { $ref: '#/components/schemas/Vin' }
         supportReports:
           type: array
           description: Support reports the caller sent, oldest first.

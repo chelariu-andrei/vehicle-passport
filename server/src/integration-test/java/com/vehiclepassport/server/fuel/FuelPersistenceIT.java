@@ -185,6 +185,44 @@ class FuelPersistenceIT {
     }
 
     @Test
+    void all_by_creator_spans_cars_and_periods_and_excludes_soft_deleted() {
+        Fixture f = fixture();
+        Fixture other = fixture();
+        // the same person on a second car, in its own period
+        Fixture mine2 = new Fixture(other.vin(), f.owner(), other.period());
+        FuelEntry a = entry(f, UUID.randomUUID(), "2026-10-01", 10000, T0);
+        FuelEntry b = entry(mine2, UUID.randomUUID(), "2025-05-01", 50000, T0);
+        FuelEntry gone = entry(f, UUID.randomUUID(), "2026-10-02", 10100, T0);
+        FuelEntry theirs = entry(other, UUID.randomUUID(), "2026-10-03", 10200, T0);
+        saveAll(List.of(a, b, gone, theirs));
+        QuarkusTransaction.requiringNew().run(() -> entries.softDelete(gone.id(), T0.plusSeconds(60)));
+
+        List<UUID> mine = QuarkusTransaction.requiringNew().call(() -> entries.allByCreator(f.owner())).stream()
+                .map(FuelEntry::id).toList();
+        assertEquals(2, mine.size());
+        assertTrue(mine.containsAll(List.of(a.id(), b.id())), mine.toString());
+    }
+
+    @Test
+    void delete_by_creator_removes_the_rows_including_soft_deleted() {
+        Fixture f = fixture();
+        Fixture other = fixture();
+        FuelEntry a = entry(f, UUID.randomUUID(), "2026-10-01", 10000, T0);
+        FuelEntry gone = entry(f, UUID.randomUUID(), "2026-10-02", 10100, T0);
+        FuelEntry theirs = entry(other, UUID.randomUUID(), "2026-10-03", 10200, T0);
+        saveAll(List.of(a, gone, theirs));
+        QuarkusTransaction.requiringNew().run(() -> entries.softDelete(gone.id(), T0.plusSeconds(60)));
+
+        QuarkusTransaction.requiringNew().run(() -> entries.deleteByCreator(f.owner()));
+
+        long left = QuarkusTransaction.requiringNew().call(() -> ((Number) em.createNativeQuery(
+                "select count(*) from vehicle_passport.fuel_entry where created_by = ?1")
+                .setParameter(1, f.owner()).getSingleResult()).longValue());
+        assertEquals(0, left);
+        assertEquals(List.of(theirs.id()), all(other.vin(), other.period()).stream().map(FuelEntry::id).toList());
+    }
+
+    @Test
     void bad_cursor_is_validation_failed() {
         Fixture f = fixture();
         for (String bad : List.of("not base64 !!", Base64.getUrlEncoder().encodeToString(

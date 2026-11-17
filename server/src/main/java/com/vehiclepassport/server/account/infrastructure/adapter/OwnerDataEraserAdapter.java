@@ -18,6 +18,8 @@ public class OwnerDataEraserAdapter implements OwnerDataEraserPort {
     com.vehiclepassport.server.event.application.port.in.DetachOwnerUseCase events;
     @Inject
     com.vehiclepassport.server.scan.application.port.in.DetachOwnerUseCase scans;
+    @Inject
+    com.vehiclepassport.server.fuel.application.port.in.DetachOwnerUseCase fuel;
 
     @Override
     public void revokePassports(UUID ownerId) {
@@ -26,6 +28,8 @@ public class OwnerDataEraserAdapter implements OwnerDataEraserPort {
 
     @Override
     public void detachOwnedData(UUID ownerId, UUID tombstone) {
+        // Fill-ups are personal usage data and are deleted outright; the others are handed to the tombstone.
+        fuel.detach(ownerId, tombstone);
         scans.detach(ownerId, tombstone);
         events.detach(ownerId, tombstone);
         vehicles.detach(ownerId, tombstone);

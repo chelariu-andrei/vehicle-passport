@@ -25,6 +25,9 @@ import com.vehiclepassport.server.account.domain.model.Settings;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.EventInput;
+import com.vehiclepassport.server.fuel.application.port.in.AddFuelEntryUseCase;
+import com.vehiclepassport.server.fuel.application.port.in.FuelEntryCommand;
+import com.vehiclepassport.server.fuel.domain.model.FuelEntryType;
 import com.vehiclepassport.server.passport.application.port.in.CreatePassportUseCase;
 import com.vehiclepassport.server.testsupport.fake.FakeIdentityAdminPort;
 import com.vehiclepassport.server.testsupport.smoke.PersistenceProfile;
@@ -83,6 +86,8 @@ class AccountPurgeIT {
     CreatePassportUseCase passports;
     @Inject
     FakeIdentityAdminPort identity;
+    @Inject
+    AddFuelEntryUseCase fuel;
 
     @AfterEach
     void resetIdentity() {
@@ -132,6 +137,8 @@ class AccountPurgeIT {
         adding.add(new AddEventCommand(LEAVER, vin, new EventInput("SERVICE", LocalDate.parse("2025-03-01"), 1000,
                 BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
         passports.create(LEAVER, vin, null);
+        fuel.add(new FuelEntryCommand(LEAVER, vin, null, LocalDate.parse("2025-03-02"), 1100, FuelEntryType.DIESEL,
+                new BigDecimal("40.0"), new BigDecimal("300.00"), "RON", true, false, null, null, null, null));
         consents.record(LEAVER, new ConsentChange(List.of(new ConsentAcceptance(ConsentType.TERMS, "1.0"),
                 new ConsentAcceptance(ConsentType.PRIVACY, "1.0")), true, null, ConsentSource.SIGN_UP_FORM));
         settings.replace(LEAVER, Settings.defaults());
@@ -149,6 +156,8 @@ class AccountPurgeIT {
         assertEquals(1, count("select count(*) from vehicle_passport.vehicle_event where vin = ?1 and created_by = ?2",
                 vin, TOMBSTONE));
         assertEquals(0, count("select count(*) from vehicle_passport.vehicle_event where created_by = ?1", LEAVER));
+        // Fuel entries are personal usage data: deleted outright, not handed to the tombstone.
+        assertEquals(0, count("select count(*) from vehicle_passport.fuel_entry where vin = ?1", vin));
         assertEquals(1, count("select count(*) from vehicle_passport.ownership_period "
                 + "where vin = ?1 and owner_id = ?2 and owned_to is not null", vin, TOMBSTONE));
         assertEquals(0, count("select count(*) from vehicle_passport.ownership_period where owner_id = ?1", LEAVER));

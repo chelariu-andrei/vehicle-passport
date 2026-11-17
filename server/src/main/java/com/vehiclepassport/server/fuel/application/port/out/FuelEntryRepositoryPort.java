@@ -28,6 +28,12 @@ public interface FuelEntryRepositoryPort {
 
     void softDelete(UUID id, Instant at);
 
+    /** Every non-deleted entry the user created, on any car and in any period; the order is unspecified. */
+    List<FuelEntry> allByCreator(UUID createdBy);
+
+    /** Removes every row the user created, soft-deleted ones included (account purge). */
+    void deleteByCreator(UUID createdBy);
+
     /** {@code nextCursor} is null on the last page. */
     record Page(List<FuelEntry> items, String nextCursor) {
         public Page {

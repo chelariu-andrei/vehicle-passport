@@ -86,6 +86,23 @@ public class FakeFuelEntryRepository implements FuelEntryRepositoryPort, Resetta
     }
 
     @Override
+    public synchronized List<FuelEntry> allByCreator(UUID createdBy) {
+        return store.values().stream().filter(e -> !deleted.contains(e.id()) && e.createdBy().equals(createdBy))
+                .toList();
+    }
+
+    @Override
+    public synchronized void deleteByCreator(UUID createdBy) {
+        store.values().removeIf(e -> {
+            boolean mine = e.createdBy().equals(createdBy);
+            if (mine) {
+                deleted.remove(e.id());
+            }
+            return mine;
+        });
+    }
+
+    @Override
     public synchronized void reset() {
         store.clear();
         deleted.clear();

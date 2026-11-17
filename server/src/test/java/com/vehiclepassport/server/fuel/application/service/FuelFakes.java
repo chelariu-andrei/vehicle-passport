@@ -77,6 +77,17 @@ final class FuelFakes {
         public void softDelete(UUID id, Instant at) {
             deleted.put(id, at);
         }
+
+        @Override
+        public List<FuelEntry> allByCreator(UUID createdBy) {
+            return rows.values().stream().filter(e -> !deleted.containsKey(e.id()))
+                    .filter(e -> e.createdBy().equals(createdBy)).toList();
+        }
+
+        @Override
+        public void deleteByCreator(UUID createdBy) {
+            rows.values().removeIf(e -> e.createdBy().equals(createdBy));
+        }
     }
 
     static final class Owners implements ActiveOwnerPort {

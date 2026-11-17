@@ -5,6 +5,8 @@ import com.vehiclepassport.server.account.domain.model.OwnedData;
 import com.vehiclepassport.server.event.application.port.in.DetailsView;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.ListEventsByCreatorUseCase;
+import com.vehiclepassport.server.fuel.application.port.in.FuelEntryExportView;
+import com.vehiclepassport.server.fuel.application.port.in.ListFuelEntriesByCreatorUseCase;
 import com.vehiclepassport.server.passport.application.port.in.ListMyPassportsUseCase;
 import com.vehiclepassport.server.passport.application.port.in.PassportView;
 import com.vehiclepassport.server.vehicle.application.port.in.AppearanceView;
@@ -18,8 +20,9 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Collects an owner's vehicles, the events they recorded and their passports through the other features' public
- * use cases only, shaped like the contract's VehicleResponse, EventResponse and PassportResponse.
+ * Collects an owner's vehicles, the events and fill-ups they recorded and their passports through the other features'
+ * public use cases only, shaped like the contract's VehicleResponse, EventResponse, FuelEntryResponse and
+ * PassportResponse.
  */
 @ApplicationScoped
 public class OwnerDataExportAdapter implements OwnerDataExportPort {
@@ -30,6 +33,8 @@ public class OwnerDataExportAdapter implements OwnerDataExportPort {
     ListEventsByCreatorUseCase recorded;
     @Inject
     ListMyPassportsUseCase passports;
+    @Inject
+    ListFuelEntriesByCreatorUseCase fillUps;
 
     @Override
     public OwnedData exportFor(UUID ownerId) {
@@ -37,8 +42,11 @@ public class OwnerDataExportAdapter implements OwnerDataExportPort {
         // The events the user recorded, also on cars sold since; never those of the car's other owners.
         List<Map<String, Object>> events = recorded.listByCreator(ownerId).stream()
                 .map(c -> event(c.vin(), c.event())).toList();
+        // Like events: every fill-up the user recorded, also on cars sold since.
+        List<Map<String, Object>> fuelEntries = fillUps.listByCreator(ownerId).stream()
+                .map(OwnerDataExportAdapter::fuelEntry).toList();
         return new OwnedData(owned.stream().map(OwnerDataExportAdapter::vehicle).toList(), events,
-                passports.list(ownerId).stream().map(OwnerDataExportAdapter::passport).toList());
+                passports.list(ownerId).stream().map(OwnerDataExportAdapter::passport).toList(), fuelEntries);
     }
 
     private static Map<String, Object> vehicle(VehicleView v) {
@@ -132,6 +140,29 @@ public class OwnerDataExportAdapter implements OwnerDataExportPort {
             case "SAFETY_EQUIPMENT" -> m.put("item", d.item());
             default -> { }
         }
+        return m;
+    }
+
+    /** FuelEntryResponse plus the vin, as for events. */
+    private static Map<String, Object> fuelEntry(FuelEntryExportView f) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("vin", f.vin());
+        m.put("id", f.id());
+        m.put("date", f.date());
+        m.put("odometerKm", f.odometerKm());
+        m.put("fuelType", f.fuelType());
+        m.put("quantity", f.quantity());
+        m.put("unit", f.unit());
+        m.put("total", f.total());
+        m.put("unitPrice", f.unitPrice());
+        m.put("currency", f.currency());
+        m.put("fullTank", f.fullTank());
+        m.put("missedPrevious", f.missedPrevious());
+        m.put("grade", f.grade());
+        m.put("chargeType", f.chargeType());
+        m.put("station", f.station());
+        m.put("note", f.note());
+        m.put("consumption", f.consumption());
         return m;
     }
 

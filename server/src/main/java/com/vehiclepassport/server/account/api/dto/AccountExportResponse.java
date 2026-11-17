@@ -12,5 +12,6 @@ public record AccountExportResponse(
         List<Map<String, Object>> vehicles,
         List<Map<String, Object>> events,
         List<Map<String, Object>> passports,
+        List<Map<String, Object>> fuelEntries,
         List<SupportReportExportDto> supportReports) {
 }
