@@ -1,0 +1,55 @@
+' Deadlines & reminders — see docs/superpowers/specs/2026-11-16-deadlines-reminders-design.md
+
+@startuml deadlines-reminders-sequence
+title Document deadlines and local reminders (event saved -> reminders -> tap)
+skinparam sequenceMessageAlign center
+
+actor Owner
+participant "Mobile app" as App
+participant "ReminderSync" as Sync
+participant "reminderPlan\n(pure)" as Plan
+participant "scheduler\n(expo-notifications)" as Sched
+participant "Server\nGET /vehicles/{vin}/deadlines" as Api
+participant "OS notifications" as Os
+
+== An event is saved (or the app starts, returns to the foreground, or settings change) ==
+Owner -> App : save a renewed RCA
+App -> Api : POST /vehicles/{vin}/events
+App -> App : invalidate timeline(vin)\n(deadlines key sits under it)
+App -> Api : GET /vehicles/{vin}/deadlines
+Api --> App : six items (status, validUntil, daysLeft, eventId)
+
+== The plan is rebuilt from scratch ==
+App -> Sync : deadlines, garage, settings, last tires date
+Sync -> Plan : reminderPlan(cars, prefs, now)
+Plan --> Sync : reminders at 09:00 local\n(30 / 7 / 1 days + expiry day, tire season,\nfuture only, earliest 60)
+alt plan changed and permission granted
+  Sync -> Sched : applyPlan(plan)
+  Sched -> Os : cancelAllScheduledNotifications
+  Sched -> Os : scheduleNotification x N
+else permission undetermined and plan not empty
+  Sync -> Owner : explanation sheet (once)
+  Owner -> Sync : Allow reminders
+  Sync -> Os : system permission prompt
+end
+
+== Later ==
+Os -> Owner : "RCA expires in 7 days"
+Owner -> Os : tap
+Os -> App : response { vin, kind }
+App -> Owner : open Document status for that car
+note right of App
+  A renewed document has a later validUntil,
+  so its old reminders are not in the new plan.
+  Sign-out cancels everything.
+end note
+@enduml
+
+@startuml deadlines-status
+title Document status rules (server)
+[*] --> NOT_RECORDED : no entry in the group
+[*] --> UNKNOWN : current entry, no validUntil (ITP only)
+[*] --> VALID : validUntil - today > 30 days
+VALID --> EXPIRING : validUntil - today <= 30 days
+EXPIRING --> EXPIRED : today > validUntil
+@enduml
