@@ -29,6 +29,7 @@ export function DocumentsSection({
   onChange,
   disabled = false,
   capacity = MAX_STAGED,
+  hint,
   children,
 }: {
   files: StagedFile[];
@@ -36,6 +37,8 @@ export function DocumentsSection({
   disabled?: boolean;
   /** How many files fit in all; less than the limit when the event already has some. */
   capacity?: number;
+  /** What to attach for this type of entry, from the registry; the generic caption alone when absent. */
+  hint?: string;
   /** The documents the event already has, shown above the pickers. */
   children?: ReactNode;
 }) {
@@ -106,6 +109,7 @@ export function DocumentsSection({
   return (
     <View style={{ gap: tokens.space['space-2'] }}>
       <Text variant="label">{en.event.documents.title}</Text>
+      {hint ? <Text>{hint}</Text> : null}
       <Text variant="caption" color="ink-muted">
         {en.event.documents.caption}
       </Text>

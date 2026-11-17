@@ -47,3 +47,8 @@ Feature: Scan review
     Given the job's local photo no longer exists
     When I open Review
     Then the form works without the preview
+
+  Scenario: Reviewing a scanned ITP asks for its expiry
+    Given a scan under review
+    When I set its type to ITP
+    Then I can enter "Valid until" and the result

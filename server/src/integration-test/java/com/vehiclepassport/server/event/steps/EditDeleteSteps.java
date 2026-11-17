@@ -8,9 +8,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.DeleteEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.GetEventDocumentUseCase;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
+import com.vehiclepassport.server.event.application.port.in.TimelineQuery;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventCommand;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.UpdateEventCommand;
@@ -97,7 +99,7 @@ public class EditDeleteSteps {
         registerAs(world.me());
         UUID id = saveConfirmed.save(new SaveConfirmedEventCommand(world.me(), VIN, "SERVICE",
             LocalDate.parse("2025-03-01"), km, new BigDecimal("450.00"), "RON", "scan", null, "docs/key.pdf",
-            "application/pdf", null, 0));
+            "application/pdf", null, 0, null, null));
         world.put(E_KEY, id);
     }
 
@@ -116,7 +118,7 @@ public class EditDeleteSteps {
         registerAs(alice);
         UUID id = saveConfirmed.save(new SaveConfirmedEventCommand(alice, VIN, "SERVICE",
             LocalDate.parse("2025-03-01"), 120000, new BigDecimal("450.00"), "RON", "scan", null,
-            "docs/alice.pdf", "application/pdf", null, 0));
+            "docs/alice.pdf", "application/pdf", null, 0, null, null));
         world.put(E_KEY, id);
         release.release(VIN, alice);
         registerAs(world.me());
@@ -200,7 +202,7 @@ public class EditDeleteSteps {
         int expected = world.get(EXPECTED_KEY);
         assertEquals(expected, errors.size(), "every attempt must be refused");
         // the event is unchanged and still on the timeline
-        assertTrue(timeline.get(world.me(), VIN, null, 100).items().stream()
+        assertTrue(timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items().stream()
             .anyMatch(e -> e.id().equals(id) && e.odometerKm() == 120000));
     }
 
@@ -213,7 +215,8 @@ public class EditDeleteSteps {
     public void theTimelineDoesNotContainE() {
         assertNull(world.lastError(), String.valueOf(world.lastError()));
         UUID id = world.get(E_KEY);
-        assertTrue(timeline.get(world.me(), VIN, null, 100).items().stream().noneMatch(e -> e.id().equals(id)));
+        assertTrue(timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items().stream()
+                .noneMatch(e -> e.id().equals(id)));
     }
 
     @Then("E has evidence {word} and notes {string}")
@@ -226,8 +229,9 @@ public class EditDeleteSteps {
     }
 
     private void tryEdit(UUID id) {
-        world.attempt(() -> updateEvent.update(new UpdateEventCommand(world.me(), VIN, id, "SERVICE",
-            LocalDate.parse("2025-03-01"), 121000, BigDecimal.TEN, "RON", "x")));
+        world.attempt(() -> updateEvent.update(new UpdateEventCommand(world.me(), VIN, id, new EventInput("SERVICE",
+                LocalDate.parse("2025-03-01"), 121000, BigDecimal.TEN, "RON", "x", null, null, null, null, null,
+                null))));
     }
 
     private void edit(UUID id, Function<EventView, UpdateEventCommand> build) {
@@ -237,11 +241,12 @@ public class EditDeleteSteps {
 
     private UpdateEventCommand command(UUID id, LocalDate date, int km, String notes) {
         EventView v = find(id);
-        return new UpdateEventCommand(world.me(), VIN, id, v.type(), date, km, v.costAmount(), v.currency(), notes);
+        return new UpdateEventCommand(world.me(), VIN, id, new EventInput(v.type(), date, km, v.costAmount(),
+                v.currency(), notes, null, null, null, null, null, null));
     }
 
     private EventView find(UUID id) {
-        return timeline.get(world.me(), VIN, null, 100).items().stream()
+        return timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items().stream()
             .filter(e -> e.id().equals(id)).findFirst().orElseThrow();
     }
 
@@ -254,7 +259,7 @@ public class EditDeleteSteps {
     }
 
     private EventView add(UUID user, String date, int km) {
-        return addEvent.add(new AddEventCommand(
-            user, VIN, "SERVICE", LocalDate.parse(date), km, BigDecimal.TEN, "RON", null));
+        return addEvent.add(new AddEventCommand(user, VIN, new EventInput("SERVICE", LocalDate.parse(date), km,
+                BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
     }
 }

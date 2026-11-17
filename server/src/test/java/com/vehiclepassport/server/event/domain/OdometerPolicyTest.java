@@ -18,6 +18,12 @@ class OdometerPolicyTest {
     }
 
     @Test
+    void nullKmSkipsCheck() {
+        assertDoesNotThrow(() -> OdometerPolicy.check(120000, null, 90000));
+        assertDoesNotThrow(() -> OdometerPolicy.check(null, null, null));
+    }
+
+    @Test
     void equal_values_pass() {
         assertDoesNotThrow(() -> OdometerPolicy.check(5, 5, 5));
     }

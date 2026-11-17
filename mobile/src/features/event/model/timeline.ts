@@ -6,13 +6,13 @@ export type EventResponse = components['schemas']['EventResponse'];
 
 const PAGE_SIZE = 100;
 
-/** Pages arrive oldest first, as the server sends them. */
+/** Pages arrive newest first: the request asks for `order: 'desc'`, and a cursor is only valid with the order it was issued for. */
 async function loadPages(vin: string): Promise<EventResponse[]> {
   const items: EventResponse[] = [];
   let cursor: string | undefined;
   do {
     const page = unwrap(
-      await api.GET('/vehicles/{vin}/timeline', { params: { path: { vin }, query: { limit: PAGE_SIZE, cursor } } }),
+      await api.GET('/vehicles/{vin}/timeline', { params: { path: { vin }, query: { limit: PAGE_SIZE, cursor, order: 'desc' } } }),
     );
     items.push(...page.items);
     cursor = page.nextCursor ?? undefined;
@@ -21,20 +21,22 @@ async function loadPages(vin: string): Promise<EventResponse[]> {
 }
 
 /**
- * Every event of the car, newest first. The server has no sort option, so the app loads all pages and reverses.
+ * Every event of the car, newest first, as the server sends it.
  * A cursor the server refuses restarts from page one, once (P11); a second refusal is an error.
  */
 export async function fetchFullTimeline(vin: string): Promise<EventResponse[]> {
   try {
-    return (await loadPages(vin)).reverse();
+    return await loadPages(vin);
   } catch (error) {
     if (!isApiError(error, 'invalid-cursor')) throw error;
-    return (await loadPages(vin)).reverse();
+    return await loadPages(vin);
   }
 }
 
-/** The odometer of the newest entry, with that entry's evidence. `events` is newest first. */
+/** The odometer of the newest entry that has one, with that entry's evidence. `events` is newest first. */
 export function latestOdometer(events: readonly EventResponse[]): { km: number; evidence: Evidence } | null {
-  const latest = events[0];
-  return latest ? { km: latest.odometerKm, evidence: latest.evidence } : null;
+  for (const event of events) {
+    if (event.odometerKm !== null) return { km: event.odometerKm, evidence: event.evidence };
+  }
+  return null;
 }

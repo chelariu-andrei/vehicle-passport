@@ -81,7 +81,18 @@ public class OwnerDataExportAdapter implements OwnerDataExportPort {
         m.put("costAmount", e.costAmount());
         m.put("currency", e.currency());
         m.put("notes", e.notes());
+        m.put("customLabel", e.customLabel());
+        m.put("validFrom", e.validFrom());
+        m.put("validUntil", e.validUntil());
         m.put("details", details(e.details()));
+        m.put("components", e.components() == null ? List.of() : e.components());
+        m.put("customFields", e.customFields() == null ? List.of() : e.customFields().stream().map(f -> {
+            Map<String, Object> field = new LinkedHashMap<>();
+            field.put("label", f.label());
+            field.put("value", f.value());
+            return field;
+        }).toList());
+        m.put("validityStatus", e.validityStatus());
         m.put("evidence", e.evidence());
         m.put("source", e.source());
         m.put("documentPresent", e.documentPresent());
@@ -89,20 +100,38 @@ public class OwnerDataExportAdapter implements OwnerDataExportPort {
         return m;
     }
 
+    /** Flat like the API: scan details carry serviceName, parts and labor, the other kinds their own fields. */
     private static Map<String, Object> details(DetailsView d) {
         if (d == null) {
             return null;
         }
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("serviceName", d.serviceName());
-        m.put("parts", d.parts() == null ? List.of() : d.parts().stream().map(p -> {
-            Map<String, Object> part = new LinkedHashMap<>();
-            part.put("name", p.name());
-            part.put("qty", p.qty());
-            part.put("price", p.price());
-            return part;
-        }).toList());
-        m.put("labor", d.labor());
+        m.put("kind", d.kind());
+        switch (d.kind()) {
+            case "SCAN" -> {
+                m.put("serviceName", d.serviceName());
+                m.put("parts", d.parts() == null ? List.of() : d.parts().stream().map(p -> {
+                    Map<String, Object> part = new LinkedHashMap<>();
+                    part.put("name", p.name());
+                    part.put("qty", p.qty());
+                    part.put("price", p.price());
+                    return part;
+                }).toList());
+                m.put("labor", d.labor());
+            }
+            case "INSURANCE" -> {
+                m.put("coverage", d.coverage());
+                m.put("insurer", d.insurer());
+                m.put("policyNumber", d.policyNumber());
+            }
+            case "ROVINIETA" -> m.put("duration", d.duration());
+            case "ITP" -> {
+                m.put("station", d.station());
+                m.put("result", d.result());
+            }
+            case "SAFETY_EQUIPMENT" -> m.put("item", d.item());
+            default -> { }
+        }
         return m;
     }
 

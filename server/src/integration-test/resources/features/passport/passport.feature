@@ -28,6 +28,17 @@ Feature: Passport
     When I create a passport for V
     Then the snapshot lists both with evidence, details and the document-present flag
 
+  Scenario: A passport over old-style events has the same hash as before
+    Given V has only old-style events
+    When I create a passport for V
+    And anyone opens the public link
+    Then the snapshot has no extended keys and its hash recomputes
+
+  Scenario: A passport shows the insurer, validity and custom fields
+    Given V has a CASCO from Allianz, a scanned ITP and an OTHER event with a custom field
+    When I create a passport for V
+    Then the snapshot carries the insurer, the validity, the station and the custom field
+
   Scenario: Deleted events are not in new passports, and old passports keep them
     Given a passport P1 created while event E existed
     When I delete E and create a passport P2

@@ -1,9 +1,12 @@
 package com.vehiclepassport.server.passport.infrastructure;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.passport.application.port.out.PassportDocument;
+import com.vehiclepassport.server.passport.domain.model.SnapshotCustomField;
+import com.vehiclepassport.server.passport.domain.model.SnapshotDetails;
 import com.vehiclepassport.server.passport.domain.model.SnapshotEvent;
 import com.vehiclepassport.server.passport.domain.model.SnapshotPart;
 import com.vehiclepassport.server.passport.domain.model.SnapshotVehicle;
@@ -99,5 +102,27 @@ class PdfRendererAdapterTest {
         SnapshotEvent e = new SnapshotEvent(UUID.randomUUID(), "SERVICE", LocalDate.of(2024, 1, 1), 1000,
                 new BigDecimal("100.00"), "RON", "ok", hostile, List.of(), null, "NONE", false);
         assertTrue(render(doc(List.of(e))).text().contains(hostile));
+    }
+
+    @Test
+    void extended_fields_are_rendered_and_missing_km_is_omitted() throws Exception {
+        SnapshotEvent insurance = new SnapshotEvent(UUID.randomUUID(), "INSURANCE", LocalDate.of(2025, 5, 1), null,
+                new BigDecimal("2400.00"), "RON", null, null, null, null, "USER_CONFIRMED", false, null,
+                LocalDate.of(2025, 5, 1), LocalDate.of(2026, 4, 30),
+                new SnapshotDetails("INSURANCE", "CASCO", "Allianz", null, null, null, null, null), null, null);
+        SnapshotEvent other = new SnapshotEvent(UUID.randomUUID(), "OTHER", LocalDate.of(2025, 6, 1), 95000, null,
+                null, null, null, null, null, "USER_CONFIRMED", false, "Ceramic coating", null, null, null,
+                List.of("BODY"), List.of(new SnapshotCustomField("Layers", "3")));
+        SnapshotEvent itp = new SnapshotEvent(UUID.randomUUID(), "ITP", LocalDate.of(2025, 2, 1), 90000, null, null,
+                null, null, null, null, "DOCUMENTED", false, null, null, LocalDate.of(2027, 2, 1),
+                new SnapshotDetails("ITP", null, null, null, null, "ITP Nord", "PASSED", null), null, null);
+        String text = render(doc(List.of(insurance, other, itp))).text().replace((char) 160, (char) 32);
+        assertTrue(text.contains("INSURANCE · CASCO · Allianz 2400.00 RON"), text);
+        assertFalse(text.contains("null km"), text);
+        assertTrue(text.contains("valid 2025-05-01–2026-04-30"), text);
+        assertTrue(text.contains("Ceramic coating 95000 km"), text);
+        assertTrue(text.contains("Layers: 3"), text);
+        assertTrue(text.contains("Components: BODY"), text);
+        assertTrue(text.contains("ITP · ITP Nord · PASSED"), text);
     }
 }

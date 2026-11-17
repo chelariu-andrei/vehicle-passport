@@ -49,6 +49,20 @@ describe('toConfirmRequest', () => {
   it('needs a three-letter currency', () => {
     expect(toConfirmRequest({ ...good(), currency: 'RO' })).toEqual({ missing: ['currency'] });
   });
+
+  it('sends the ITP expiry and result, and only for an ITP', () => {
+    const itp = { ...good(), type: 'ITP' as const, validUntil: '2027-03-09', itpResult: 'PASSED' as const };
+    expect(toConfirmRequest(itp)).toMatchObject({ type: 'ITP', validUntil: '2027-03-09', itpResult: 'PASSED' });
+    expect(toConfirmRequest({ ...itp, validUntil: null, itpResult: null })).not.toHaveProperty('validUntil');
+    expect(toConfirmRequest({ ...itp, validUntil: null, itpResult: null })).not.toHaveProperty('itpResult');
+  });
+
+  it('non-ITP confirm never sends validUntil', () => {
+    const stale = { ...good(), type: 'REPAIR' as const, validUntil: '2027-03-09', itpResult: 'FAILED' as const };
+    const request = toConfirmRequest(stale);
+    expect(request).not.toHaveProperty('validUntil');
+    expect(request).not.toHaveProperty('itpResult');
+  });
 });
 
 describe('reviewFormSchema', () => {
@@ -77,6 +91,14 @@ describe('reviewFormSchema', () => {
     const r = parse({ parts: [{ name: 'Oil', qty: '1', price: 'abc' }] });
     expect(r.success).toBe(false);
     expect(!r.success && r.error.issues[0].path).toEqual(['parts', 0, 'price']);
+  });
+
+  it('reads the ITP expiry as a date and the result as a choice', () => {
+    const r = parse({ type: 'ITP', validUntil: '2027-03-09', itpResult: 'PASSED_WITH_REMARKS' });
+    expect(r.success && r.data).toMatchObject({ validUntil: '2027-03-09', itpResult: 'PASSED_WITH_REMARKS' });
+    const empty = parse({ type: 'ITP', validUntil: ' ', itpResult: '' });
+    expect(empty.success && empty.data).toMatchObject({ validUntil: null, itpResult: null });
+    expect(parse({ type: 'ITP', validUntil: '09.03.2027' }).success).toBe(false);
   });
 });
 

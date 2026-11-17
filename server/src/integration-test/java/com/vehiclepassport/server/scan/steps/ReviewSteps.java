@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
+import com.vehiclepassport.server.event.application.port.in.TimelineQuery;
 import com.vehiclepassport.server.scan.application.port.in.ConfirmScanCommand;
 import com.vehiclepassport.server.scan.application.port.in.ConfirmScanUseCase;
 import com.vehiclepassport.server.scan.application.port.in.PartInput;
@@ -153,6 +154,15 @@ public class ReviewSteps {
         world.attempt(() -> confirmAs(km));
     }
 
+    @When("I confirm the extracted data as {word}")
+    public void iConfirmTheExtractedDataAs(String type) {
+        ScanJobView view = world.get(JOB_KEY);
+        ConfirmScanCommand base = command(view.id(), null);
+        world.attempt(() -> world.put(EVENT_KEY, confirm.confirm(new ConfirmScanCommand(base.userId(),
+            base.jobId(), type, base.date(), base.odometerKm(), base.serviceName(), base.parts(), base.labor(),
+            base.total(), null, null, null, null))));
+    }
+
     @When("I confirm without choosing type or currency")
     public void iConfirmWithoutTypeOrCurrency() {
         world.attempt(() -> confirmAs(null));
@@ -256,7 +266,7 @@ public class ReviewSteps {
         ConfirmScanCommand base = command(view.id(), null);
         world.put(EVENT_KEY, confirm.confirm(new ConfirmScanCommand(base.userId(), base.jobId(), null,
             base.date(), km == null ? base.odometerKm() : km, base.serviceName(), base.parts(), base.labor(),
-            base.total(), null, null)));
+            base.total(), null, null, null, null)));
     }
 
     private ConfirmScanCommand command(UUID jobId, Integer km) {
@@ -265,14 +275,14 @@ public class ReviewSteps {
             .map(p -> new PartInput(p.name(), p.qty(), p.price())).toList();
         return new ConfirmScanCommand(world.me(), jobId, null, r.date().value(),
             km == null ? r.odometerKm().value() : km, r.serviceName().value(), parts, r.labor().value(),
-            r.total().value(), null, null);
+            r.total().value(), null, null, null, null);
     }
 
     private EventView savedEvent() {
         UUID id = world.get(EVENT_KEY);
         assertNotNull(id, "no event was confirmed");
         UUID viewer = world.get(OWNER_KEY) == null ? world.me() : world.get(OWNER_KEY);
-        return timeline.get(viewer, VIN, null, 100).items().stream()
+        return timeline.get(TimelineQuery.firstPage(viewer, VIN, 100)).items().stream()
             .filter(e -> e.id().equals(id)).findFirst().orElseThrow();
     }
 

@@ -1,4 +1,5 @@
 /* One handler per authenticated operation, mirroring the server behaviour the integration spec marks (server). */
+import { daysBetween, rovinietaEnd } from '@/features/event/model/validity';
 import type { components } from '@/shared/api/generated/schema';
 import { accountHandlers, type AccountState } from './account';
 import type { AttachmentResponse, EventResponse, PassportResponse, PendingClaimResponse, ScanJobResponse, VehicleResponse } from './builders';
@@ -73,13 +74,14 @@ function yearInRange(year: number): boolean {
 }
 
 /** An entry fits when nothing earlier has more kilometres and nothing later has fewer. */
-function odometerFits(events: EventResponse[], date: string, km: number, exceptId?: string): boolean {
+function odometerFits(events: EventResponse[], date: string, km: number | null | undefined, exceptId?: string): boolean {
+  if (km === null || km === undefined) return true;
   return events.every(
-    (e) => e.id === exceptId || e.date === date || (e.date < date ? e.odometerKm <= km : e.odometerKm >= km),
+    (e) => e.id === exceptId || e.odometerKm === null || e.date === date || (e.date < date ? e.odometerKm <= km : e.odometerKm >= km),
   );
 }
 
-function checkEventRules(events: EventResponse[], date: string, km: number, exceptId?: string): Reply | null {
+function checkEventRules(events: EventResponse[], date: string, km: number | null | undefined, exceptId?: string): Reply | null {
   if (date > today()) return problem(422, 'invalid-event');
   if (!odometerFits(events, date, km, exceptId)) return problem(422, 'odometer-inconsistent');
   return null;
@@ -174,6 +176,97 @@ const withdrawClaim: Handler = (c) => {
   return noContent();
 };
 
+/** A rovinieta's end is computed from its start and duration, as the server does; every other type sends it. */
+function validUntilOf(b: Schemas['EventRequest']): string | null {
+  const details = b.details as { duration?: Parameters<typeof rovinietaEnd>[1] } | null | undefined;
+  if (b.type === 'ROVINIETA' && details?.duration && b.validFrom) return rovinietaEnd(b.validFrom, details.duration);
+  return b.validUntil ?? null;
+}
+
+const EXPIRING_DAYS = 30;
+
+/** Entries of one kind of document (a RCA policy, an ITP, ...) replace each other; null for types without validity. */
+function validityGroup(e: EventResponse): string | null {
+  const details = e.details as { coverage?: string; item?: string } | null;
+  switch (e.type) {
+    case 'ITP':
+    case 'ROVINIETA':
+      return e.type;
+    case 'INSURANCE':
+      return details?.coverage ?? 'RCA';
+    case 'SAFETY_EQUIPMENT':
+      return details?.item ?? 'FIRE_EXTINGUISHER';
+    default:
+      return null;
+  }
+}
+
+/** The events with `validityStatus`: the newest of each group gets a live status, the older ones are SUPERSEDED. Does not touch the state. */
+function withValidity(events: EventResponse[]): EventResponse[] {
+  const newest = new Map<string, EventResponse>();
+  events.forEach((e) => {
+    const group = validityGroup(e);
+    const current = group === null ? undefined : newest.get(group);
+    if (group !== null && (!current || e.date >= current.date)) newest.set(group, e);
+  });
+  return events.map((e) => {
+    const group = validityGroup(e);
+    if (group === null) return e;
+    if (newest.get(group) !== e) return { ...e, validityStatus: 'SUPERSEDED' as const };
+    if (!e.validUntil) return { ...e, validityStatus: 'UNKNOWN' as const };
+    const days = daysBetween(today(), e.validUntil);
+    return { ...e, validityStatus: days < 0 ? ('EXPIRED' as const) : days <= EXPIRING_DAYS ? ('EXPIRING' as const) : ('VALID' as const) };
+  });
+}
+
+const EVENT_TYPES = ['SERVICE', 'REPAIR', 'TIRES', 'ITP', 'ROVINIETA', 'INSURANCE', 'SAFETY_EQUIPMENT', 'OTHER'];
+const COMPONENT_NAMES = [
+  'ENGINE', 'TRANSMISSION', 'BRAKES', 'SUSPENSION', 'STEERING', 'TIRES_WHEELS', 'ELECTRICAL', 'CLIMATE', 'BODY', 'EXHAUST', 'INTERIOR', 'FLUIDS', 'OTHER',
+];
+
+interface Filters {
+  types: string[];
+  components: string[];
+  from: string | null;
+  to: string | null;
+}
+
+const isDate = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+/** The type, component, from and to filters of a request, or the problem to answer. */
+function filtersOf(c: Ctx): Filters | Reply {
+  const types = c.query.getAll('type');
+  const components = c.query.getAll('component');
+  const from = c.query.get('from');
+  const to = c.query.get('to');
+  const bad =
+    types.some((t) => !EVENT_TYPES.includes(t)) ||
+    components.some((t) => !COMPONENT_NAMES.includes(t)) ||
+    (from !== null && !isDate(from)) ||
+    (to !== null && !isDate(to)) ||
+    (from !== null && to !== null && from > to);
+  return bad ? problem(400, 'validation-failed') : { types, components, from, to };
+}
+
+const isReply = (f: Filters | Reply): f is Reply => 'status' in f;
+
+function matches(e: EventResponse, f: Filters): boolean {
+  return (
+    (f.types.length === 0 || f.types.includes(e.type)) &&
+    (f.components.length === 0 || e.components.some((x) => f.components.includes(x))) &&
+    (f.from === null || e.date >= f.from) &&
+    (f.to === null || e.date <= f.to)
+  );
+}
+
+/** Oldest first; entries of the same day keep their insertion order. */
+function chronological(events: EventResponse[]): EventResponse[] {
+  return events
+    .map((event, index) => ({ event, index }))
+    .sort((a, b) => (a.event.date < b.event.date ? -1 : a.event.date > b.event.date ? 1 : a.index - b.index))
+    .map((entry) => entry.event);
+}
+
 const addEvent: Handler = (c) => {
   if (!ownedVehicle(c)) return notOwned();
   const b = c.body as Schemas['EventRequest'];
@@ -184,18 +277,23 @@ const addEvent: Handler = (c) => {
     id: uuid(),
     type: b.type,
     date: b.date,
-    odometerKm: b.odometerKm,
+    odometerKm: b.odometerKm ?? null,
     costAmount: b.costAmount,
     currency: b.currency,
     notes: b.notes ?? null,
-    details: null,
+    customLabel: b.customLabel ?? null,
+    validFrom: b.validFrom ?? null,
+    validUntil: validUntilOf(b),
+    details: (b.details ?? null) as EventResponse['details'],
+    components: b.components ?? [],
+    customFields: b.customFields ?? [],
     evidence: 'USER_CONFIRMED',
     source: 'MANUAL',
     documentPresent: false,
     attachmentCount: 0,
   };
   events.push(event);
-  return ok(event, 201);
+  return ok(withValidity(events).find((e) => e.id === event.id), 201);
 };
 
 const updateEvent: Handler = (c) => {
@@ -216,7 +314,16 @@ const updateEvent: Handler = (c) => {
     const refused = checkEventRules(events, b.date, b.odometerKm, event.id);
     if (refused) return refused;
   }
-  Object.assign(event, { ...b, notes: b.notes ?? null });
+  Object.assign(event, {
+    ...b,
+    notes: b.notes ?? null,
+    customLabel: b.customLabel ?? null,
+    validFrom: b.validFrom ?? null,
+    validUntil: validUntilOf(b),
+    details: (b.details ?? null) as EventResponse['details'],
+    components: b.components ?? [],
+    customFields: b.customFields ?? [],
+  });
   return ok(event);
 };
 
@@ -314,13 +421,51 @@ const getTimeline: Handler = (c) => {
     if (!/^c[0-9a-z]+$/.test(cursor)) return problem(400, 'invalid-cursor');
     offset = parseInt(cursor.slice(1), 36);
   }
-  const ordered = (c.state.events[c.params.vin] ?? [])
-    .map((event, index) => ({ event, index }))
-    .sort((a, b) => (a.event.date < b.event.date ? -1 : a.event.date > b.event.date ? 1 : a.index - b.index))
-    .map((entry) => entry.event);
+  const filters = filtersOf(c);
+  if (isReply(filters)) return filters;
+  const order = c.query.get('order');
+  if (order !== null && order !== 'asc' && order !== 'desc') return problem(400, 'validation-failed');
+  const ordered = chronological(withValidity(c.state.events[c.params.vin] ?? [])).filter((e) => matches(e, filters));
+  if (order === 'desc') ordered.reverse();
   if (offset > ordered.length) return problem(400, 'invalid-cursor');
   const end = offset + limit;
   return ok({ items: ordered.slice(offset, end), nextCursor: end < ordered.length ? `c${end.toString(36)}` : null });
+};
+
+const getTimelineSummary: Handler = (c) => {
+  if (!ownedVehicle(c)) return notOwned();
+  const filters = filtersOf(c);
+  if (isReply(filters)) return filters;
+  const all = chronological(c.state.events[c.params.vin] ?? []);
+  const shown = all.filter((e) => matches(e, filters));
+
+  const counts = new Map<string, number>();
+  const costs = new Map<string, number>();
+  for (const e of shown) {
+    counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
+    costs.set(e.currency, Math.round(((costs.get(e.currency) ?? 0) + e.costAmount) * 100) / 100);
+  }
+
+  // Distance ignores the type and component filters.
+  const readings = all.filter((e) => e.odometerKm !== null);
+  const before = readings.filter((e) => filters.from !== null && e.date < filters.from);
+  const period = readings.filter((e) => (filters.from === null || e.date >= filters.from) && (filters.to === null || e.date <= filters.to));
+  const first = before.length > 0 ? before[before.length - 1] : period[0];
+  const last = period.length > 0 ? period[period.length - 1] : undefined;
+  // One reading is no distance: the server answers fromKm null when the first and last readings are the same entry.
+  const single = first === last;
+  const fromKm = single ? null : (first?.odometerKm ?? null);
+  const toKm = last?.odometerKm ?? null;
+  const km = fromKm !== null && toKm !== null ? toKm - fromKm : null;
+
+  const years = [...new Set(all.map((e) => Number(e.date.slice(0, 4))))].sort((a, b) => b - a);
+  return ok({
+    eventCount: shown.length,
+    countsByType: EVENT_TYPES.filter((t) => counts.has(t)).map((type) => ({ type, count: counts.get(type)! })),
+    costByCurrency: [...costs].map(([currency, amount]) => ({ currency, amount })).sort((a, b) => b.amount - a.amount || (a.currency < b.currency ? -1 : a.currency > b.currency ? 1 : 0)),
+    distance: { km, fromKm, toKm },
+    years,
+  });
 };
 
 const submitScan: Handler = (c) => {
@@ -366,6 +511,7 @@ const confirmScan: Handler = (c) => {
   if (!vin) return problem(409, 'scan-state-conflict');
   const b = c.body as Schemas['ConfirmScanRequest'];
   const events = (c.state.events[vin] ??= []);
+  if ((b.type ?? 'SERVICE') !== 'ITP' && (b.validUntil != null || b.itpResult != null)) return problem(400, 'validation-failed');
   const refused = checkEventRules(events, b.date, b.odometerKm);
   if (refused) return refused;
   const event: EventResponse = {
@@ -376,7 +522,10 @@ const confirmScan: Handler = (c) => {
     costAmount: b.total,
     currency: b.currency ?? 'RON',
     notes: b.notes ?? null,
-    details: { serviceName: b.serviceName ?? null, parts: b.parts ?? [], labor: b.labor ?? null },
+    validUntil: b.validUntil ?? null,
+    details: { kind: 'SCAN', serviceName: b.serviceName ?? null, parts: b.parts ?? [], labor: b.labor ?? null },
+    components: [],
+    customFields: [],
     evidence: 'DOCUMENTED',
     source: 'SCAN',
     documentPresent: true,
@@ -465,6 +614,7 @@ export const handlers: Record<string, Handler> = {
   getAttachment,
   deleteAttachment,
   getTimeline,
+  getTimelineSummary,
   submitScan,
   submitScanBatch,
   getScan,

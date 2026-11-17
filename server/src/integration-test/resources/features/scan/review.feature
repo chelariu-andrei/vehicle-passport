@@ -89,3 +89,10 @@ Feature: Invoice scanner review
     When I reject it
     Then it is rejected with code "scan-state-conflict"
     And the stored job is CANCELLED
+
+  Scenario: A scan cannot be confirmed as ROVINIETA
+    Given an extracted result
+    When I confirm the extracted data as ROVINIETA
+    Then it is rejected with code "validation-failed"
+    And the job is still EXTRACTED
+    And no event exists

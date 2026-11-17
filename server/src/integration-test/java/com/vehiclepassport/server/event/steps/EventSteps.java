@@ -8,8 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
+import com.vehiclepassport.server.event.application.port.in.TimelineQuery;
 import com.vehiclepassport.server.event.application.port.in.TimelinePage;
 import com.vehiclepassport.server.shared.error.DomainException;
 import com.vehiclepassport.server.testsupport.World;
@@ -124,19 +126,22 @@ public class EventSteps {
 
     @When("I add a {word} event on {word} at {int} km costing {int} RON")
     public void iAddAnEventCosting(String type, String date, int km, int cost) {
-        world.attempt(() -> world.put(RESULT_KEY, addEvent.add(new AddEventCommand(
-            world.me(), VIN, type, LocalDate.parse(date), km, BigDecimal.valueOf(cost), "RON", "note"))));
+        world.attempt(() -> world.put(RESULT_KEY, addEvent.add(new AddEventCommand(world.me(), VIN,
+                new EventInput(type, LocalDate.parse(date), km, BigDecimal.valueOf(cost), "RON", "note", null, null,
+                null, null, null, null)))));
     }
 
     @When("I add an event on {word} at {int} km")
     public void iAddAnEvent(String date, int km) {
-        world.attempt(() -> world.put(RESULT_KEY, addEvent.add(new AddEventCommand(
-            world.me(), VIN, "SERVICE", LocalDate.parse(date), km, BigDecimal.TEN, "RON", null))));
+        world.attempt(() -> world.put(RESULT_KEY, addEvent.add(new AddEventCommand(world.me(), VIN,
+                new EventInput("SERVICE", LocalDate.parse(date), km, BigDecimal.TEN, "RON", null, null, null, null,
+                null, null, null)))));
     }
 
     @When("I request the timeline")
     public void iRequestTheTimeline() {
-        world.attempt(() -> world.put(TIMELINE_KEY, timeline.get(world.me(), VIN, null, 100).items()));
+        world.attempt(() -> world.put(TIMELINE_KEY,
+                timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items()));
     }
 
     @When("I read the timeline {int} at a time")
@@ -145,7 +150,7 @@ public class EventSteps {
         String cursor = null;
         int guard = 0;
         do {
-            TimelinePage page = timeline.get(world.me(), VIN, cursor, size);
+            TimelinePage page = timeline.get(new TimelineQuery(world.me(), VIN, null, null, cursor, size));
             assertTrue(page.items().size() <= size);
             seen.addAll(page.items());
             cursor = page.nextCursor();
@@ -162,7 +167,7 @@ public class EventSteps {
         assertEquals(evidence, view.evidence());
         assertEquals("MANUAL", view.source());
         assertNull(view.details());
-        List<EventView> stored = timeline.get(world.me(), VIN, null, 100).items();
+        List<EventView> stored = timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items();
         assertTrue(stored.stream().anyMatch(e -> e.id().equals(view.id())), "event should be on the timeline");
     }
 
@@ -171,7 +176,7 @@ public class EventSteps {
         RuntimeException error = world.lastError();
         assertNotNull(error, "expected a rejection");
         assertEquals("odometer-inconsistent", ((DomainException) error).code());
-        List<EventView> stored = timeline.get(world.me(), VIN, null, 100).items();
+        List<EventView> stored = timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items();
         assertEquals(1, stored.size(), "the rejected event must not be stored");
     }
 
@@ -228,8 +233,8 @@ public class EventSteps {
     }
 
     private EventView addAs(UUID user, String date, int km) {
-        return addEvent.add(new AddEventCommand(
-            user, VIN, "SERVICE", LocalDate.parse(date), km, BigDecimal.TEN, "RON", null));
+        return addEvent.add(new AddEventCommand(user, VIN, new EventInput("SERVICE", LocalDate.parse(date), km,
+                BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
     }
 
     private void assertNoError() {

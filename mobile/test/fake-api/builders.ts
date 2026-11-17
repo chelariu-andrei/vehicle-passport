@@ -36,6 +36,8 @@ export function anEvent(o: Partial<EventResponse> = {}): EventResponse {
     currency: 'RON',
     notes: null,
     details: null,
+    components: [],
+    customFields: [],
     evidence: 'USER_CONFIRMED',
     source: 'MANUAL',
     documentPresent: false,

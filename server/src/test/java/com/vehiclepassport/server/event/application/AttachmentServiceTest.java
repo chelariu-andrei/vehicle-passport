@@ -30,7 +30,9 @@ import com.vehiclepassport.server.event.domain.model.EventSource;
 import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.EvidenceLevel;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
+import com.vehiclepassport.server.event.domain.model.EventFilter;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
+import com.vehiclepassport.server.event.domain.model.TimelineOrder;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import com.vehiclepassport.server.shared.error.FileTooLargeException;
 import com.vehiclepassport.server.shared.error.UnsupportedFileException;
@@ -54,6 +56,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -404,7 +407,7 @@ class AttachmentServiceTest {
 
     private static VehicleEvent event(String vin, UUID periodId, EvidenceLevel evidence, EventSource source) {
         return new VehicleEvent(UUID.randomUUID(), vin, EventType.SERVICE, LocalDate.parse("2026-03-01"), 1000,
-                BigDecimal.TEN, "RON", null, null, evidence, source, UUID.randomUUID(), periodId, null,
+                BigDecimal.TEN, "RON", null, null, null, null, Set.of(), List.of(), evidence, source, UUID.randomUUID(), periodId, null,
                 Instant.parse("2026-03-01T10:00:00Z"), null);
     }
 
@@ -436,9 +439,17 @@ class AttachmentServiceTest {
             rows.put(e.id(), e);
         }
 
-        public List<VehicleEvent> page(String vin, TimelineCursor a, int l) { return List.of(); }
+        public List<VehicleEvent> page(String vin, EventFilter f, TimelineOrder o, TimelineCursor a, int l) { return List.of(); }
 
         public List<VehicleEvent> allActive(String vin) { return List.of(); }
+
+        public com.vehiclepassport.server.event.domain.model.TimelineSummary summary(String vin, EventFilter f) {
+            return null;
+        }
+
+        public List<VehicleEvent> validityEntries(String vin) {
+            return rows.values().stream().filter(e -> e.vin().equals(vin) && e.deletedAt() == null).toList();
+        }
     }
 
     /** Enforces the (vin, sha256) uniqueness of live uploads, like the repository and its index do. */

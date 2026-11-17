@@ -21,10 +21,13 @@ package "event" {
     interface GetTimelineSummaryUseCase
     interface ReadVehicleHistoryUseCase
     [EventService]
+    [EventInputService\n(EventInput -> EventFacts / EventAnnotations)]
     interface EventRepositoryPort
   }
   package "domain" {
     [VehicleEvent]
+    [EventFacts]
+    [EventAnnotations]
     [EventType\n(per-type rules)]
     [EventDetails\n«sealed»]
     [ScanDetails]
@@ -66,10 +69,13 @@ UpdateEventUseCase <|.. [EventService]
 GetTimelineUseCase <|.. [EventService]
 GetTimelineSummaryUseCase <|.. [EventService]
 ReadVehicleHistoryUseCase <|.. [EventService]
+[EventService] --> [EventInputService\n(EventInput -> EventFacts / EventAnnotations)]
 [EventService] --> [VehicleEvent]
 [EventService] --> [ValidityStatusPolicy]
 [EventService] --> [OdometerPolicy]
 [EventService] --> EventRepositoryPort
+[EventInputService\n(EventInput -> EventFacts / EventAnnotations)] ..> [EventFacts]
+[EventInputService\n(EventInput -> EventFacts / EventAnnotations)] ..> [EventAnnotations]
 [VehicleEvent] --> [EventType\n(per-type rules)]
 [VehicleEvent] --> [EventDetails\n«sealed»]
 [VehicleEvent] --> [Validity\n(rovinietă end date)]
@@ -159,6 +165,18 @@ note bottom of ScanDetails
   a scanned ITP gets ItpDetails
   (station = serviceName) + validUntil
 end note
+class EventFacts <<record>> {
+  type, date, odometerKm, costAmount, currency
+  customLabel, validFrom, validUntil
+  details : EventDetails [0..1]
+  --
+  locked on a documented event
+}
+class EventAnnotations <<record>> {
+  notes
+  components : Set<Component>
+  customFields : List<CustomField>
+}
 class CustomField <<record>> {
   label : String (1..40)
   value : String (1..200)
@@ -179,7 +197,8 @@ enum Component {
   OTHER
 }
 class ValidityStatusPolicy {
-  {static} status(event, currentIdOfGroup, today) : ValidityStatus
+  {static} currentIds(validityEntries) : Set<UUID>
+  {static} status(event, current : boolean, today) : ValidityStatus
   {static} group(event) : ValidityGroup [0..1]
 }
 enum ValidityStatus {
@@ -191,6 +210,8 @@ enum ValidityStatus {
 }
 
 VehicleEvent --> EventType
+VehicleEvent ..> EventFacts : built from
+VehicleEvent ..> EventAnnotations : built from
 EventType --> TypeRule
 VehicleEvent --> "0..1" Validity
 VehicleEvent --> "0..1" EventDetails
@@ -221,9 +242,9 @@ alt cursor order mismatch / malformed
   TimelineResource --> Owner : 400 invalid-cursor
 end
 EventService -> EventRepositoryPort : page(filter, order, after, limit+1)
-EventService -> EventRepositoryPort : currentValidityEntries(vin)
+EventService -> EventRepositoryPort : validityEntries(vin)
 loop each event
-  EventService -> ValidityStatusPolicy : status(event, currentIdOfGroup, today)
+  EventService -> ValidityStatusPolicy : currentIds(validityEntries) once, then status(event, current, today)
 end
 EventService --> TimelineResource : TimelinePage(items, nextCursor)
 TimelineResource --> Owner : 200 TimelinePage
@@ -304,7 +325,10 @@ package "event/api" {
   [useTimelineSummary]
 }
 package "event/components/details" {
+  [DetailsView]
+  [DETAILS_VIEW\n(details/index.ts)]
   [InsuranceDetailsView/Fields]
+  [SafetyEquipmentDetailsView/Fields]
   [RovinietaDetailsView/Fields]
   [ItpDetailsView/Fields]
   [ScanDetailsView]
@@ -330,12 +354,18 @@ package "shared/design" {
 [TimelineItem] --> [eventTypes.ts\nEVENT_TYPE_CONFIG]
 [TimelineRail] --> [eventTypes.ts\nEVENT_TYPE_CONFIG]
 [FilterBar] --> [components.ts\nCOMPONENT_CONFIG]
-[eventTypes.ts\nEVENT_TYPE_CONFIG] --> [InsuranceDetailsView/Fields]
-[eventTypes.ts\nEVENT_TYPE_CONFIG] --> [RovinietaDetailsView/Fields]
-[eventTypes.ts\nEVENT_TYPE_CONFIG] --> [ItpDetailsView/Fields]
-[eventTypes.ts\nEVENT_TYPE_CONFIG] --> [ScanDetailsView]
+[eventTypes.ts\nEVENT_TYPE_CONFIG] --> [InsuranceDetailsView/Fields] : form fields
+[eventTypes.ts\nEVENT_TYPE_CONFIG] --> [RovinietaDetailsView/Fields] : form fields
+[eventTypes.ts\nEVENT_TYPE_CONFIG] --> [ItpDetailsView/Fields] : form fields
+[eventTypes.ts\nEVENT_TYPE_CONFIG] --> [SafetyEquipmentDetailsView/Fields] : form fields
+[DETAILS_VIEW\n(details/index.ts)] --> [InsuranceDetailsView/Fields] : by kind
+[DETAILS_VIEW\n(details/index.ts)] --> [RovinietaDetailsView/Fields] : by kind
+[DETAILS_VIEW\n(details/index.ts)] --> [ItpDetailsView/Fields] : by kind
+[DETAILS_VIEW\n(details/index.ts)] --> [SafetyEquipmentDetailsView/Fields] : by kind
+[DETAILS_VIEW\n(details/index.ts)] --> [ScanDetailsView] : by kind
 [eventForm.ts] --> [eventTypes.ts\nEVENT_TYPE_CONFIG]
 [eventForm.ts] --> [validity.ts]
+[DetailsView] --> [DETAILS_VIEW\n(details/index.ts)]
 @enduml
 
 @startuml timeline-extended-validity-state

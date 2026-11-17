@@ -20,7 +20,9 @@ public record ConfirmScanRequest(
         @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal labor,
         @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal total,
         @Pattern(regexp = "[A-Z]{3}") String currency,
-        @Size(max = 2000) String notes) {
+        @Size(max = 2000) String notes,
+        LocalDate validUntil,
+        @Pattern(regexp = "PASSED|PASSED_WITH_REMARKS|FAILED") String itpResult) {
 
     public record PartRequest(
             @NotNull String name,

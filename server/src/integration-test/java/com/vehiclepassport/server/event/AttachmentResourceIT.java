@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.out.AttachmentRepositoryPort;
 import com.vehiclepassport.server.event.domain.model.Attachment;
@@ -70,8 +71,8 @@ class AttachmentResourceIT {
     }
 
     private UUID eventAs(String user, String vin, String date, int km) {
-        EventView v = adding.add(new AddEventCommand(UUID.fromString(user), vin, "SERVICE", LocalDate.parse(date), km,
-                BigDecimal.TEN, "RON", null));
+        EventView v = adding.add(new AddEventCommand(UUID.fromString(user), vin, new EventInput("SERVICE",
+                LocalDate.parse(date), km, BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
         return v.id();
     }
 

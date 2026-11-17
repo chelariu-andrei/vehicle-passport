@@ -1,7 +1,7 @@
 # Deadlines & reminders (document status, local notifications, tire season)
 
 Date: 2026-11-16 · Scope: `contracts/`, `server/` (event, account settings), `mobile/` · Status: draft for approval
-Depends on: `2026-11-16-timeline-extended-design.md` (validity data, `validityStatus`, `currentValidityEntries`). That
+Depends on: `2026-11-16-timeline-extended-design.md` (validity data, `validityStatus`, `validityEntries`). That
 spec must be merged first.
 Mobile UI (bell icon, badge, screens, components): `2026-11-16-deadlines-reminders-mobile-design.md`.
 
@@ -121,7 +121,7 @@ Copy comes from `en.ts` (keys under `deadlines.notification`), for example title
 
 - Feature `event`:
   - `application/port/in`: `DeadlinesUseCase`; `service`: `DeadlinesService` builds the six items from
-    `EventRepositoryPort.currentValidityEntries(vin)` (already specified in the timeline spec) and the status rules of
+    `EventRepositoryPort.validityEntries(vin)` (already specified in the timeline spec) and the status rules of
     §5.2. No new query.
   - `api`: `DeadlinesResource` (or a second method on `TimelineResource`, builder's choice), `DeadlinesResponseDto`,
     mapper.

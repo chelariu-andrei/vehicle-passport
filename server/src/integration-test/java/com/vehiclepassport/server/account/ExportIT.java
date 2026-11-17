@@ -20,6 +20,9 @@ import com.vehiclepassport.server.account.domain.model.ConsentType;
 import com.vehiclepassport.server.account.domain.model.SupportDiagnostics;
 import com.vehiclepassport.server.account.domain.model.SupportKind;
 import com.vehiclepassport.server.account.domain.model.SupportReport;
+import com.vehiclepassport.server.event.application.port.in.CustomFieldView;
+import com.vehiclepassport.server.event.application.port.in.DetailsView;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.vehicle.application.port.in.ReleaseVehicleUseCase;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
@@ -49,6 +52,7 @@ class ExportIT {
     static final String EMPTY = "00000000-0000-0000-0000-00000000b003";
     static final String SELLER = "00000000-0000-0000-0000-00000000b004";
     static final String PREVIOUS = "00000000-0000-0000-0000-00000000b005";
+    static final String FRESH = "00000000-0000-0000-0000-00000000b006";
 
     @Inject
     RegisterVehicleUseCase registering;
@@ -83,12 +87,12 @@ class ExportIT {
         String theirs = randomVin();
         registering.register(new RegisterVehicleCommand(me, mine, "Dacia", "Duster", null, 2020, "DIESEL"));
         registering.register(new RegisterVehicleCommand(other, theirs, "Dacia", "Sandero", null, 2018, "PETROL"));
-        adding.add(new AddEventCommand(me, mine, "SERVICE", LocalDate.parse("2025-03-01"), 1000, BigDecimal.TEN,
-                "RON", "oil change"));
-        adding.add(new AddEventCommand(me, mine, "SERVICE", LocalDate.parse("2025-04-01"), 2000, BigDecimal.TEN,
-                "RON", null));
-        adding.add(new AddEventCommand(other, theirs, "SERVICE", LocalDate.parse("2025-03-01"), 1000,
-                BigDecimal.TEN, "RON", "not yours"));
+        adding.add(new AddEventCommand(me, mine, new EventInput("SERVICE", LocalDate.parse("2025-03-01"), 1000,
+                BigDecimal.TEN, "RON", "oil change", null, null, null, null, null, null)));
+        adding.add(new AddEventCommand(me, mine, new EventInput("SERVICE", LocalDate.parse("2025-04-01"), 2000,
+                BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
+        adding.add(new AddEventCommand(other, theirs, new EventInput("SERVICE", LocalDate.parse("2025-03-01"), 1000,
+                BigDecimal.TEN, "RON", "not yours", null, null, null, null, null, null)));
         passports.create(me, mine, null);
         passports.create(other, theirs, null);
         consents.record(me, new ConsentChange(List.of(new ConsentAcceptance(ConsentType.TERMS, "1.0")), null, null,
@@ -125,15 +129,15 @@ class ExportIT {
         String bought = randomVin();
         String sold = randomVin();
         registering.register(new RegisterVehicleCommand(previous, bought, "Dacia", "Duster", null, 2020, "DIESEL"));
-        adding.add(new AddEventCommand(previous, bought, "SERVICE", LocalDate.parse("2024-03-01"), 1000,
-                BigDecimal.TEN, "RON", "previous owner's service"));
+        adding.add(new AddEventCommand(previous, bought, new EventInput("SERVICE", LocalDate.parse("2024-03-01"),
+                1000, BigDecimal.TEN, "RON", "previous owner's service", null, null, null, null, null, null)));
         releasing.release(bought, previous);
         registering.register(new RegisterVehicleCommand(me, bought, "Dacia", "Duster", null, 2020, "DIESEL"));
-        adding.add(new AddEventCommand(me, bought, "SERVICE", LocalDate.parse("2025-03-01"), 2000, BigDecimal.TEN,
-                "RON", "my service on the bought car"));
+        adding.add(new AddEventCommand(me, bought, new EventInput("SERVICE", LocalDate.parse("2025-03-01"), 2000,
+                BigDecimal.TEN, "RON", "my service on the bought car", null, null, null, null, null, null)));
         registering.register(new RegisterVehicleCommand(me, sold, "Dacia", "Logan", null, 2018, "PETROL"));
-        adding.add(new AddEventCommand(me, sold, "SERVICE", LocalDate.parse("2024-06-01"), 5000, BigDecimal.TEN,
-                "RON", "my service on the sold car"));
+        adding.add(new AddEventCommand(me, sold, new EventInput("SERVICE", LocalDate.parse("2024-06-01"), 5000,
+                BigDecimal.TEN, "RON", "my service on the sold car", null, null, null, null, null, null)));
         releasing.release(sold, me);
         support.create(me, new SupportReport(SupportKind.PROBLEM, "the export button is hard to find", true,
                 new SupportDiagnostics("1.0.0", "ios", "18.1", "iPhone 15")));
@@ -150,6 +154,35 @@ class ExportIT {
                 .body("supportReports[0].message", equalTo("the export button is hard to find"))
                 .body("supportReports[0].diagnostics.deviceModel", equalTo("iPhone 15"))
                 .body("supportReports[0].createdAt", notNullValue());
+    }
+
+    @Test
+    @TestSecurity(user = "b006")
+    @OidcSecurity(claims = @Claim(key = "sub", value = FRESH))
+    void exportCarriesTheExtendedEventFields() {
+        UUID me = UUID.fromString(FRESH);
+        String vin = randomVin();
+        registering.register(new RegisterVehicleCommand(me, vin, "Dacia", "Duster", null, 2020, "DIESEL"));
+        adding.add(new AddEventCommand(me, vin, new EventInput("INSURANCE", LocalDate.parse("2025-05-01"), null,
+                BigDecimal.TEN, "RON", null, null, LocalDate.parse("2025-05-01"), LocalDate.parse("2026-04-30"),
+                new DetailsView("INSURANCE", null, null, null, "CASCO", "Allianz", "P-77", null, null, null, null),
+                List.of("Body"), List.of(new CustomFieldView("Layers", "3")))));
+
+        given().when().get("/me/export")
+                .then().statusCode(200)
+                .body("events", hasSize(1))
+                .body("events[0].type", equalTo("INSURANCE"))
+                .body("events[0].odometerKm", org.hamcrest.Matchers.nullValue())
+                .body("events[0].validFrom", equalTo("2025-05-01"))
+                .body("events[0].validUntil", equalTo("2026-04-30"))
+                .body("events[0].details.kind", equalTo("INSURANCE"))
+                .body("events[0].details.coverage", equalTo("CASCO"))
+                .body("events[0].details.insurer", equalTo("Allianz"))
+                .body("events[0].details.policyNumber", equalTo("P-77"))
+                .body("events[0].components", equalTo(List.of("BODY")))
+                .body("events[0].customFields[0].label", equalTo("Layers"))
+                .body("events[0].customFields[0].value", equalTo("3"))
+                .body("events[0].validityStatus", notNullValue());
     }
 
     @Test

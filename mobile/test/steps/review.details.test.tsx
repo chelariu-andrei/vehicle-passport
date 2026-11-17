@@ -137,3 +137,24 @@ test('changing the type and currency is sent', async () => {
   await waitFor(() => expect(fake.callsTo('confirmScan')).toHaveLength(1));
   expect(sent(fake)).toMatchObject({ type: 'REPAIR', currency: 'EUR' });
 });
+
+test('a scan switched from ITP to another type never carries the ITP expiry', async () => {
+  const fake = await open();
+  await fireEvent.press(screen.getByRole('radio', { name: en.event.type.ITP }));
+  await fireEvent.changeText(screen.getByLabelText(r.validUntil), '2027-03-09');
+  await fireEvent.press(screen.getByRole('radio', { name: en.event.type.REPAIR }));
+  expect(screen.queryByLabelText(r.validUntil)).toBeNull();
+  await press(r.confirm);
+  await waitFor(() => expect(fake.callsTo('confirmScan')).toHaveLength(1));
+  expect(sent(fake)).toMatchObject({ type: 'REPAIR' });
+  expect(sent(fake)).not.toHaveProperty('validUntil');
+});
+
+test('a malformed ITP expiry is refused on its own box', async () => {
+  const fake = await open();
+  await fireEvent.press(screen.getByRole('radio', { name: en.event.type.ITP }));
+  await fireEvent.changeText(screen.getByLabelText(r.validUntil), '09.03.2027');
+  await press(r.confirm);
+  expect(await screen.findByText(r.invalid)).toBeTruthy();
+  expect(fake.callsTo('confirmScan')).toHaveLength(0);
+});

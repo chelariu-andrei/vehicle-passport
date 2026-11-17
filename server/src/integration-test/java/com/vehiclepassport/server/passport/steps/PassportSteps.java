@@ -12,8 +12,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.CustomFieldView;
 import com.vehiclepassport.server.event.application.port.in.DeleteEventUseCase;
 import com.vehiclepassport.server.event.application.port.in.DetailsView;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.PartView;
 import com.vehiclepassport.server.event.application.port.in.SaveConfirmedEventCommand;
@@ -171,12 +173,40 @@ public class PassportSteps {
     public void vHasBothKindsOfEvent() {
         ownAsMe();
         add(world.me(), "2025-01-10", 100000, "plain");
-        DetailsView details = new DetailsView("Garage Sud",
+        DetailsView details = DetailsView.scan("Garage Sud",
                 List.of(new PartView("Oil filter", new BigDecimal("1.50"), new BigDecimal("30"))),
                 new BigDecimal("100"));
         saveConfirmed.save(new SaveConfirmedEventCommand(world.me(), VIN, "SERVICE", LocalDate.parse("2025-03-01"),
                 120000, new BigDecimal("450.00"), "RON", "from receipt", details, "docs/receipt.pdf",
-                "application/pdf", null, 0));
+                "application/pdf", null, 0, null, null));
+    }
+
+    @Given("V has only old-style events")
+    public void vHasOnlyOldStyleEvents() {
+        ownAsMe();
+        add(world.me(), "2025-01-10", 100000, "plain");
+        DetailsView details = DetailsView.scan("Garage Sud",
+                List.of(new PartView("Oil filter", new BigDecimal("1.50"), new BigDecimal("30"))),
+                new BigDecimal("100"));
+        saveConfirmed.save(new SaveConfirmedEventCommand(world.me(), VIN, "SERVICE", LocalDate.parse("2025-03-01"),
+                120000, new BigDecimal("450.00"), "RON", "from receipt", details, "docs/receipt.pdf",
+                "application/pdf", null, 0, null, null));
+    }
+
+    @Given("V has a CASCO from Allianz, a scanned ITP and an OTHER event with a custom field")
+    public void vHasExtendedEvents() {
+        ownAsMe();
+        DetailsView casco = new DetailsView("INSURANCE", null, null, null, "CASCO", "Allianz", "P-77", null, null,
+                null, null);
+        addEvent.add(new AddEventCommand(world.me(), VIN, new EventInput("INSURANCE", LocalDate.parse("2025-05-01"),
+                null, new BigDecimal("2400"), "RON", null, null, LocalDate.parse("2025-05-01"),
+                LocalDate.parse("2026-04-30"), casco, List.of(), List.of())));
+        DetailsView itp = new DetailsView("ITP", null, null, null, null, null, null, null, "ITP Nord", null, null);
+        addEvent.add(new AddEventCommand(world.me(), VIN, new EventInput("ITP", LocalDate.parse("2025-02-01"),
+                90000, BigDecimal.TEN, "RON", null, null, null, LocalDate.parse("2027-02-01"), itp, List.of(), List.of())));
+        addEvent.add(new AddEventCommand(world.me(), VIN, new EventInput("OTHER", LocalDate.parse("2025-06-01"),
+                95000, BigDecimal.TEN, "RON", null, "Ceramic coating", null, null, null, List.of("Body"),
+                List.of(new CustomFieldView("Layers", "3")))));
     }
 
     @Given("a passport P1 created while event E existed")
@@ -355,6 +385,33 @@ public class PassportSteps {
         assertTrue(json.contains("\"labor\":\"100.00\""), json);
     }
 
+    @Then("the snapshot has no extended keys and its hash recomputes")
+    public void theSnapshotHasNoExtendedKeys() {
+        assertNoError();
+        PublicPassportView view = publicPassport.get(tokenOf(created()));
+        for (String key : List.of("customLabel", "validFrom", "validUntil", "\"details\"", "components",
+                "customFields", "validityStatus")) {
+            assertFalse(view.snapshotJson().contains(key), key + " in " + view.snapshotJson());
+        }
+        assertEquals(view.hash(), SnapshotHasher.sha256Hex(view.snapshotJson()));
+    }
+
+    @Then("the snapshot carries the insurer, the validity, the station and the custom field")
+    public void theSnapshotCarriesExtendedFields() {
+        assertNoError();
+        String json = publicPassport.get(tokenOf(created())).snapshotJson();
+        assertTrue(json.contains("\"details\":{\"coverage\":\"CASCO\",\"insurer\":\"Allianz\","
+                + "\"kind\":\"INSURANCE\",\"policyNumber\":\"P-77\"}"), json);
+        assertTrue(json.contains("\"validFrom\":\"2025-05-01\""), json);
+        assertTrue(json.contains("\"validUntil\":\"2026-04-30\""), json);
+        assertTrue(json.contains("\"details\":{\"kind\":\"ITP\",\"station\":\"ITP Nord\"}"), json);
+        assertTrue(json.contains("\"customLabel\":\"Ceramic coating\""), json);
+        assertTrue(json.contains("\"components\":[\"BODY\"]"), json);
+        assertTrue(json.contains("\"customFields\":[{\"label\":\"Layers\",\"value\":\"3\"}]"), json);
+        assertFalse(json.contains("validityStatus"), json);
+        assertFalse(json.contains("\"serviceName\""), json);
+    }
+
     @Then("P1 still contains E and P2 does not")
     public void p1StillContainsEAndP2DoesNot() {
         assertTrue(publicPassport.get(tokenOf(world.get(FIRST))).snapshotJson().contains(MARKER));
@@ -505,8 +562,8 @@ public class PassportSteps {
     }
 
     private EventView add(UUID user, String date, int km, String notes) {
-        return addEvent.add(new AddEventCommand(
-                user, VIN, "SERVICE", LocalDate.parse(date), km, BigDecimal.TEN, "RON", notes));
+        return addEvent.add(new AddEventCommand(user, VIN, new EventInput("SERVICE", LocalDate.parse(date), km,
+                BigDecimal.TEN, "RON", notes, null, null, null, null, null, null)));
     }
 
     private void assertNoError() {

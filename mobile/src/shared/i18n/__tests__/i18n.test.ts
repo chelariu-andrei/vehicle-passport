@@ -19,3 +19,25 @@ describe('i18n', () => {
     expect(translate('ro', 'account.signOut')).not.toBe(en.account.signOut);
   });
 });
+
+describe('Romanian counts', () => {
+  it('puts "de" only before 20 and up outside x01–x19', () => {
+    const count = ro.timeline!.eventCount!;
+    expect([0, 1, 2, 19, 20, 100, 101, 119, 120].map(count)).toEqual([
+      '0 evenimente',
+      '1 eveniment',
+      '2 evenimente',
+      '19 evenimente',
+      '20 de evenimente',
+      '100 de evenimente',
+      '101 evenimente',
+      '119 evenimente',
+      '120 de evenimente',
+    ]);
+  });
+
+  it('counts the days left on a document the same way', () => {
+    const expiresIn = ro.event!.validity!.expiresIn!;
+    expect([0, 1, 12, 20, 101].map(expiresIn)).toEqual(['Expiră în 0 zile', 'Expiră în 1 zi', 'Expiră în 12 zile', 'Expiră în 20 de zile', 'Expiră în 101 zile']);
+  });
+});

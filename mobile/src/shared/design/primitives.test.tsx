@@ -5,7 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { en } from '@/shared/i18n/en';
 
-import { ActionBar, AppBar, AsyncList, Button, ConfirmSheet, EvidenceBadge, Field, Ground, Screen, ThemeProvider, toast, ToastHost } from '.';
+import { ActionBar, AppBar, AsyncList, Button, ConfirmSheet, EvidenceBadge, Field, FilterChip, SelectSheet, Ground, Screen, ThemeProvider, toast, ToastHost } from '.';
 
 const METRICS = { frame: { x: 0, y: 0, width: 390, height: 844 }, insets: { top: 47, left: 0, right: 0, bottom: 34 } };
 
@@ -230,5 +230,41 @@ describe('Ground', () => {
     await waitFor(() => expect(screen.queryByTestId('ground-grain')).toBeNull());
     await act(async () => {});
     expect(screen.queryByTestId('ground-grain')).toBeNull();
+  });
+});
+
+describe('FilterChip', () => {
+  it('shows badge and active state', async () => {
+    const onPress = jest.fn();
+    await render(<FilterChip label="Type" active badge="2" onPress={onPress} />);
+    expect(screen.getByText('2')).toBeTruthy();
+    const chip = screen.getByRole('button');
+    expect(chip.props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(chip);
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('SelectSheet', () => {
+  const options = [
+    { value: 'a', label: 'Alpha' },
+    { value: 'b', label: 'Beta' },
+  ];
+
+  it('toggles multiple values', async () => {
+    const onChange = jest.fn();
+    await render(<SelectSheet visible title="Pick" options={options} selected={['a']} multiple onChange={onChange} onClose={jest.fn()} />);
+    expect(screen.getByRole('checkbox', { name: 'Alpha' }).props.accessibilityState.checked).toBe(true);
+    await fireEvent.press(screen.getByText('Beta'));
+    expect(onChange).toHaveBeenLastCalledWith(['a', 'b']);
+    await fireEvent.press(screen.getByText('Alpha'));
+    expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it('single mode replaces value', async () => {
+    const onChange = jest.fn();
+    await render(<SelectSheet visible title="Pick" options={options} selected={['a']} multiple={false} onChange={onChange} onClose={jest.fn()} />);
+    await fireEvent.press(screen.getByText('Beta'));
+    expect(onChange).toHaveBeenLastCalledWith(['b']);
   });
 });

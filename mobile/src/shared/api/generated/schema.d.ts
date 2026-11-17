@@ -260,6 +260,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vehicles/{vin}/timeline/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+            };
+            cookie?: never;
+        };
+        /** Aggregates of the VIN's timeline for the given filters */
+        get: operations["getTimelineSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/vehicles/{vin}/scans": {
         parameters: {
             query?: never;
@@ -681,7 +700,28 @@ export interface components {
             contrastRoof?: boolean;
         };
         /** @enum {string} */
-        EventType: "SERVICE" | "REPAIR" | "TIRES" | "ITP";
+        EventType: "SERVICE" | "REPAIR" | "TIRES" | "ITP" | "ROVINIETA" | "INSURANCE" | "SAFETY_EQUIPMENT" | "OTHER";
+        /**
+         * @description The event types a scan can be confirmed as.
+         * @enum {string}
+         */
+        ScanEventType: "SERVICE" | "REPAIR" | "TIRES" | "ITP";
+        /** @enum {string} */
+        Component: "ENGINE" | "TRANSMISSION" | "BRAKES" | "SUSPENSION" | "STEERING" | "TIRES_WHEELS" | "ELECTRICAL" | "CLIMATE" | "BODY" | "EXHAUST" | "INTERIOR" | "FLUIDS" | "OTHER";
+        /** @enum {string} */
+        InsuranceCoverage: "RCA" | "CASCO";
+        /** @enum {string} */
+        RovinietaDuration: "ONE_DAY" | "SEVEN_DAYS" | "THIRTY_DAYS" | "NINETY_DAYS" | "TWELVE_MONTHS";
+        /** @enum {string} */
+        ItpResult: "PASSED" | "PASSED_WITH_REMARKS" | "FAILED";
+        /** @enum {string} */
+        SafetyItem: "FIRE_EXTINGUISHER" | "FIRST_AID_KIT";
+        /** @enum {string} */
+        ValidityStatus: "VALID" | "EXPIRING" | "EXPIRED" | "SUPERSEDED" | "UNKNOWN";
+        CustomField: {
+            label: string;
+            value: string;
+        };
         /** @enum {string} */
         Evidence: "ESTIMATED" | "USER_CONFIRMED" | "DOCUMENTED" | "VERIFIED";
         /** @enum {string} */
@@ -737,11 +777,25 @@ export interface components {
              * @description Must not be in the future.
              */
             date: string;
-            odometerKm: number;
+            /** @description Required for SERVICE, REPAIR, TIRES and ITP; optional otherwise. The server enforces it (`validation-failed`). */
+            odometerKm?: number | null;
             costAmount: number;
             /** @example RON */
             currency: string;
             notes?: string | null;
+            /** @description Required for OTHER, forbidden for every other type. */
+            customLabel?: string | null;
+            /** Format: date */
+            validFrom?: string | null;
+            /**
+             * Format: date
+             * @description Never sent for ROVINIETA (computed by the server from `validFrom` and `duration`).
+             */
+            validUntil?: string | null;
+            /** @description Required for ROVINIETA, INSURANCE and SAFETY_EQUIPMENT; optional for ITP; `kind` must match the event type. */
+            details?: components["schemas"]["EventDetailsInput"] | null;
+            components?: components["schemas"]["Component"][];
+            customFields?: components["schemas"]["CustomField"][];
         };
         Part: {
             name: string;
@@ -750,10 +804,54 @@ export interface components {
         };
         /** @description Structured data from a confirmed scan. Read-only output. */
         ScanDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "SCAN";
             serviceName?: string | null;
             parts?: components["schemas"]["Part"][];
             labor?: number | null;
         };
+        InsuranceDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "INSURANCE";
+            coverage: components["schemas"]["InsuranceCoverage"];
+            insurer: string;
+            policyNumber?: string | null;
+        };
+        RovinietaDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "ROVINIETA";
+            duration: components["schemas"]["RovinietaDuration"];
+        };
+        ItpDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "ITP";
+            station?: string | null;
+            result?: components["schemas"]["ItpResult"] | null;
+        };
+        SafetyEquipmentDetails: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "SAFETY_EQUIPMENT";
+            item: components["schemas"]["SafetyItem"];
+        };
+        /** @description Details a client may send, discriminated by `kind`. SCAN details are never accepted. */
+        EventDetailsInput: components["schemas"]["InsuranceDetails"] | components["schemas"]["RovinietaDetails"] | components["schemas"]["ItpDetails"] | components["schemas"]["SafetyEquipmentDetails"];
+        /** @description Details of an event, discriminated by `kind`. */
+        EventDetailsOutput: components["schemas"]["ScanDetails"] | components["schemas"]["InsuranceDetails"] | components["schemas"]["RovinietaDetails"] | components["schemas"]["ItpDetails"] | components["schemas"]["SafetyEquipmentDetails"];
         /** @description Carries no creator or ownership-period information. */
         EventResponse: {
             /** Format: uuid */
@@ -761,12 +859,20 @@ export interface components {
             type: components["schemas"]["EventType"];
             /** Format: date */
             date: string;
-            odometerKm: number;
+            odometerKm: number | null;
             costAmount: number;
             currency: string;
             notes?: string | null;
-            /** @description Only scans populate this. */
-            readonly details?: components["schemas"]["ScanDetails"] | null;
+            customLabel?: string | null;
+            /** Format: date */
+            validFrom?: string | null;
+            /** Format: date */
+            validUntil?: string | null;
+            /** @description Computed by the server from the validity rules; null for types without validity. */
+            readonly validityStatus?: components["schemas"]["ValidityStatus"] | null;
+            details?: components["schemas"]["EventDetailsOutput"] | null;
+            components: components["schemas"]["Component"][];
+            customFields: components["schemas"]["CustomField"][];
             evidence: components["schemas"]["Evidence"];
             source: components["schemas"]["EventSource"];
             documentPresent: boolean;
@@ -791,6 +897,33 @@ export interface components {
             items: components["schemas"]["EventResponse"][];
             /** @description Null on the last page. */
             nextCursor?: string | null;
+        };
+        TypeCount: {
+            type: components["schemas"]["EventType"];
+            count: number;
+        };
+        CurrencyAmount: {
+            currency: string;
+            amount: number;
+        };
+        /** @description Computed from all events of the car that have km in the period, ignoring the type and component filters. */
+        Distance: {
+            /** @description `toKm` - `fromKm`; null when fewer than two readings are available. */
+            km: number | null;
+            /** @description Last reading before `from`, or else the first reading in the period; null when that would be the same reading as `toKm`. */
+            fromKm: number | null;
+            /** @description Last reading in the period. */
+            toKm: number | null;
+        };
+        TimelineSummary: {
+            eventCount: number;
+            /** @description Only types with a count above zero. */
+            countsByType: components["schemas"]["TypeCount"][];
+            /** @description Sorted by amount, descending. */
+            costByCurrency: components["schemas"]["CurrencyAmount"][];
+            distance: components["schemas"]["Distance"];
+            /** @description Every year with at least one event, newest first, ignoring all filters. */
+            years: number[];
         };
         /**
          * @description CANCELLED means ownership ended before the scan was confirmed.
@@ -836,7 +969,7 @@ export interface components {
         /** @description The reviewed (possibly corrected) data. Low confidence never blocks confirmation. */
         ConfirmScanRequest: {
             /** @default SERVICE */
-            type: components["schemas"]["EventType"];
+            type: components["schemas"]["ScanEventType"];
             serviceName?: string | null;
             /** Format: date */
             date: string;
@@ -847,6 +980,13 @@ export interface components {
             /** @default RON */
             currency: string;
             notes?: string | null;
+            /**
+             * Format: date
+             * @description Only allowed when `type` is ITP; refused otherwise with `validation-failed`.
+             */
+            validUntil?: string | null;
+            /** @description Only allowed when `type` is ITP; refused otherwise with `validation-failed`. */
+            itpResult?: components["schemas"]["ItpResult"] | null;
         };
         ConfirmScanResponse: {
             /** Format: uuid */
@@ -873,7 +1013,7 @@ export interface components {
             expiresAt?: string | null;
         };
         PublicPassportResponse: {
-            /** @description Immutable snapshot: vehicle (vin, make, model, engine, year, fuel) and events (type, date, odometerKm, costAmount, currency, notes, serviceName, parts, labor, evidence, documentPresent). `serviceName`, `parts` and `labor` are flat keys on the event, not nested under `details`; `parts` is omitted when the event has no parts detail, and money values are strings with two decimals. No owner, creator or ownership-date information. */
+            /** @description Immutable snapshot: vehicle (vin, make, model, engine, year, fuel) and events (type, date, odometerKm, costAmount, currency, notes, serviceName, parts, labor, evidence, documentPresent). `serviceName`, `parts` and `labor` (scan details) are flat keys on the event, not nested under `details`; `parts` is omitted when the event has no parts detail, and money values are strings with two decimals. Newer fields are added only when non-empty or non-null, so a snapshot of old-style events is unchanged: `odometerKm` is omitted when the event has no km; `customLabel`, `validFrom`, `validUntil`, `components` and `customFields` are top-level event keys; details of the other kinds (INSURANCE, ROVINIETA, ITP, SAFETY_EQUIPMENT) are nested under `details: { kind, ... }`, the same as the API response. This format is permanent once a passport is hashed. No owner, creator or ownership-date information. */
             snapshot: Record<string, never>;
             hash: string;
             /** @enum {string} */
@@ -1833,6 +1973,16 @@ export interface operations {
                 /** @description Opaque cursor from a previous page's `nextCursor`. */
                 cursor?: string;
                 limit?: number;
+                /** @description Matches any of the given types (`?type=ITP&type=INSURANCE`). */
+                type?: components["schemas"]["EventType"][];
+                /** @description Matches events tagged with any of the given components. */
+                component?: components["schemas"]["Component"][];
+                /** @description Inclusive, on the event date. */
+                from?: string;
+                /** @description Inclusive, on the event date. `from` after `to` is refused. */
+                to?: string;
+                /** @description A cursor is only valid with the order it was issued for. Send the same filters on every page. */
+                order?: "asc" | "desc";
             };
             header?: never;
             path: {
@@ -1851,7 +2001,53 @@ export interface operations {
                     "application/json": components["schemas"]["TimelinePage"];
                 };
             };
-            /** @description Codes `validation-failed` (limit out of range) or `invalid-cursor`. */
+            /** @description Codes `validation-failed` (limit out of range, bad filter, `from` after `to`) or `invalid-cursor` (including a cursor used with a different `order`). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: components["responses"]["ConsentRequired"];
+            /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getTimelineSummary: {
+        parameters: {
+            query?: {
+                type?: components["schemas"]["EventType"][];
+                component?: components["schemas"]["Component"][];
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Counts, costs, distance and years for the filtered timeline. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineSummary"];
+                };
+            };
+            /** @description Code `validation-failed` (bad filter, `from` after `to`). */
             400: {
                 headers: {
                     [name: string]: unknown;

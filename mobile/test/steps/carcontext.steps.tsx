@@ -59,8 +59,8 @@ async function returnToApp() {
 /** Two cars with one history entry each, Golf first. */
 const twoCars = (api: FakeApi) => {
   api.state.vehicles.push(golf(), duster());
-  api.state.events[SAMPLE_VIN] = [anEvent({ details: { serviceName: 'Brake pads' } })];
-  api.state.events[DUSTER_VIN] = [anEvent({ details: { serviceName: 'Timing belt' } })];
+  api.state.events[SAMPLE_VIN] = [anEvent({ details: { kind: 'SCAN', serviceName: 'Brake pads' } })];
+  api.state.events[DUSTER_VIN] = [anEvent({ details: { kind: 'SCAN', serviceName: 'Timing belt' } })];
 };
 
 async function openCarList() {
@@ -238,8 +238,8 @@ defineFeature(feature, (test) => {
         seed: (api) => {
           api.state.vehicles.push(golf());
           api.state.events[SAMPLE_VIN] = [
-            anEvent({ date: '2024-06-01', odometerKm: 100, evidence: 'USER_CONFIRMED', details: { serviceName: 'Old oil' } }),
-            anEvent({ date: '2026-05-02', odometerKm: 200, evidence: 'DOCUMENTED', details: { serviceName: 'New oil' } }),
+            anEvent({ date: '2024-06-01', odometerKm: 100, evidence: 'USER_CONFIRMED', details: { kind: 'SCAN', serviceName: 'Old oil' } }),
+            anEvent({ date: '2026-05-02', odometerKm: 200, evidence: 'DOCUMENTED', details: { kind: 'SCAN', serviceName: 'New oil' } }),
           ];
         },
       });

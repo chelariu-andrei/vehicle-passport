@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
+import com.vehiclepassport.server.event.application.port.in.TimelineQuery;
 import com.vehiclepassport.server.scan.application.port.in.GetScanJobUseCase;
 import com.vehiclepassport.server.scan.application.port.in.ProcessScanJobsUseCase;
 import com.vehiclepassport.server.scan.application.port.in.ScanBatchView;
@@ -267,7 +268,7 @@ public class ScanSteps {
     @Then("no event exists until I confirm")
     public void noEventExists() {
         assertEquals("EXTRACTED", currentJob().status());
-        assertTrue(timeline.get(world.me(), VIN, null, 100).items().isEmpty());
+        assertTrue(timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items().isEmpty());
     }
 
     @Then("the stored key is the scan key of the job and does not contain {string}")

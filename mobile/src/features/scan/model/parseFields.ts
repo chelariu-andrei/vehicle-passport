@@ -1,7 +1,8 @@
 import type { components } from '@/shared/api/generated/schema';
 
 export type ScanFields = components['schemas']['ScanFields'];
-export type EventType = components['schemas']['EventType'];
+export type EventType = components['schemas']['ScanEventType'];
+export type ItpResult = components['schemas']['ItpResult'];
 export const REVIEW_EVENT_TYPES: readonly EventType[] = ['SERVICE', 'REPAIR', 'TIRES', 'ITP'];
 
 /** Below this a value is flagged "Check" (integration 3.4.3). It never blocks confirmation. */
@@ -20,6 +21,9 @@ export type ReviewDraft = {
   type: EventType;
   currency: string;
   notes: string | null;
+  /** ITP only: the last valid day, and how the inspection went. Never read from the scan. */
+  validUntil: string | null;
+  itpResult: ItpResult | null;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
@@ -78,5 +82,7 @@ export function parseFields(fields: ScanFields | null | undefined): ReviewDraft 
     type: 'SERVICE',
     currency: 'RON',
     notes: null,
+    validUntil: null,
+    itpResult: null,
   };
 }

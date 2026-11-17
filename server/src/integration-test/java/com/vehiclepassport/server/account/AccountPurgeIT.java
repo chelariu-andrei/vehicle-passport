@@ -24,6 +24,7 @@ import com.vehiclepassport.server.account.domain.model.ConsentType;
 import com.vehiclepassport.server.account.domain.model.Settings;
 import com.vehiclepassport.server.event.application.port.in.AddEventCommand;
 import com.vehiclepassport.server.event.application.port.in.AddEventUseCase;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.passport.application.port.in.CreatePassportUseCase;
 import com.vehiclepassport.server.testsupport.fake.FakeIdentityAdminPort;
 import com.vehiclepassport.server.testsupport.smoke.PersistenceProfile;
@@ -128,8 +129,8 @@ class AccountPurgeIT {
         String vin = randomVin();
         me.get(LEAVER, "leaver@example.com", true);
         registering.register(new RegisterVehicleCommand(LEAVER, vin, "Dacia", "Duster", null, 2020, "DIESEL"));
-        adding.add(new AddEventCommand(LEAVER, vin, "SERVICE", LocalDate.parse("2025-03-01"), 1000, BigDecimal.TEN,
-                "RON", null));
+        adding.add(new AddEventCommand(LEAVER, vin, new EventInput("SERVICE", LocalDate.parse("2025-03-01"), 1000,
+                BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
         passports.create(LEAVER, vin, null);
         consents.record(LEAVER, new ConsentChange(List.of(new ConsentAcceptance(ConsentType.TERMS, "1.0"),
                 new ConsentAcceptance(ConsentType.PRIVACY, "1.0")), true, null, ConsentSource.SIGN_UP_FORM));

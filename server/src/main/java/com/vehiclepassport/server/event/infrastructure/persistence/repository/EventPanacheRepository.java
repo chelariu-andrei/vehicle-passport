@@ -1,26 +1,50 @@
 package com.vehiclepassport.server.event.infrastructure.persistence.repository;
 
 import com.vehiclepassport.server.event.application.port.out.EventRepositoryPort;
+import com.vehiclepassport.server.event.domain.model.Component;
+import com.vehiclepassport.server.event.domain.model.CustomField;
+import com.vehiclepassport.server.event.domain.model.DetailsKind;
 import com.vehiclepassport.server.event.domain.model.EventDetails;
+import com.vehiclepassport.server.event.domain.model.EventFilter;
 import com.vehiclepassport.server.event.domain.model.EventSource;
 import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.EvidenceLevel;
+import com.vehiclepassport.server.event.domain.model.InsuranceCoverage;
+import com.vehiclepassport.server.event.domain.model.InsuranceDetails;
+import com.vehiclepassport.server.event.domain.model.ItpDetails;
+import com.vehiclepassport.server.event.domain.model.ItpResult;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
 import com.vehiclepassport.server.event.domain.model.PartLine;
+import com.vehiclepassport.server.event.domain.model.RovinietaDetails;
+import com.vehiclepassport.server.event.domain.model.RovinietaDuration;
+import com.vehiclepassport.server.event.domain.model.SafetyEquipmentDetails;
+import com.vehiclepassport.server.event.domain.model.SafetyItem;
+import com.vehiclepassport.server.event.domain.model.ScanDetails;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
+import com.vehiclepassport.server.event.domain.model.TimelineOrder;
+import com.vehiclepassport.server.event.domain.model.TimelineSummary;
+import com.vehiclepassport.server.event.domain.model.Validity;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import com.vehiclepassport.server.event.infrastructure.persistence.entity.VehicleEventEntity;
+import com.vehiclepassport.server.event.infrastructure.persistence.entity.VehicleEventEntity.CustomFieldJson;
 import com.vehiclepassport.server.event.infrastructure.persistence.entity.VehicleEventEntity.DetailsJson;
 import com.vehiclepassport.server.event.infrastructure.persistence.entity.VehicleEventEntity.PartJson;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -32,7 +56,17 @@ public class EventPanacheRepository implements EventRepositoryPort {
 
     private static final String ACTIVE = "from VehicleEventEntity e where e.vin = :vin and e.deletedAt is null";
     private static final String ASC = " order by e.eventDate, e.createdAt, e.id";
+    /** An event without an odometer reading (allowed for some types) is no neighbour for the km check. */
+    private static final String WITH_KM = " and e.odometerKm is not null";
     private static final String DESC = " order by e.eventDate desc, e.createdAt desc, e.id desc";
+    /** The native counterparts, over vehicle_passport.vehicle_event aliased {@code e}. */
+    private static final String ACTIVE_ROWS =
+            " from vehicle_passport.vehicle_event e where e.vin = :vin and e.deleted_at is null";
+    private static final String NATIVE_ASC = " order by e.event_date, e.created_at, e.id";
+    private static final String NATIVE_DESC = " order by e.event_date desc, e.created_at desc, e.id desc";
+    /** The types that carry a validity period (spec §5.6 groups). */
+    private static final List<String> VALIDITY_TYPES = List.of(EventType.ROVINIETA.name(),
+            EventType.INSURANCE.name(), EventType.ITP.name(), EventType.SAFETY_EQUIPMENT.name());
 
     @Inject
     EntityManager em;
@@ -59,11 +93,11 @@ public class EventPanacheRepository implements EventRepositoryPort {
     @Override
     public Neighbours neighbours(String vin, LocalDate date, Instant createdAt, UUID excludeId) {
         Instant at = micros(createdAt);
-        Integer previous = firstKm(em.createQuery(ACTIVE + " and e.id <> :ex and (e.eventDate < :d"
+        Integer previous = firstKm(em.createQuery(ACTIVE + WITH_KM + " and e.id <> :ex and (e.eventDate < :d"
                         + " or (e.eventDate = :d and e.createdAt <= :c))" + DESC, VehicleEventEntity.class)
                 .setParameter("vin", vin).setParameter("ex", excludeId)
                 .setParameter("d", date).setParameter("c", at));
-        Integer next = firstKm(em.createQuery(ACTIVE + " and e.id <> :ex and (e.eventDate > :d"
+        Integer next = firstKm(em.createQuery(ACTIVE + WITH_KM + " and e.id <> :ex and (e.eventDate > :d"
                         + " or (e.eventDate = :d and e.createdAt > :c))" + ASC, VehicleEventEntity.class)
                 .setParameter("vin", vin).setParameter("ex", excludeId)
                 .setParameter("d", date).setParameter("c", at));
@@ -84,8 +118,13 @@ public class EventPanacheRepository implements EventRepositoryPort {
         entity.odometerKm = event.odometerKm();
         entity.costAmount = event.costAmount();
         entity.currency = event.currency();
+        entity.customLabel = event.customLabel();
         entity.notes = event.notes();
+        entity.validFrom = event.validity() == null ? null : event.validity().validFrom();
+        entity.validUntil = event.validity() == null ? null : event.validity().validUntil();
         entity.details = toJson(event.details());
+        entity.components = toColumn(event.components());
+        entity.customFields = toColumn(event.customFields());
         entity.evidence = event.evidence().name();
         entity.source = event.source().name();
         entity.createdBy = event.createdBy();
@@ -98,25 +137,131 @@ public class EventPanacheRepository implements EventRepositoryPort {
         }
     }
 
+    /**
+     * One native query assembled from fixed fragments; every value is a bound parameter. Native because the
+     * component match is the Postgres array overlap {@code &&} (served by the gin index) and the parameter must be
+     * cast to {@code text[]}: bound from HQL it arrives as {@code varchar[]}, for which no {@code &&} exists.
+     * Descending flips the keyset comparison along with the sort.
+     */
     @Override
-    public List<VehicleEvent> page(String vin, TimelineCursor after, int limit) {
-        TypedQuery<VehicleEventEntity> query;
-        if (after == null) {
-            query = em.createQuery(ACTIVE + ASC, VehicleEventEntity.class);
-        } else {
-            query = em.createQuery(ACTIVE + " and (e.eventDate > :d or (e.eventDate = :d and e.createdAt > :c)"
-                            + " or (e.eventDate = :d and e.createdAt = :c and e.id > :id))" + ASC,
-                            VehicleEventEntity.class)
-                    .setParameter("d", after.date()).setParameter("c", micros(after.createdAt()))
+    @SuppressWarnings("unchecked")
+    public List<VehicleEvent> page(String vin, EventFilter filter, TimelineOrder order, TimelineCursor after,
+            int limit) {
+        StringBuilder sql = new StringBuilder("select *").append(ACTIVE_ROWS).append(where(filter));
+        boolean desc = order == TimelineOrder.DESC;
+        if (after != null) {
+            String beyond = desc ? "<" : ">";
+            sql.append(" and (e.event_date ").append(beyond).append(" :d")
+                    .append(" or (e.event_date = :d and e.created_at ").append(beyond).append(" :c)")
+                    .append(" or (e.event_date = :d and e.created_at = :c and e.id ").append(beyond).append(" :id))");
+        }
+        sql.append(desc ? NATIVE_DESC : NATIVE_ASC);
+        Query query = bind(em.createNativeQuery(sql.toString(), VehicleEventEntity.class), vin, filter);
+        if (after != null) {
+            query.setParameter("d", after.date()).setParameter("c", micros(after.createdAt()))
                     .setParameter("id", after.id());
         }
-        return query.setParameter("vin", vin).setMaxResults(limit).getResultList().stream()
-                .map(EventPanacheRepository::toDomain).toList();
+        List<VehicleEventEntity> rows = query.setMaxResults(limit).getResultList();
+        return rows.stream().map(EventPanacheRepository::toDomain).toList();
+    }
+
+    /**
+     * Aggregates in SQL, with the same filter fragments and bound parameters as {@link #page}. The readings use
+     * only the period of the filter; each is read with its id, so a period backed by one event alone is seen as
+     * such and reports no {@code fromKm}.
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public TimelineSummary summary(String vin, EventFilter filter) {
+        String matching = ACTIVE_ROWS + where(filter);
+        Map<EventType, Long> counts = new EnumMap<>(EventType.class);
+        long total = 0;
+        List<Object[]> byType = bind(em.createNativeQuery("select e.type, count(*)" + matching
+                + " group by e.type"), vin, filter).getResultList();
+        for (Object[] row : byType) {
+            long count = ((Number) row[1]).longValue();
+            counts.put(stored(EventType.class, (String) row[0]), count);
+            total += count;
+        }
+        Map<String, BigDecimal> costs = new LinkedHashMap<>();
+        List<Object[]> byCurrency = bind(em.createNativeQuery("select e.currency, round(sum(e.cost_amount), 2)"
+                + matching + " group by e.currency order by 2 desc, 1"), vin, filter).getResultList();
+        for (Object[] row : byCurrency) {
+            costs.put((String) row[0], (BigDecimal) row[1]);
+        }
+
+        EventFilter period = new EventFilter(null, null, filter.from(), filter.to());
+        Object[] last = reading(vin, period, true);
+        // Dates are whole days: "before from" is "on or before the day before from".
+        Object[] first = filter.from() == null ? null
+                : reading(vin, new EventFilter(null, null, null, filter.from().minusDays(1)), true);
+        if (first == null) {
+            first = reading(vin, period, false);
+        }
+        Integer toKm = last == null ? null : ((Number) last[1]).intValue();
+        Integer fromKm = first == null || (last != null && first[0].equals(last[0])) ? null
+                : ((Number) first[1]).intValue();
+
+        List<Number> years = em.createNativeQuery("select distinct cast(extract(year from e.event_date) as integer)"
+                + ACTIVE_ROWS + " order by 1 desc").setParameter("vin", vin).getResultList();
+        return new TimelineSummary(total, counts, costs, fromKm, toKm,
+                years.stream().map(Number::intValue).toList());
+    }
+
+    /** {id, km} of the first or last event with a reading that matches the filter, or null when there is none. */
+    @SuppressWarnings("unchecked")
+    private Object[] reading(String vin, EventFilter filter, boolean last) {
+        List<Object[]> rows = bind(em.createNativeQuery("select e.id, e.odometer_km" + ACTIVE_ROWS + where(filter)
+                + " and e.odometer_km is not null" + (last ? NATIVE_DESC : NATIVE_ASC)), vin, filter)
+                .setMaxResults(1).getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** The filter as fixed SQL fragments over {@code e}, each value a named parameter set by {@link #bind}. */
+    private static String where(EventFilter filter) {
+        StringBuilder sql = new StringBuilder();
+        if (!filter.types().isEmpty()) {
+            sql.append(" and e.type in (:types)");
+        }
+        if (!filter.components().isEmpty()) {
+            sql.append(" and e.components && cast(:components as text[])");
+        }
+        if (filter.from() != null) {
+            sql.append(" and e.event_date >= :from");
+        }
+        if (filter.to() != null) {
+            sql.append(" and e.event_date <= :to");
+        }
+        return sql.toString();
+    }
+
+    private static Query bind(Query query, String vin, EventFilter filter) {
+        query.setParameter("vin", vin);
+        if (!filter.types().isEmpty()) {
+            query.setParameter("types", filter.types().stream().map(EventType::name).toList());
+        }
+        if (!filter.components().isEmpty()) {
+            query.setParameter("components", toColumn(filter.components()));
+        }
+        if (filter.from() != null) {
+            query.setParameter("from", filter.from());
+        }
+        if (filter.to() != null) {
+            query.setParameter("to", filter.to());
+        }
+        return query;
     }
 
     @Override
     public List<VehicleEvent> allActive(String vin) {
         return em.createQuery(ACTIVE + ASC, VehicleEventEntity.class).setParameter("vin", vin)
+                .getResultList().stream().map(EventPanacheRepository::toDomain).toList();
+    }
+
+    @Override
+    public List<VehicleEvent> validityEntries(String vin) {
+        return em.createQuery(ACTIVE + " and e.type in :types" + ASC, VehicleEventEntity.class)
+                .setParameter("vin", vin).setParameter("types", VALIDITY_TYPES)
                 .getResultList().stream().map(EventPanacheRepository::toDomain).toList();
     }
 
@@ -144,27 +289,88 @@ public class EventPanacheRepository implements EventRepositoryPort {
         return instant.truncatedTo(ChronoUnit.MICROS);
     }
 
-    private static DetailsJson toJson(EventDetails d) {
-        if (d == null) {
+    private static DetailsJson toJson(EventDetails details) {
+        if (details == null) {
             return null;
         }
-        return new DetailsJson(d.serviceName(),
-                d.parts().stream().map(p -> new PartJson(p.name(), p.qty(), p.price())).toList(), d.labor());
+        String kind = details.kind().name();
+        return switch (details) {
+            case ScanDetails s -> new DetailsJson(kind, s.serviceName(),
+                    s.parts().stream().map(p -> new PartJson(p.name(), p.qty(), p.price())).toList(), s.labor(),
+                    null, null, null, null, null, null, null);
+            case InsuranceDetails i -> new DetailsJson(kind, null, null, null,
+                    i.coverage().name(), i.insurer(), i.policyNumber(), null, null, null, null);
+            case RovinietaDetails r -> new DetailsJson(kind, null, null, null, null, null, null,
+                    r.duration().name(), null, null, null);
+            case ItpDetails i -> new DetailsJson(kind, null, null, null, null, null, null, null,
+                    i.station(), i.result() == null ? null : i.result().name(), null);
+            case SafetyEquipmentDetails s -> new DetailsJson(kind, null, null, null, null, null, null, null, null,
+                    null, s.item().name());
+        };
     }
 
+    /** A stored value without {@code kind} predates V11 and holds scan details (spec section 11). */
     private static EventDetails toDomain(DetailsJson d) {
         if (d == null) {
             return null;
         }
-        List<PartLine> parts = d.parts() == null ? List.of()
-                : d.parts().stream().map(p -> new PartLine(p.name(), p.qty(), p.price())).toList();
-        return new EventDetails(d.serviceName(), parts, d.labor());
+        DetailsKind kind = d.kind() == null ? DetailsKind.SCAN : stored(DetailsKind.class, d.kind());
+        return switch (kind) {
+            case SCAN -> new ScanDetails(d.serviceName(), d.parts() == null ? List.of()
+                    : d.parts().stream().map(p -> new PartLine(p.name(), p.qty(), p.price())).toList(), d.labor());
+            case INSURANCE -> new InsuranceDetails(stored(InsuranceCoverage.class, d.coverage()), d.insurer(),
+                    d.policyNumber());
+            case ROVINIETA -> new RovinietaDetails(stored(RovinietaDuration.class, d.duration()));
+            case ITP -> new ItpDetails(d.station(), d.result() == null ? null : stored(ItpResult.class, d.result()));
+            case SAFETY_EQUIPMENT -> new SafetyEquipmentDetails(stored(SafetyItem.class, d.item()));
+        };
+    }
+
+    /** A stored enum value that is missing or unknown is corrupt data: fail loudly instead of dropping it. */
+    private static <E extends Enum<E>> E stored(Class<E> type, String value) {
+        if (value == null) {
+            throw new IllegalStateException("Stored " + type.getSimpleName() + " is missing");
+        }
+        try {
+            return Enum.valueOf(type, value);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("Unknown stored " + type.getSimpleName() + ": " + value, e);
+        }
+    }
+
+    /** Sorted by name, so equal sets are always stored as the same array whatever the Set's iteration order. */
+    private static String[] toColumn(Set<Component> components) {
+        return components.stream().map(Component::name).sorted().toArray(String[]::new);
+    }
+
+    private static Set<Component> components(String[] stored) {
+        EnumSet<Component> set = EnumSet.noneOf(Component.class);
+        if (stored != null) {
+            for (String c : stored) {
+                set.add(stored(Component.class, c));
+            }
+        }
+        return set;
+    }
+
+    private static List<CustomFieldJson> toColumn(List<CustomField> fields) {
+        return fields.stream().map(c -> new CustomFieldJson(c.label(), c.value())).toList();
+    }
+
+    private static List<CustomField> customFields(List<CustomFieldJson> stored) {
+        return stored == null ? List.of()
+                : stored.stream().map(c -> new CustomField(c.label(), c.value())).toList();
+    }
+
+    private static Validity validity(VehicleEventEntity e) {
+        return e.validFrom == null ? null : new Validity(e.validFrom, e.validUntil);
     }
 
     private static VehicleEvent toDomain(VehicleEventEntity e) {
         return new VehicleEvent(e.id, e.vin, EventType.valueOf(e.type), e.eventDate, e.odometerKm, e.costAmount,
-                e.currency, e.notes, toDomain(e.details), EvidenceLevel.valueOf(e.evidence),
-                EventSource.valueOf(e.source), e.createdBy, e.periodId, e.documentKey, e.createdAt, e.deletedAt);
+                e.currency, e.customLabel, e.notes, validity(e), toDomain(e.details), components(e.components),
+                customFields(e.customFields), EvidenceLevel.valueOf(e.evidence), EventSource.valueOf(e.source),
+                e.createdBy, e.periodId, e.documentKey, e.createdAt, e.deletedAt);
     }
 
     @Override

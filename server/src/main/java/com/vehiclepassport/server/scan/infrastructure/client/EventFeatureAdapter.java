@@ -36,10 +36,10 @@ public class EventFeatureAdapter implements OdometerCheckPort, EventSavePort {
     public UUID saveDocumented(ConfirmedEvent e) {
         List<PartView> parts = e.parts() == null ? List.of()
                 : e.parts().stream().map(EventFeatureAdapter::toView).toList();
-        DetailsView details = new DetailsView(e.serviceName(), parts, e.labor());
+        DetailsView details = DetailsView.scan(e.serviceName(), parts, e.labor());
         return events.save(new SaveConfirmedEventCommand(e.userId(), e.vin(), e.type(), e.date(),
-                e.odometerKm(), e.total(), e.currency(), e.notes(), details, e.documentKey(), e.contentType(), e.sha256(),
-                e.sizeBytes()));
+                e.odometerKm(), e.total(), e.currency(), e.notes(), details, e.documentKey(), e.contentType(),
+                e.sha256(), e.sizeBytes(), e.validUntil(), e.itpResult()));
     }
 
     private static PartView toView(PartInput p) {

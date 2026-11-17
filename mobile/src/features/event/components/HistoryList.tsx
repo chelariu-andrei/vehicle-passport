@@ -1,7 +1,8 @@
-import { View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Pressable, View } from 'react-native';
 
 import { useRefetchOnFocus } from '@/shared/api';
-import { EmptyState, ErrorState, Skeleton, Text, tokens } from '@/shared/design';
+import { EmptyState, ErrorState, Icon, Skeleton, Text, tokens } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 
 import { useTimeline } from '../api/useTimeline';
@@ -15,17 +16,28 @@ import { TimelineItem } from './TimelineItem';
 export function HistoryList({ vin }: { vin: string }) {
   const timeline = useTimeline(vin);
   useRefetchOnFocus(timeline.refetch);
+  const router = useRouter();
 
   const heading = (
-    <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
       <Text variant="title-lg" accessibilityRole="header">
         {en.vehicle.history}
       </Text>
-      {timeline.data ? (
-        <Text variant="caption" color="ink-muted">
-          {en.vehicle.historyCount(timeline.data.length)}
-        </Text>
-      ) : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.space['space-2'] }}>
+        {timeline.data ? (
+          <Text variant="caption" color="ink-muted">
+            {en.vehicle.historyCount(timeline.data.length)}
+          </Text>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={en.vehicle.openTimeline}
+          onPress={() => router.push(`/vehicles/${vin}/timeline`)}
+          style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Icon name="expand" />
+        </Pressable>
+      </View>
     </View>
   );
 

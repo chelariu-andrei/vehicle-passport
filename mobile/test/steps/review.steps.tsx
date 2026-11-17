@@ -246,4 +246,25 @@ defineFeature(feature, (test) => {
       await waitFor(() => expect(events(fake)).toHaveLength(1));
     });
   });
+
+  test('Reviewing a scanned ITP asks for its expiry', ({ given, when, then }) => {
+    given('a scan under review', async () => {
+      job = await extracted();
+      fake = await openReview(job);
+      expect(screen.queryByLabelText(r.validUntil)).toBeNull();
+    });
+    when('I set its type to ITP', async () => {
+      await fireEvent.press(screen.getByRole('radio', { name: en.event.type.ITP }));
+    });
+    then(/^I can enter "(.*)" and the result$/, async (label: string) => {
+      expect(label).toBe('Valid until');
+      expect(screen.getByLabelText(en.event.itpResult)).toBeTruthy();
+      await fireEvent.changeText(field(r.validUntil), '2027-03-09');
+      await fireEvent.press(screen.getByRole('radio', { name: en.event.itpResultValue.PASSED }));
+      await press(r.confirm);
+      await waitFor(() => expect(events(fake)).toHaveLength(1));
+      expect(fake.callsTo('confirmScan')[0].body).toMatchObject({ type: 'ITP', validUntil: '2027-03-09', itpResult: 'PASSED' });
+      expect(events(fake)[0]).toMatchObject({ type: 'ITP', validUntil: '2027-03-09' });
+    });
+  });
 });

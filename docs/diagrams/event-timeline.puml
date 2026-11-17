@@ -51,8 +51,10 @@ participant EventRepositoryPort
 Owner -> EventResource : POST /vehicles/{vin}/events
 EventResource -> EventService : add(cmd)
 EventService -> ActiveOwnerPort : assertActiveOwner(vin, ownerId)
-EventService -> EventRepositoryPort : neighbours(vin, date)
-EventService -> OdometerPolicy : check(km, prev, next)
+opt odometerKm present
+  EventService -> EventRepositoryPort : neighbours(vin, date)
+  EventService -> OdometerPolicy : check(km, prev, next)
+end
 alt consistent
   EventService -> EventRepositoryPort : save(USER_CONFIRMED)
   EventResource --> Owner : 201

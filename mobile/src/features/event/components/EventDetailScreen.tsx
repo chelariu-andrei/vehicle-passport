@@ -8,28 +8,17 @@ import { en } from '@/shared/i18n/en';
 import { useBack } from '@/shared/navigation/useBack';
 
 import { AttachmentList } from './AttachmentList';
+import { ComponentsView, CustomFieldsView, DetailsView, Fact } from './details';
 import { useDeleteEvent } from '../api/useDeleteEvent';
 import { useEventDocument } from '../api/useEventDocument';
 import { useTimeline } from '../api/useTimeline';
-import { eventTitle } from '../model/display';
+import { eventTitle } from '../model/eventTypes';
 import { useIsLocked } from '../model/lockedEvents';
 import type { EventResponse } from '../model/timeline';
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={{ gap: tokens.space['space-1'] }}>
-      <Text variant="label" color="ink-muted">
-        {label}
-      </Text>
-      <Text variant="body-lg">{value}</Text>
-    </View>
-  );
-}
 
 function Detail({ vin, event }: { vin: string; event: EventResponse }) {
   const document = useEventDocument(vin, event.id, `invoice-${event.id}`);
 
-  const parts = event.details?.parts ?? [];
   return (
     <>
       <View style={{ gap: tokens.space['space-2'] }}>
@@ -40,24 +29,15 @@ function Detail({ vin, event }: { vin: string; event: EventResponse }) {
       </View>
       <Fact label={en.event.typeLabel} value={en.event.type[event.type]} />
       <Fact label={en.event.date} value={event.date} />
-      <Fact label={en.event.odometer} value={event.odometerKm.toLocaleString('en-US')} />
+      {event.odometerKm !== null ? <Fact label={en.event.odometer} value={event.odometerKm.toLocaleString('en-US')} /> : null}
       <Fact label={en.event.cost} value={`${event.costAmount.toLocaleString('en-US', { maximumFractionDigits: 2, useGrouping: false })} ${event.currency}`} />
       {event.notes ? <Fact label={en.event.notes} value={event.notes} /> : null}
       <Fact label={en.event.sourceLabel} value={en.event.source[event.source]} />
-      {event.details?.serviceName ? <Fact label={en.event.serviceName} value={event.details.serviceName} /> : null}
-      {parts.length > 0 ? (
-        <View style={{ gap: tokens.space['space-1'] }}>
-          <Text variant="label" color="ink-muted">
-            {en.event.parts}
-          </Text>
-          {parts.map((part, index) => (
-            <Text key={`${part.name}-${index}`} variant="body-lg">
-              {en.event.part(part.name, part.qty, part.price)}
-            </Text>
-          ))}
-        </View>
-      ) : null}
-      {event.details?.labor != null ? <Fact label={en.event.labor} value={String(event.details.labor)} /> : null}
+      {event.validFrom ? <Fact label={en.event.check.validFrom} value={event.validFrom} /> : null}
+      {event.validUntil ? <Fact label={en.event.check.validUntil} value={event.validUntil} /> : null}
+      {event.details ? <DetailsView details={event.details} /> : null}
+      <ComponentsView components={event.components} />
+      <CustomFieldsView fields={event.customFields} />
 
       <AttachmentList vin={vin} eventId={event.id} count={event.attachmentCount} />
 

@@ -84,8 +84,8 @@ class AttachmentPersistenceIT {
     private UUID event(Fixture f, String documentKey) {
         UUID id = UUID.randomUUID();
         QuarkusTransaction.requiringNew().run(() -> events.save(new VehicleEvent(id, f.vin(), EventType.SERVICE,
-                LocalDate.parse("2025-03-01"), 1000, new BigDecimal("10.50"), "RON", null, null,
-                EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL, f.owner(), f.period(), documentKey, T0, null)));
+                LocalDate.parse("2025-03-01"), 1000, new BigDecimal("10.50"), "RON", null, null, null, null,
+                Set.of(), List.of(), EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL, f.owner(), f.period(), documentKey, T0, null)));
         return id;
     }
 
@@ -258,7 +258,8 @@ class AttachmentPersistenceIT {
 
         QuarkusTransaction.requiringNew().run(() -> {
             events.save(new VehicleEvent(eventId, f.vin(), EventType.SERVICE, LocalDate.parse("2025-03-01"), 1000,
-                    new BigDecimal("10.50"), "RON", null, null, EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL,
+                    new BigDecimal("10.50"), "RON", null, null, null, null, Set.of(), List.of(),
+                    EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL,
                     f.owner(), f.period(), null, T0, T0.plusSeconds(30)));
             attachments.softDeleteAllFor(eventId, T0.plusSeconds(30));
         });

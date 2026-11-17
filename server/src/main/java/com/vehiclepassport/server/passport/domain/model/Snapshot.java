@@ -60,6 +60,40 @@ public record Snapshot(String canonicalJson, String hash) {
         m.put("labor", money(e.labor()));
         m.put("evidence", e.evidence());
         m.put("documentPresent", e.documentPresent());
+        // The extended fields join only when set, so a snapshot of old-style events keeps its exact old form.
+        // The validity status is never written: it depends on the date.
+        m.put("customLabel", e.customLabel());
+        m.put("validFrom", e.validFrom() == null ? null : e.validFrom().toString());
+        m.put("validUntil", e.validUntil() == null ? null : e.validUntil().toString());
+        if (e.details() != null) {
+            m.put("details", detailsMap(e.details()));
+        }
+        if (e.components() != null && !e.components().isEmpty()) {
+            m.put("components", new ArrayList<Object>(e.components()));
+        }
+        if (e.customFields() != null && !e.customFields().isEmpty()) {
+            List<Object> fields = new ArrayList<>();
+            for (SnapshotCustomField f : e.customFields()) {
+                Map<String, Object> fm = new LinkedHashMap<>();
+                fm.put("label", f.label());
+                fm.put("value", f.value());
+                fields.add(fm);
+            }
+            m.put("customFields", fields);
+        }
+        return m;
+    }
+
+    private static Map<String, Object> detailsMap(SnapshotDetails d) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("kind", d.kind());
+        m.put("coverage", d.coverage());
+        m.put("insurer", d.insurer());
+        m.put("policyNumber", d.policyNumber());
+        m.put("duration", d.duration());
+        m.put("station", d.station());
+        m.put("result", d.result());
+        m.put("item", d.item());
         return m;
     }
 

@@ -15,9 +15,11 @@ import com.vehiclepassport.server.event.application.port.in.AttachmentUpload;
 import com.vehiclepassport.server.event.application.port.in.AttachmentView;
 import com.vehiclepassport.server.event.application.port.in.DeleteAttachmentUseCase;
 import com.vehiclepassport.server.event.application.port.in.EventDocument;
+import com.vehiclepassport.server.event.application.port.in.EventInput;
 import com.vehiclepassport.server.event.application.port.in.EventView;
 import com.vehiclepassport.server.event.application.port.in.GetEventDocumentUseCase;
 import com.vehiclepassport.server.event.application.port.in.GetTimelineUseCase;
+import com.vehiclepassport.server.event.application.port.in.TimelineQuery;
 import com.vehiclepassport.server.event.application.port.in.ListAttachmentsUseCase;
 import com.vehiclepassport.server.event.application.port.in.OpenAttachmentUseCase;
 import com.vehiclepassport.server.scan.application.port.in.ScanJobView;
@@ -228,7 +230,7 @@ public class AttachmentSteps {
     @Then("the timeline shows E with {int} attachments, a document present and evidence {word}")
     public void theTimelineShowsE(int count, String evidence) {
         UUID id = world.get(E_KEY);
-        EventView e = timeline.get(world.me(), VIN, null, 100).items().stream()
+        EventView e = timeline.get(TimelineQuery.firstPage(world.me(), VIN, 100)).items().stream()
                 .filter(v -> v.id().equals(id)).findFirst().orElseThrow();
         assertEquals(count, e.attachmentCount());
         assertTrue(e.documentPresent());
@@ -273,8 +275,8 @@ public class AttachmentSteps {
     }
 
     private UUID addEventAs(UUID user, String vin, String date, int km) {
-        EventView v = addEvent.add(new AddEventCommand(user, vin, "SERVICE", LocalDate.parse(date), km,
-                BigDecimal.TEN, "RON", null));
+        EventView v = addEvent.add(new AddEventCommand(user, vin, new EventInput("SERVICE", LocalDate.parse(date), km,
+                BigDecimal.TEN, "RON", null, null, null, null, null, null, null)));
         return v.id();
     }
 

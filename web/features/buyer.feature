@@ -42,3 +42,38 @@ Feature: Buyer web page
   Scenario: A snapshot that cannot be read
     Given the API returns a snapshot with no vehicle
     Then I see a temporary-problem message and status 502
+
+  Scenario: A buyer sees insurance with its validity
+    Given a passport with a CASCO from Allianz valid until a future date
+    Then the entry reads "CASCO · Allianz" with its validity range
+
+  Scenario: Superseded paperwork shows no warning
+    Given a passport with two RCA policies, the older one expired
+    Then only the newer RCA shows a validity marker
+
+  Scenario: A custom event shows its name and fields
+    Given a passport with an OTHER event "Ceramic coating" and a custom field "Layers: 3"
+    Then the entry shows "Ceramic coating" and "Layers: 3"
+
+  Scenario: An old passport still renders
+    Given a passport snapshot from before this change
+    Then every entry renders as before
+
+  Scenario: Text typed into the new fields cannot inject markup
+    Given a passport with an OTHER event "<script>alert(1)</script>" and a custom field "<b>x</b>: <i>y</i>"
+    Then it is displayed as plain text
+    And the page contains no raw "<b>x</b>" markup
+
+  Scenario: Safety equipment shows the item and its expiry marker
+    Given a passport with a fire extinguisher expiring in 10 days
+    Then I see "Fire extinguisher"
+    And I see "Expires in 10 days"
+
+  Scenario: An expired rovinieta says so and an ITP without an end date shows no marker
+    Given a passport with an ITP without validUntil and a rovinieta that expired
+    Then I see "Expired"
+    And the page has 1 validity marker
+
+  Scenario: The validity rules at their edges
+    Given policies ending 31 days, 30 days, 0 days from today and yesterday, plus two RCA with the same start
+    Then the statuses are VALID, EXPIRING, EXPIRING and EXPIRED, and the later of the tied RCA wins

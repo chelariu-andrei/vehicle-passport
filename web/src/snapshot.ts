@@ -1,5 +1,13 @@
 export type Part = { name: string; qty: number | null; price: string | null };
 
+export type CustomField = { label: string; value: string };
+
+export type EventDetails =
+  | { kind: 'INSURANCE'; coverage: 'RCA' | 'CASCO'; insurer: string; policyNumber: string | null }
+  | { kind: 'ROVINIETA'; duration: string }
+  | { kind: 'ITP'; station: string | null; result: string | null }
+  | { kind: 'SAFETY_EQUIPMENT'; item: 'FIRE_EXTINGUISHER' | 'FIRST_AID_KIT' };
+
 export type SnapshotEvent = {
   type: string;
   date: string | null;
@@ -12,6 +20,12 @@ export type SnapshotEvent = {
   labor: string | null;
   evidence: string;
   documentPresent: boolean;
+  customLabel: string | null;
+  validFrom: string | null;
+  validUntil: string | null;
+  details: EventDetails | null;
+  components: string[];
+  customFields: CustomField[];
 };
 
 export type Vehicle = {
@@ -34,6 +48,34 @@ function parsePart(raw: unknown): Part | null {
   return { name: text(raw.name) ?? '', qty: num(raw.qty), price: text(raw.price) };
 }
 
+function parseDetails(raw: unknown): EventDetails | null {
+  if (!isObject(raw)) return null;
+  switch (raw.kind) {
+    case 'INSURANCE': {
+      const coverage = raw.coverage;
+      if (coverage !== 'RCA' && coverage !== 'CASCO') return null;
+      return { kind: 'INSURANCE', coverage, insurer: text(raw.insurer) ?? '', policyNumber: text(raw.policyNumber) };
+    }
+    case 'ROVINIETA':
+      return { kind: 'ROVINIETA', duration: text(raw.duration) ?? '' };
+    case 'ITP':
+      return { kind: 'ITP', station: text(raw.station), result: text(raw.result) };
+    case 'SAFETY_EQUIPMENT':
+      return raw.item === 'FIRE_EXTINGUISHER' || raw.item === 'FIRST_AID_KIT'
+        ? { kind: 'SAFETY_EQUIPMENT', item: raw.item }
+        : null;
+    default:
+      return null; // scan details stay flat on the event; unknown kinds are ignored
+  }
+}
+
+function parseCustomField(raw: unknown): CustomField | null {
+  if (!isObject(raw)) return null;
+  const label = text(raw.label);
+  const value = text(raw.value);
+  return label === null || value === null ? null : { label, value };
+}
+
 function parseEvent(raw: unknown): SnapshotEvent | null {
   if (!isObject(raw)) return null;
   const evidence = text(raw.evidence);
@@ -54,6 +96,14 @@ function parseEvent(raw: unknown): SnapshotEvent | null {
     labor: text(raw.labor),
     evidence,
     documentPresent: raw.documentPresent === true,
+    customLabel: text(raw.customLabel),
+    validFrom: text(raw.validFrom),
+    validUntil: text(raw.validUntil),
+    details: parseDetails(raw.details),
+    components: Array.isArray(raw.components) ? raw.components.filter((c): c is string => typeof c === 'string') : [],
+    customFields: Array.isArray(raw.customFields)
+      ? raw.customFields.map(parseCustomField).filter((f): f is CustomField => f !== null)
+      : [],
   };
 }
 

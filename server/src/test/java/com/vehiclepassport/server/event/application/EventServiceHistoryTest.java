@@ -10,7 +10,9 @@ import com.vehiclepassport.server.event.domain.model.EventSource;
 import com.vehiclepassport.server.event.domain.model.EventType;
 import com.vehiclepassport.server.event.domain.model.EvidenceLevel;
 import com.vehiclepassport.server.event.domain.model.Neighbours;
+import com.vehiclepassport.server.event.domain.model.EventFilter;
 import com.vehiclepassport.server.event.domain.model.TimelineCursor;
+import com.vehiclepassport.server.event.domain.model.TimelineOrder;
 import com.vehiclepassport.server.event.domain.model.VehicleEvent;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -19,6 +21,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -28,7 +31,7 @@ class EventServiceHistoryTest {
 
     private static VehicleEvent event(UUID id, String createdAt) {
         return new VehicleEvent(id, VIN, EventType.SERVICE, LocalDate.parse("2025-03-01"), 1000, BigDecimal.TEN,
-                "RON", null, null, EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL, UUID.randomUUID(),
+                "RON", null, null, null, null, Set.of(), List.of(), EvidenceLevel.USER_CONFIRMED, EventSource.MANUAL, UUID.randomUUID(),
                 UUID.randomUUID(), null, Instant.parse(createdAt), null);
     }
 
@@ -43,8 +46,10 @@ class EventServiceHistoryTest {
             public Optional<VehicleEvent> findActive(String vin, UUID id) { return Optional.empty(); }
             public Neighbours neighbours(String vin, LocalDate d, Instant c, UUID x) { return null; }
             public void save(VehicleEvent e) { }
-            public List<VehicleEvent> page(String vin, TimelineCursor a, int l) { return List.of(); }
+            public List<VehicleEvent> page(String vin, EventFilter f, TimelineOrder o, TimelineCursor a, int l) { return List.of(); }
             public List<VehicleEvent> allActive(String vin) { return stored; }
+            public List<VehicleEvent> validityEntries(String vin) { return List.of(); }
+            public com.vehiclepassport.server.event.domain.model.TimelineSummary summary(String vin, EventFilter f) { return null; }
             public long countActiveByCreator(UUID userId) { return 0; }
             public List<VehicleEvent> activeByCreator(UUID userId) { return List.of(); }
             public void detachCreator(UUID userId, UUID tombstone) { }
