@@ -279,6 +279,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vehicles/{vin}/deadlines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+            };
+            cookie?: never;
+        };
+        /** Status of the six documents of the VIN (always six items, in the fixed order) */
+        get: operations["getDeadlines"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/vehicles/{vin}/scans": {
         parameters: {
             query?: never;
@@ -1090,6 +1109,26 @@ export interface components {
             deletion: components["schemas"]["DeletionStatus"] | null;
             consent: components["schemas"]["ConsentStatus"];
         };
+        /** @enum {string} */
+        DocumentKind: "ITP" | "RCA" | "CASCO" | "ROVINIETA" | "FIRE_EXTINGUISHER" | "FIRST_AID_KIT";
+        /** @enum {string} */
+        DeadlineStatus: "VALID" | "EXPIRING" | "EXPIRED" | "UNKNOWN" | "NOT_RECORDED";
+        DeadlineItem: {
+            kind: components["schemas"]["DocumentKind"];
+            status: components["schemas"]["DeadlineStatus"];
+            /** Format: date */
+            validUntil: string | null;
+            /** @description validUntil minus today; negative when expired, null without a date. */
+            daysLeft: number | null;
+            /**
+             * Format: uuid
+             * @description The current entry of the document, null when none.
+             */
+            eventId: string | null;
+        };
+        DeadlinesResponse: {
+            items: components["schemas"]["DeadlineItem"][];
+        };
         SettingsDto: {
             /** @enum {string} */
             language: "system" | "ro" | "en";
@@ -1104,6 +1143,7 @@ export interface components {
             notifications: {
                 documentDeadlines: boolean;
                 reminderDays: (30 | 7 | 1)[];
+                tireSeason: boolean;
                 activityScans: boolean;
                 activityPassportViews: boolean;
                 activityTransfers: boolean;
@@ -2054,6 +2094,38 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: components["responses"]["ConsentRequired"];
+            /** @description Code `vehicle-not-found` (unknown, or not visible to the caller). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getDeadlines: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vin: components["parameters"]["Vin"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One item per document kind, in the order ITP, RCA, CASCO, ROVINIETA, FIRE_EXTINGUISHER, FIRST_AID_KIT. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeadlinesResponse"];
                 };
             };
             403: components["responses"]["ConsentRequired"];
