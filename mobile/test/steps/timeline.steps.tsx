@@ -42,7 +42,7 @@ const documented = () =>
     evidence: 'DOCUMENTED',
     source: 'SCAN',
     notes: 'Scanned note',
-    details: { serviceName: 'Brake pads' },
+    details: { kind: 'SCAN', serviceName: 'Brake pads' },
     documentPresent: true,
   });
 
@@ -63,7 +63,7 @@ defineFeature(feature, (test) => {
         anEvent({
           date: new Date(Date.UTC(2020, 0, 1 + i)).toISOString().slice(0, 10),
           odometerKm: 1000 + i,
-          details: { serviceName: `Event ${i}` },
+          details: { kind: 'SCAN', serviceName: `Event ${i}` },
         }),
       );
       seed = withEvents(...events);

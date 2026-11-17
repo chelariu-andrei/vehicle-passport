@@ -11,7 +11,7 @@ import { AttachmentList } from './AttachmentList';
 import { useDeleteEvent } from '../api/useDeleteEvent';
 import { useEventDocument } from '../api/useEventDocument';
 import { useTimeline } from '../api/useTimeline';
-import { eventTitle } from '../model/display';
+import { eventTitle } from '../model/eventTypes';
 import { useIsLocked } from '../model/lockedEvents';
 import type { EventResponse } from '../model/timeline';
 

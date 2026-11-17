@@ -4,7 +4,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { EvidenceBadge, Icon, Text, tokens, useTheme } from '@/shared/design';
 import { en } from '@/shared/i18n/en';
 
-import { dayAndMonth, eventMeta, eventTitle } from '../model/display';
+import { dayAndMonth } from '../model/display';
+import { eventSubtitle, eventTitle } from '../model/eventTypes';
 import type { EventResponse } from '../model/timeline';
 
 /** One entry: day and month, title, odometer and cost, the evidence badge. A hairline separates rows; there is no box. */
@@ -12,7 +13,7 @@ export function TimelineItem({ vin, event }: { vin: string; event: EventResponse
   const router = useRouter();
   const { colors } = useTheme();
   const title = eventTitle(event);
-  const meta = eventMeta(event);
+  const meta = eventSubtitle(event);
   const { day, month } = dayAndMonth(event.date);
   return (
     <Pressable

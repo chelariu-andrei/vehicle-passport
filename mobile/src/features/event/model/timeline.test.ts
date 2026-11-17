@@ -6,7 +6,7 @@ import { fetchFullTimeline, latestOdometer } from './timeline';
 function seed(count: number) {
   const fake = installFakeApi();
   fake.state.vehicles.push(aVehicle());
-  // Dates ascend with the index, so the server's oldest-first order is the array order.
+  // Dates ascend with the index; the fake server sorts by the requested order.
   fake.state.events[SAMPLE_VIN] = Array.from({ length: count }, (_, i) =>
     anEvent({ date: new Date(Date.UTC(2020, 0, 1 + i)).toISOString().slice(0, 10), odometerKm: 1000 + i }),
   );
@@ -30,7 +30,7 @@ function breakCursor(always: boolean) {
   }) as typeof fetch;
 }
 
-test('follows nextCursor with limit=100 until null and reverses', async () => {
+test('follows nextCursor with limit=100 and order=desc until null, newest first', async () => {
   const fake = seed(250);
   const events = await fetchFullTimeline(SAMPLE_VIN);
   expect(events).toHaveLength(250);
@@ -39,6 +39,7 @@ test('follows nextCursor with limit=100 until null and reverses', async () => {
   const calls = fake.callsTo('getTimeline');
   expect(calls).toHaveLength(3);
   expect(calls.every((call) => call.path.includes('limit=100'))).toBe(true);
+  expect(calls.every((call) => call.path.includes('order=desc'))).toBe(true);
   expect(calls[0].path).not.toContain('cursor');
   expect(calls[1].path).toContain('cursor=');
 });
@@ -63,6 +64,14 @@ test('a cursor that stays invalid fails after one restart', async () => {
 
 test('latestOdometer is null without entries', () => {
   expect(latestOdometer([])).toBeNull();
+});
+
+test('latestOdometer skips events without km', () => {
+  expect(latestOdometer([anEvent({ odometerKm: null }), anEvent({ odometerKm: 150, evidence: 'ESTIMATED' }), anEvent({ odometerKm: 100 })])).toEqual({
+    km: 150,
+    evidence: 'ESTIMATED',
+  });
+  expect(latestOdometer([anEvent({ odometerKm: null })])).toBeNull();
 });
 
 test('latestOdometer reads the first entry, which is the newest', () => {

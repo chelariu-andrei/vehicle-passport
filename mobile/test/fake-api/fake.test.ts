@@ -244,7 +244,7 @@ test('callsTo records path, headers and parsed body', async () => {
 
 test('builders produce records the fake serves without breaking the contract', async () => {
   api.state.vehicles.push(aVehicle({ vin: VIN }));
-  api.state.events[VIN] = [anEvent({ details: { serviceName: 'Oil change', parts: [{ name: 'Filter', qty: 1, price: 20 }], labor: 80 } })];
+  api.state.events[VIN] = [anEvent({ details: { kind: 'SCAN', serviceName: 'Oil change', parts: [{ name: 'Filter', qty: 1, price: 20 }], labor: 80 } })];
   api.state.passports.push(aPassport({ vin: VIN }));
   const job = aScanJob({ status: 'EXTRACTED', fields: { total: { value: 100, confidence: 0.5 } } });
   api.state.scans[job.id] = job;

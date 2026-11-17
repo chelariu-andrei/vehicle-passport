@@ -73,13 +73,14 @@ function yearInRange(year: number): boolean {
 }
 
 /** An entry fits when nothing earlier has more kilometres and nothing later has fewer. */
-function odometerFits(events: EventResponse[], date: string, km: number, exceptId?: string): boolean {
+function odometerFits(events: EventResponse[], date: string, km: number | null | undefined, exceptId?: string): boolean {
+  if (km === null || km === undefined) return true;
   return events.every(
-    (e) => e.id === exceptId || e.date === date || (e.date < date ? e.odometerKm <= km : e.odometerKm >= km),
+    (e) => e.id === exceptId || e.odometerKm === null || e.date === date || (e.date < date ? e.odometerKm <= km : e.odometerKm >= km),
   );
 }
 
-function checkEventRules(events: EventResponse[], date: string, km: number, exceptId?: string): Reply | null {
+function checkEventRules(events: EventResponse[], date: string, km: number | null | undefined, exceptId?: string): Reply | null {
   if (date > today()) return problem(422, 'invalid-event');
   if (!odometerFits(events, date, km, exceptId)) return problem(422, 'odometer-inconsistent');
   return null;
@@ -184,11 +185,13 @@ const addEvent: Handler = (c) => {
     id: uuid(),
     type: b.type,
     date: b.date,
-    odometerKm: b.odometerKm,
+    odometerKm: b.odometerKm ?? null,
     costAmount: b.costAmount,
     currency: b.currency,
     notes: b.notes ?? null,
     details: null,
+    components: [],
+    customFields: [],
     evidence: 'USER_CONFIRMED',
     source: 'MANUAL',
     documentPresent: false,
@@ -318,6 +321,7 @@ const getTimeline: Handler = (c) => {
     .map((event, index) => ({ event, index }))
     .sort((a, b) => (a.event.date < b.event.date ? -1 : a.event.date > b.event.date ? 1 : a.index - b.index))
     .map((entry) => entry.event);
+  if (c.query.get('order') === 'desc') ordered.reverse();
   if (offset > ordered.length) return problem(400, 'invalid-cursor');
   const end = offset + limit;
   return ok({ items: ordered.slice(offset, end), nextCursor: end < ordered.length ? `c${end.toString(36)}` : null });
@@ -376,7 +380,9 @@ const confirmScan: Handler = (c) => {
     costAmount: b.total,
     currency: b.currency ?? 'RON',
     notes: b.notes ?? null,
-    details: { serviceName: b.serviceName ?? null, parts: b.parts ?? [], labor: b.labor ?? null },
+    details: { kind: 'SCAN', serviceName: b.serviceName ?? null, parts: b.parts ?? [], labor: b.labor ?? null },
+    components: [],
+    customFields: [],
     evidence: 'DOCUMENTED',
     source: 'SCAN',
     documentPresent: true,

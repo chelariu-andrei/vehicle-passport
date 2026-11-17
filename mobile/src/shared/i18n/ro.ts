@@ -12,6 +12,44 @@ export type DeepPartial<T> = T extends (...args: never[]) => unknown ? T : T ext
 
 /** Romanian covers the account, sign-in, legal, consent, settings and validation texts; everything else is English until translated. */
 export const ro: DeepPartial<Widen<typeof en>> = {
+  event: {
+    type: {
+      REPAIR: 'Reparație',
+      TIRES: 'Anvelope',
+      ROVINIETA: 'Rovinietă',
+      INSURANCE: 'Asigurare',
+      SAFETY_EQUIPMENT: 'Echipament de siguranță',
+      OTHER: 'Altele',
+    },
+    safetyItem: { FIRE_EXTINGUISHER: 'Stingător', FIRST_AID_KIT: 'Trusă de prim ajutor' },
+    component: {
+      ENGINE: 'Motor',
+      TRANSMISSION: 'Transmisie',
+      BRAKES: 'Frâne',
+      SUSPENSION: 'Suspensie',
+      STEERING: 'Direcție',
+      TIRES_WHEELS: 'Anvelope și roți',
+      ELECTRICAL: 'Electrice',
+      CLIMATE: 'Climatizare',
+      BODY: 'Caroserie',
+      EXHAUST: 'Evacuare',
+      INTERIOR: 'Interior',
+      FLUIDS: 'Lichide',
+      OTHER: 'Altele',
+    },
+    documentHint: {
+      INSURANCE: 'Atașează polița (fotografie sau PDF)',
+      ITP: 'Atașează raportul de inspecție',
+      ROVINIETA: 'Atașează chitanța',
+      SAFETY_EQUIPMENT: 'Atașează chitanța sau o fotografie a etichetei',
+    },
+    until: (date: string) => `până la ${date}`,
+    validity: {
+      validUntil: (date: string) => `Valabil până la ${date}`,
+      expiresIn: (days: number) => (days === 1 ? 'Expiră în 1 zi' : days % 100 >= 1 && days % 100 <= 19 ? `Expiră în ${days} zile` : `Expiră în ${days} de zile`),
+      expired: 'Expirat',
+    },
+  },
   tabs: {
     car: 'Mașină',
     scans: 'Scanări',

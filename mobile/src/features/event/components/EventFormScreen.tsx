@@ -95,8 +95,8 @@ function DateField({ value, maxDate, onChange, error }: { value: string; maxDate
         value: localDate(value),
         mode: 'date',
         maximumDate: localDate(maxDate),
-        onChange: (event, date) => {
-          if (event.type === 'set' && date) picked(date);
+        onChange: ({ type }, date) => {
+          if (type === 'set' && date) picked(date);
         },
       });
     } else {
@@ -141,8 +141,8 @@ function DateField({ value, maxDate, onChange, error }: { value: string; maxDate
                 mode="date"
                 display="inline"
                 maximumDate={localDate(maxDate)}
-                onChange={(event, date) => {
-                  if (event.type === 'set' && date) {
+                onChange={({ type }, date) => {
+                  if (type === 'set' && date) {
                     picked(date);
                     setOpen(false);
                   }

@@ -71,6 +71,11 @@ const SHAPES = {
     { d: 'M9.9 9.9a2.8 2.8 0 0 0 4 4M4 4l16 16' },
   ],
   plate: [{ x: 3, y: 7.5, width: 18, height: 9, rx: 2 }, { d: 'M7 7.5v9M10.5 12h7' }],
+  expand: [{ d: 'M14 4h6v6M20 4l-7 7' }, { d: 'M10 20H4v-6M4 20l7-7' }],
+  road: [{ d: 'M8 3L4.5 21M16 3l3.5 18' }, { d: 'M12 4v3M12 10.5v3M12 17v3' }],
+  sparkle: [{ d: 'M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9-1.9 5.1-1.9-5.1L5 10.5l5.1-1.9z' }, { d: 'M19 3.5v3M17.5 5h3' }],
+  filter: [{ d: 'M4 6h16M7 12h10M10 18h4' }],
+  kit: [{ x: 3.5, y: 7.5, width: 17, height: 12, rx: 2 }, { d: 'M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5' }, { d: 'M12 11v5M9.5 13.5h5' }],
 } satisfies Record<string, Shape[]>;
 
 // The web would pass the native-only props to the DOM element, so it gets the ARIA one.
