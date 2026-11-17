@@ -990,7 +990,7 @@ export interface components {
             date: string;
             odometerKm: number;
             fuelType: components["schemas"]["FuelEntryType"];
-            /** @description Litres */
+            /** @description Litres, or kWh for ELECTRIC; at most 3 decimals. */
             quantity: number;
             total: number;
             currency: string;
