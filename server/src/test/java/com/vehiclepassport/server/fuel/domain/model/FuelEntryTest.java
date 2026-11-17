@@ -43,6 +43,12 @@ class FuelEntryTest {
     }
 
     @Test
+    void rejects_a_unit_price_that_does_not_fit_the_column() {
+        assertThrows(InvalidFuelEntryException.class, () -> diesel("0.5", "600000"));
+        diesel("1", "999999");
+    }
+
+    @Test
     void rejects_negative_total() {
         assertThrows(InvalidFuelEntryException.class, () -> diesel("10", "-0.01"));
     }

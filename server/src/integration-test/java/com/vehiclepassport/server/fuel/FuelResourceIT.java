@@ -143,13 +143,29 @@ class FuelResourceIT {
     @Test
     @TestSecurity(user = "f1")
     @OidcSecurity(claims = @Claim(key = "sub", value = ME))
+    void post_unit_price_overflow_is_422_invalid_fuel_entry() {
+        String vin = registerAs(ME, "DIESEL");
+        Map<String, Object> body = body("2025-10-01", 10000, "DIESEL");
+        body.put("quantity", 0.5);
+        body.put("total", 600000);
+        given().contentType(JSON_UTF8).body(body)
+                .when().post("/vehicles/" + vin + "/fuel-entries")
+                .then().statusCode(422)
+                .contentType(startsWith(PROBLEM))
+                .body("code", equalTo("invalid-fuel-entry"));
+    }
+
+    @Test
+    @TestSecurity(user = "f1")
+    @OidcSecurity(claims = @Claim(key = "sub", value = ME))
     void post_invalid_shape_is_400_validation_failed() {
         String vin = registerAs(ME, "DIESEL");
         for (Map.Entry<String, Object> bad : List.<Map.Entry<String, Object>>of(
                 Map.entry("quantity", 0), Map.entry("quantity", 10000), Map.entry("total", -1),
                 Map.entry("currency", "ron"), Map.entry("fuelType", "KEROSENE"), Map.entry("odometerKm", -1),
                 Map.entry("grade", "SUPER"), Map.entry("chargeType", "SLOW"), Map.entry("station", "x".repeat(61)),
-                Map.entry("note", "x".repeat(201)))) {
+                Map.entry("note", "x".repeat(201)), Map.entry("quantity", 0.0004),
+                Map.entry("quantity", 38.1234), Map.entry("total", 312.345))) {
             Map<String, Object> body = body("2025-10-01", 10000, "DIESEL");
             body.put(bad.getKey(), bad.getValue());
             given().contentType(JSON_UTF8).body(body)

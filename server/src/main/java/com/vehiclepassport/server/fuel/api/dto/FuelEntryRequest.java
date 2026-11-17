@@ -2,6 +2,7 @@ package com.vehiclepassport.server.fuel.api.dto;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -18,8 +19,9 @@ public record FuelEntryRequest(
         @NotNull LocalDate date,
         @NotNull @Min(0) Integer odometerKm,
         @NotNull @Pattern(regexp = "PETROL|DIESEL|LPG|ELECTRIC") String fuelType,
-        @NotNull @DecimalMin(value = "0", inclusive = false) @DecimalMax("9999") BigDecimal quantity,
-        @NotNull @DecimalMin("0") @DecimalMax("999999") BigDecimal total,
+        @NotNull @DecimalMin(value = "0", inclusive = false) @DecimalMax("9999")
+                @Digits(integer = 4, fraction = 3) BigDecimal quantity,
+        @NotNull @DecimalMin("0") @DecimalMax("999999") @Digits(integer = 6, fraction = 2) BigDecimal total,
         @NotNull @Pattern(regexp = "[A-Z]{3}") String currency,
         Boolean fullTank,
         Boolean missedPrevious,

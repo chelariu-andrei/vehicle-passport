@@ -1680,8 +1680,8 @@ components:
         date: { type: string, format: date }
         odometerKm: { type: integer, minimum: 0 }
         fuelType: { $ref: '#/components/schemas/FuelEntryType' }
-        quantity: { type: number, exclusiveMinimum: 0, maximum: 9999, description: Litres, or kWh for ELECTRIC. }
-        total: { type: number, minimum: 0, maximum: 999999 }
+        quantity: { type: number, exclusiveMinimum: 0, maximum: 9999, multipleOf: 0.001, description: 'Litres, or kWh for ELECTRIC; at most 3 decimals.' }
+        total: { type: number, minimum: 0, maximum: 999999, multipleOf: 0.01 }
         currency: { type: string, pattern: '^[A-Z]{3}$' }
         fullTank: { type: boolean, default: true }
         missedPrevious: { type: boolean, default: false, description: The previous fill-up was not logged; no consumption is computed across the gap. }
