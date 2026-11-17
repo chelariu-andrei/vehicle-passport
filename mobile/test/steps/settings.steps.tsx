@@ -1,4 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from 'expo-router/testing-library';
+import * as Notifications from 'expo-notifications';
+import { Linking } from 'react-native';
 import { defineFeature, loadFeature, setJestCucumberConfiguration } from 'jest-cucumber';
 
 import { en } from '@/shared/i18n/en';
@@ -12,6 +14,10 @@ const feature = loadFeature('../../features/settings.feature', { loadRelativePat
 
 const inertTabs = { '(tabs)/index': () => null, '(tabs)/scans': () => null, '(tabs)/passports': () => null };
 const owner = { id: 'owner', email: 'owner@example.com' };
+
+afterEach(() => {
+  (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'undetermined', granted: false, canAskAgain: true });
+});
 
 defineFeature(feature, (test) => {
   let fake: FakeApi;
@@ -63,6 +69,34 @@ defineFeature(feature, (test) => {
     then('activity from scans is off', async () => {
       await scansSwitch();
       await waitFor(() => expect(screen.getByRole('switch', { name: en.settings.notifications.activityScans })).toHaveProp('value', false));
+    });
+  });
+
+  test('The tire-season switch persists', ({ when, then }) => {
+    when('I switch off tire-season reminders on the Notifications screen', async () => {
+      await openNotifications();
+      await fireEvent(await screen.findByRole('switch', { name: en.settings.notifications.tireSeason }), 'valueChange', false);
+    });
+    then('the account has tire-season reminders off', async () => {
+      await waitFor(() => expect(fake.state.account.settings.notifications.tireSeason).toBe(false));
+    });
+  });
+
+  test('Denied notification permission is explained', ({ given, when, then, and }) => {
+    given('notifications are denied for the app', () => {
+      (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'denied', granted: false, canAskAgain: false });
+    });
+    when('I open the Notifications screen', async () => {
+      await openNotifications();
+    });
+    then('I see that reminders cannot reach me', async () => {
+      expect(await screen.findByText(en.deadlines.permission.deniedNote)).toBeTruthy();
+    });
+    and('"Open system settings" opens the phone settings', async () => {
+      const open = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+      await fireEvent.press(screen.getByRole('button', { name: en.deadlines.permission.openSettings }));
+      expect(open).toHaveBeenCalledTimes(1);
+      open.mockRestore();
     });
   });
 

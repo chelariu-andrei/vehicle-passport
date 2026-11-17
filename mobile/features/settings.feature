@@ -13,6 +13,16 @@ Feature: Settings
     When I turn off the 7 day reminder
     Then only the 30 day and 1 day reminders are on
 
+  Scenario: The tire-season switch persists
+    When I switch off tire-season reminders on the Notifications screen
+    Then the account has tire-season reminders off
+
+  Scenario: Denied notification permission is explained
+    Given notifications are denied for the app
+    When I open the Notifications screen
+    Then I see that reminders cannot reach me
+    And "Open system settings" opens the phone settings
+
   Scenario: Product news is off by default
     When I open the Notifications screen
     Then product news is off
