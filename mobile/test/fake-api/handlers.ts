@@ -314,7 +314,16 @@ const updateEvent: Handler = (c) => {
     const refused = checkEventRules(events, b.date, b.odometerKm, event.id);
     if (refused) return refused;
   }
-  Object.assign(event, { ...b, notes: b.notes ?? null });
+  Object.assign(event, {
+    ...b,
+    notes: b.notes ?? null,
+    customLabel: b.customLabel ?? null,
+    validFrom: b.validFrom ?? null,
+    validUntil: validUntilOf(b),
+    details: (b.details ?? null) as EventResponse['details'],
+    components: b.components ?? [],
+    customFields: b.customFields ?? [],
+  });
   return ok(event);
 };
 
@@ -441,15 +450,19 @@ const getTimelineSummary: Handler = (c) => {
   const readings = all.filter((e) => e.odometerKm !== null);
   const before = readings.filter((e) => filters.from !== null && e.date < filters.from);
   const period = readings.filter((e) => (filters.from === null || e.date >= filters.from) && (filters.to === null || e.date <= filters.to));
-  const fromKm = (before.length > 0 ? before[before.length - 1] : period[0])?.odometerKm ?? null;
-  const toKm = period.length > 0 ? period[period.length - 1].odometerKm : null;
-  const km = before.length + period.length >= 2 && fromKm !== null && toKm !== null ? toKm - fromKm : null;
+  const first = before.length > 0 ? before[before.length - 1] : period[0];
+  const last = period.length > 0 ? period[period.length - 1] : undefined;
+  // One reading is no distance: the server answers fromKm null when the first and last readings are the same entry.
+  const single = first === last;
+  const fromKm = single ? null : (first?.odometerKm ?? null);
+  const toKm = last?.odometerKm ?? null;
+  const km = fromKm !== null && toKm !== null ? toKm - fromKm : null;
 
   const years = [...new Set(all.map((e) => Number(e.date.slice(0, 4))))].sort((a, b) => b - a);
   return ok({
     eventCount: shown.length,
     countsByType: EVENT_TYPES.filter((t) => counts.has(t)).map((type) => ({ type, count: counts.get(type)! })),
-    costByCurrency: [...costs].map(([currency, amount]) => ({ currency, amount })).sort((a, b) => b.amount - a.amount),
+    costByCurrency: [...costs].map(([currency, amount]) => ({ currency, amount })).sort((a, b) => b.amount - a.amount || (a.currency < b.currency ? -1 : a.currency > b.currency ? 1 : 0)),
     distance: { km, fromKm, toKm },
     years,
   });

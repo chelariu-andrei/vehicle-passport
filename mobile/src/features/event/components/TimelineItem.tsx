@@ -6,9 +6,9 @@ import { en } from '@/shared/i18n/en';
 
 import { COMPONENT_CONFIG } from '../model/components';
 import { dayAndMonth } from '../model/display';
+import { formatLocalDate } from '../model/eventForm';
 import { EVENT_TYPE_CONFIG, eventSubtitle, eventTitle } from '../model/eventTypes';
 import type { EventResponse } from '../model/timeline';
-import { formatLocalDate } from '../model/eventForm';
 import { validityMarker } from '../model/validity';
 
 const MAX_CHIPS = 2;

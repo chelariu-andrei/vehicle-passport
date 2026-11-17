@@ -520,3 +520,10 @@ describe('timeline filters and summary', () => {
     expect(page.items.map((e: { validityStatus: string }) => e.validityStatus)).toEqual(['SUPERSEDED', 'VALID']);
   });
 });
+
+test('a period resting on one reading has no distance and no fromKm', async () => {
+  api.state.vehicles.push(aVehicle());
+  api.state.events[VIN] = [anEvent({ date: '2024-03-10', odometerKm: 5000 }), anEvent({ date: '2024-04-10', odometerKm: null })];
+  const summary = await send('GET', `/vehicles/${VIN}/timeline/summary`, { headers: auth }).then((r) => r.json());
+  expect(summary.distance).toEqual({ km: null, fromKm: null, toKm: 5000 });
+});
