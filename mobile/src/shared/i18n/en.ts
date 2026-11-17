@@ -637,6 +637,7 @@ export const en = {
       title: 'Allow reminders?',
       body: 'We remind you before your documents expire, on this phone only. To do that we need your permission to send notifications.',
       allow: 'Allow reminders',
+      laterNote: 'Reminders are off until you allow notifications on this phone.',
       notNow: 'Not now',
       deniedNote: 'Notifications are off for this app, so reminders cannot reach you. You can turn them on in your phone settings.',
       openSettings: 'Open system settings',

@@ -71,17 +71,17 @@ export function ReminderSync() {
   if (me !== undefined && !allowed) target = { kind: 'off' };
   else if (prefs !== undefined && !wanted) target = { kind: 'off' };
   else if (prefs !== undefined && garage !== undefined) {
-    // A car whose data could not be loaded keeps the reminders already scheduled, rather than losing them.
-    const loaded = cars.every(
-      (_, i) => (!prefs.documentDeadlines || deadlines[i]?.data !== undefined) && (!prefs.tireSeason || tires[i]?.data !== undefined),
-    );
+    // A car still loading makes the plan wait. A car whose data failed to load is left out of the plan until it loads, so one
+    // failing car never freezes the others (a renewed document would otherwise keep its old reminder).
+    const settled = (q: { data?: unknown; isError: boolean } | undefined) => q !== undefined && (q.data !== undefined || q.isError);
+    const loaded = cars.every((_, i) => (!prefs.documentDeadlines || settled(deadlines[i])) && (!prefs.tireSeason || settled(tires[i])));
     if (loaded) {
-      const planCars: PlanCar[] = cars.map((car, i) => ({
-        vin: car.vin,
-        carName: `${car.make} ${car.model}`,
-        items: deadlines[i]?.data?.items ?? [],
-        lastTiresOn: tires[i]?.data ?? null,
-      }));
+      const planCars: PlanCar[] = cars.flatMap((car, i) => {
+        const items = deadlines[i]?.data?.items;
+        const lastTiresOn = tires[i]?.data;
+        if ((prefs.documentDeadlines && items === undefined) || (prefs.tireSeason && lastTiresOn === undefined)) return [];
+        return [{ vin: car.vin, carName: `${car.make} ${car.model}`, items: items ?? [], lastTiresOn: lastTiresOn ?? null }];
+      });
       const plan = reminderPlan(planCars, prefs, new Date());
       target = { kind: 'plan', plan, signature: signatureOf(plan) };
     }

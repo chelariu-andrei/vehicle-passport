@@ -269,3 +269,28 @@ it('notifications allowed in the phone settings while away are used on return', 
   expect(mocked.getPermissionsAsync.mock.calls.length).toBeGreaterThan(permissionReads);
   await waitFor(() => expect(pending).toHaveLength(12));
 });
+
+describe('after the final review', () => {
+  it('one car whose documents cannot be loaded does not stop the other cars from being scheduled', async () => {
+    await openApp('/', {
+      seed: (api) => {
+        twoCars(api);
+        api.failNext('getDeadlines', 503, null);
+      },
+      routes: quietTabs,
+    });
+    await waitFor(() => expect(pending.length).toBeGreaterThan(0));
+    // The failing car is left out until it loads; the other keeps its reminders.
+    expect(vinsScheduled()).toHaveLength(1);
+  });
+
+  it('after "Not now" the notifications screen still offers to allow reminders', async () => {
+    system = 'undetermined';
+    await AsyncStorage.setItem('reminders.explained', '1');
+    await openApp('/account/notifications', { seed: twoCars, routes: quietTabs });
+    expect(await screen.findByText(en.deadlines.permission.laterNote)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: en.deadlines.permission.allow }));
+    await waitFor(() => expect(mocked.requestPermissionsAsync).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByText(en.deadlines.permission.laterNote)).toBeNull());
+  });
+});
